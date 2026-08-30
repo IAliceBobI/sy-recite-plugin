@@ -1,0 +1,39 @@
+{
+  "name": "sy-recite-plugin",
+  "author": "IAliceBobI",
+  "url": "https://github.com/IAliceBobI/sy-recite-plugin",
+  "version": "1.1.1",
+  "minAppVersion": "2.12.6",
+  "backends": [
+    "all"
+  ],
+  "frontends": [
+    "all"
+  ],
+  "displayName": {
+    "default": "Recite Practice",
+    "zh_CN": "仿写练习"
+  },
+  "description": {
+    "default": "✍️ Read-then-rewrite practice on any document: mark & tint, extract & rewrite, compare with the original",
+    "zh_CN": "任意文档的读后仿写练习：批注变色、抽取仿写、对比原文"
+  },
+  "readme": {
+    "default": "README.md",
+    "zh_CN": "README_zh_CN.md"
+  },
+  "keywords": [
+    "仿写",
+    "背诵",
+    "默写",
+    "批注",
+    "判卷",
+    "练习",
+    "写作",
+    "联想",
+    "Recite",
+    "Dictation",
+    "Writing",
+    "AI"
+  ]
+}

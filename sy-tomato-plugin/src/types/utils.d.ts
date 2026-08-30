@@ -1,0 +1,675 @@
+// https://app.quicktype.io/?l=ts
+
+type eventCB = (eventType: string, detail: any) => any;
+type wsCB = (detail: WsMain) => any;
+
+type Func = (...args: any[]) => any;
+
+type LinkElementAttr = { isThisDoc: boolan }
+type LinkItem = { conceptTree: string[], text: string, count: number, id: string, dataNodeIDSet: Set<string>, blockIDs: Set<string>, attrs: LinkElementAttr };
+type RefCollector = Map<string, LinkItem>;
+type Overlays = { overlays: Overlay[], originWidth: number }
+type Overlay = { left: number, top: number, width: number, height: number, angle: number, cID: string };
+
+
+type TSK = keyof TomatoSettings
+
+type TomatoSettings = {
+    dailyQuota: string,
+    prefixArticlesSoftLimit: string,
+    toolbarTidyExt: string,
+    blockEditorBox: boolean,
+    navSourceBlock: boolean,
+    exportWL4All: boolean,
+    blockEditorMenu: boolean,
+    superRefBoxGlobalLnkMenu: boolean,
+    superRefBoxGlobalFixMenu: boolean,
+    superRefBoxCheckBox: boolean,
+    deleteBlocksMenu: boolean,
+    floatingballDocTabMenu: boolean,
+    cardBoxCardtab: boolean,
+    card_refresh_visible_only: boolean,
+    cardBoxSettingsShow: boolean,
+    prefixArticlesTagsShow: boolean,
+    fastNoteBoxDocPrefix: boolean,
+    foldTypesNODE_listITEM: boolean,
+    commentBoxSaveUnderDoc: boolean,
+    dailyNoteMoveLeaveLnk: boolean,
+    prefixArticlesMenu: boolean,
+    prefixArticlesEnable: boolean,
+    floatingballDocMenu: boolean,
+    floatingballEnable: boolean,
+    floatingballDocList: FloatingDocItem[],
+    floatingballKeyboardList: FloatingKeyboardItem[],
+    exportWhiteList: string[],
+    exportBlackList: string[],
+    exportCleanFilesOn: boolean,
+    exportIntervalSecOn: boolean,
+    markdownExportPics: boolean,
+    exportCleanPath: boolean,
+    markdownExportBoxCheckbox: boolean,
+    readingAdd2DocName: string,
+    exportIntervalSec: string,
+    exportCleanFiles: string,
+    exportPath: string,
+    exportPathWin: string,
+    tomato_clocks_audio: string,
+    foldTypes: string[],
+    foldTypesNODE_HEADING: boolean,
+    foldTypesNODE_TABLE: boolean,
+    foldTypesNODE_LIST: boolean,
+    foldTypesBLOCKQUOTE: boolean,
+    foldTypesSuperBlock: boolean,
+    commentBoxAddKeepText: boolean,
+    cardPrioritySetPriInterval: string,
+    cssSuperBlockBorder: boolean,
+    commentBoxAddTime: boolean,
+    mindWireColorfull: boolean,
+    mindWireLine: boolean,
+    mindWireWidth: number,
+    mindWireStarRefOnly: boolean,
+    mindWireDocMenu: boolean,
+    mindWireGlobalMenu: boolean,
+    mindWireEnable: boolean,
+    mindWireDynamicLine: boolean,
+    mindWireCheckbox: boolean,
+    addSelectionBtnsDesktop: boolean,
+    addSelectionBtnsMobile: boolean,
+    digestAddReadingpoint: boolean,
+    cardBoxSuperCard: boolean,
+    digestGlobalSigle: string,
+    dailyNotetopbarright: boolean,
+    dailyNotetopbarleft: boolean,
+    ProgressiveJumpMenu: boolean,
+    piecesmenu: boolean,
+    ProgressiveStart2learn: boolean,
+    digestmenu: boolean,
+    toolbarlocatedoc: boolean,
+    toolbarrefreshVr: boolean,
+    toolbarspacerepeat: boolean,
+    tag2RefSearchLnk: boolean,
+    tag2RefSearchRef: boolean,
+    readingAddJumpMenu: boolean,
+    readingAddDeleteMenu: boolean,
+    dbBkBoxRefreshMenu: boolean,
+    readingAddRPmenu: boolean,
+    bkenableAndDisablemenu: boolean,
+    linkBoxBilinkMenu: boolean,
+    graphlocatetographMenu: boolean,
+    graphopengraphMenu: boolean,
+    graphAddTopbarIcon: boolean,
+    dailyNoteCopyMenu: boolean,
+    dailyNoteGoToBottomMenu: boolean,
+    commentBoxMenu: boolean,
+    cardPriorityBoxPriorityMenu: boolean,
+    cardPriorityBoxSpradDelayMenu: boolean,
+    cardPriorityBoxPostponeCardMenu: boolean,
+    cozeSearchMenuShow: boolean,
+    imgBoxShowMenu: boolean,
+    aiBoxMenuShow: boolean,
+    digest2dailycard: boolean,
+    mobileTopBar: boolean,
+    cardAppendTime: boolean,
+    cardUnderPiece: boolean,
+    openCardsOnOpenPiece: boolean,
+    hideBtnsInFlashCard: boolean,
+    initProgFloatBtnsDisable: boolean,
+    floatbarMainBtns: string[],
+    floatbarFlatCollapsed: boolean,
+    markOriginTextBG: boolean,
+    pieceNoBacktraceLink: boolean,
+    digestNoBacktraceLink: boolean,
+    flashcardUseLink: boolean,
+    flashcardNotebook: string,
+    windowOpenStyle: string,
+    flashcardMultipleLnks: boolean,
+    flashcardAddRefs: boolean,
+    //------------------
+    graphClick2Locate: boolean,
+    graphHideStructEdges: boolean,
+    graphMaxAllBlocks: string,
+    graphMaxPBlocks: string,
+    graphBoxCheckbox: string,
+    userToken: string,
+    userID: string,
+    // md5 指纹（批次 B1）；升级前老用户盘上是布尔，load 原样读入、指纹比对处理
+    licenseCloudSynced: string | boolean,
+    cssListBackgound: boolean,
+    cssNattyList: boolean,
+    cssRefStyle: string,
+    keepLazyLoadStore: string,
+    awaysExitFocusStore: string,
+    cssRefAsTags: string,
+    showDocAttrs: boolean,
+    cssShowHomeEndIcon: boolean,
+    cssHomeEndIconLeft: boolean,
+    cssRefSquareBrackets: boolean,
+    cssShowMemo: boolean,
+    cssShowFlashCardBlank: boolean,
+    cssFlashThoughts: boolean,
+    flashThoughtUseDialog: boolean,
+    tomatoClockCheckbox: boolean,
+    readingPointBoxCheckbox: boolean,
+    readingPointWithEnv: boolean,
+    readingTopBar: boolean,
+    readingShowAllFolders: boolean,
+    readingAdd2Card: boolean,
+    readingSaveFile: boolean,
+    readingDialog: boolean,
+    cardBoxCheckbox: boolean,
+    cardBoxAddConcepts: boolean,
+    cardBoxSpradEvenlyPostpone: boolean,
+    cardBoxDelayDays: number,
+    cardRemoveBoxCheckbox: boolean,
+    cardAddListBoxCheckbox: boolean,
+    cardPriorityBoxCheckbox: boolean,
+    cardPriorityBoxAutoHide: boolean,
+    card_priority_slider_hide: boolean,
+    card_priority_stopBtn_hide: boolean,
+    cpBoxCheckbox: boolean,
+    linkBoxCheckbox: boolean,
+    linkBoxLnkTitle: boolean,
+    linkBoxSyncBlock: boolean,
+    linkBoxSyncRef: boolean,
+    linkBoxSyncHref: boolean,
+    linkBoxSyncBlockAuto: boolean,
+    linkBoxSyncScanDeep: boolean,
+    linkBoxSyncRemapChildID: boolean,
+    linkBoxUseLnkOrRef: boolean,
+    dailyNoteBoxCheckbox: boolean,
+    dailyNoteGoToBottom: boolean,
+    dailyNoteMoveToBottom: boolean,
+    dailyNoteCopySimple: boolean,
+    dailyNoteCopyAnchorText: boolean,
+    dailyNoteCopyUseRef: boolean,
+    dailyNoteCopyUpdateBG: boolean,
+    dailyNoteCopyInsertPR: boolean,
+    dailyNoteCopyShowPath: boolean,
+    dailyNoteCopyComment: boolean,
+    dailyNoteCopyFlashCard: boolean,
+    dbBkBoxCheckbox: boolean,
+    dbBkBoxMaxBacklinkSize: number,
+    dbBkBoxHideDatetime: boolean,
+    imgOverlayCheckbox: boolean,
+    imgBoxCheckbox: boolean,
+    backLinkBottomBoxCheckbox: boolean,
+    mixBoxCheckbox: boolean,
+    mixBoxPinyin: boolean,
+    mixBoxAddAlias: boolean,
+    storeOpenRefsClick: boolean,
+    storeCopyStdMD: boolean,
+    storeOpenRefsMenu: boolean,
+    storeMergeDoc: boolean,
+    storeMoveDocContentHere: boolean,
+    storeRefreshStaticBkLnk: boolean,
+    storeInsertXml: boolean,
+    storeFillMemoMenu: boolean,
+    writingBoxCheckbox: boolean,
+    tag2RefBoxCheckbox: boolean,
+    toolbarBoxCheckbox: boolean,
+    toolbarEN2CHBtn: boolean,
+    toolbarTidy: boolean,
+    cmdBlockBoxCheckbox: boolean,
+    listBoxCheckbox: boolean,
+    noteBoxCheckbox: boolean,
+    noteBoxAllKinds: string,
+    aiBoxCheckbox: boolean,
+    aiBoxPrompts: boolean,
+    cozeSearchBoxCheckbox: boolean,
+    cozeSearchSpaceID: string,
+    cozeSearchKnowledgeID: string,
+    cozeSearchOauthTokenID: string,
+    cozeSearchAppID: string,
+    cozeSearchDoubaoID: string,
+    "daily-note-box-id": string,
+    "tomato-clocks": string,
+    tomato_clocks_force_dialog: boolean,
+    "tomato-clocks-force-notice": string,
+    "tomato-clocks-change-bg": string,
+    "tomato-clocks-change-bg-dark": string,
+    tomato_clocks_position_right: string,
+    tomato_clocks_opacity: string,
+    tomato_clocks_loop: boolean,
+    tomato_clocks_break: string,
+    tomato_clocks_notice: boolean,
+    tomato_clocks_focus: boolean,
+    "back-link-max-size": number,
+    "back-link-mention-count": number,
+    "back-link-default-off": boolean,
+    "back-link-dailynote-off": boolean,
+    back_link_refresh_off: boolean,
+    bk_refresh_interval_sec: number,
+    bk_visible_only: boolean,
+    back_link_more_btns: boolean,
+    back_link_goto_bottom_btn: boolean,
+    back_link_concept_fold: boolean,
+    back_link_copy: boolean,
+    back_link_move_to_dailynote: boolean,
+    back_link_remove_refs: boolean,
+    back_link_embed: boolean,
+    back_link_ref: boolean,
+    back_link_move_here: boolean,
+    back_link_move_with_backlink: boolean,
+    back_link_show_floatUI: boolean,
+    back_link_protyle_height: string,
+    back_link_show_path: boolean,
+    back_link_passup_heading: boolean,
+    back_link_passup_quote: boolean,
+    back_link_passup_super: boolean,
+    "tag-to-ref-add-card": boolean,
+    "tag-to-ref-add-pinyin": boolean,
+    "auto-card-priority": boolean,
+    "dont-break-list": boolean,
+    "ai-return-insert-place": number,
+    "ernie-bot-4-ak": string,
+    "ernie-bot-4-sk": string,
+    "avoiding-cloud-synchronization-conflicts": boolean,
+    "flash-thoughts-2-top": boolean,
+    "flash-thoughts-target-file": string,
+    storeNoteBox_selectedNoteType: string,
+    storeNoteBox_keep: boolean,
+    storeNoteBox_pin: boolean,
+    storeNoteBox_recentText: string[],
+    storeNoteBox_noteAreaText: string,
+    storeNoteBox_selectedNotebook: string,
+    fastNoteBoxCheckbox: boolean,
+    fastNoteBoxDisableBK: boolean,
+    fastNoteBoxAdd2Flashcard: boolean,
+    fastNoteBoxDelAfterCreating: boolean,
+    commentBoxCheckbox: boolean,
+    commentBoxMaxProtyleHeight: number,
+    commentBoxForwardRef: boolean,
+    commentBoxBackwardRef: boolean,
+    commentBoxVirtualRef: boolean,
+    commentBoxAddFlashCard: boolean,
+    commentBoxAddUnderline: boolean,
+    commentBoxShowID: boolean,
+    commentBoxStaticOutlink: boolean,
+    linkBoxAttrIconOnHide: boolean,
+};
+
+type AttrType = {
+    "custom-block-editor"?: string,
+    "custom-ref-id"?: string,
+    "custom-ref-snapshot-"?: string,
+    title?: string,
+    alias?: string, // comma separated
+    memo?: string,
+    updated?: string,
+    id?: string,
+    name?: string,
+    bookmark?: string,
+    scroll?: string,
+    style?: string,
+    md?: string,// for 'Writing' plugin
+    content?: string,// for 'Writing' plugin
+    href?: string,
+    src?: string,
+    "data-src"?: string,
+    "data-href"?: string,
+    "data-inline-comment"?: string,
+    "custom-tomato-key-comment"?: string,
+    "custom-tomato-comment"?: string,
+    "title-img"?: string,
+    "custom-tomato-ref-hpath"?: string,
+    "tomato-bk-ignore"?: string,
+    "data-position"?: string,
+    "data-type"?: string,
+    "data-subtype"?: string,
+    "tomato-data-node-id"?: string,
+    "data-id"?: string,
+    "protyle-breadcrumb__item"?: string,
+    "custom-progmark"?: string,
+    "custom-progref"?: string,
+    "custom-prog-key-note"?: string,
+    "custom-in-piece-ref"?: string,
+    "custom-prog-origin-text"?: string,
+    "custom-sy-readonly"?: string,
+    "custom-tomato-readonly"?: string,
+    "custom-riff-decks"?: string,
+    "custom-linkboxdoclinkial"?: string,
+    "custom-attr-pic-overlay"?: string,
+    "custom-tomatomention"?: string,
+    "custom-off-tomatobacklink"?: string,
+    "custom-card-priority"?: string,
+    "custom-card-priority-stop"?: string,
+    "custom-card-priority-id"?: string,
+    "custom-card-priority-doc-id"?: string,
+    "custom-ref-hierarchy"?: string,
+    "custom-origin-hpath"?: string,
+    "custom-ref-hpath"?: string,
+    "custom-pinyin"?: string,
+    "custom-category"?: string,
+    "custom-paragraph-index"?: string,
+    "custom-in-book-index"?: string,
+    "custom-tomato-line-blur"?: string,
+    "custom-tomato-line-through"?: string,
+    "custom-tomato-readingpoint"?: string,
+    "custom-tomato-rp-content-hash"?: string,
+    "custom-prog-key-no-color"?: string,
+    "custom-pdigest-ctime"?: string,//PDIGEST_CTIME
+    "custom-pdigest-last-id"?: string,//PDIGEST_LAST_ID
+    "custom-pdigest-parent-id"?: string,//PDIGEST_PARENT_ID
+    "custom-pdigest-index"?: string,//PDIGEST_INDEX
+    "custom-book-writing"?: string,//BOOK_WRITING
+    "custom-book-clue"?: string,//BOOK_CLUE
+    "custom-book-single-card"?: string,
+    "custom-book-prompt"?: string,
+    "custom-tomatoclockvedioversion"?: string,
+    "custom-tomatoUpdated"?: string,
+    "custom-bkDisabledIDs"?: string,
+    "custom-bkColCount"?: string,
+    "custom-bkSortBy"?: string,
+    "custom-bkSavedQueries"?: string,
+    "custom-database-backlink"?: string,
+    "custom-database-backlink-avID"?: string,
+    "custom-database-backlink-PKID"?: string,
+    "custom-database-backlink-ContentID"?: string,
+    "custom-database-backlink-mSelectID"?: string,
+    "custom-database-backlink-viewID"?: string,
+    "custom-database-backlink-updatedID"?: string,
+    "custom-database-backlink-createdID"?: string,
+    "custom-tomato-idea-time"?: string,
+    "custom-tomato-idea-interval"?: string,
+    "custom-coze-doc-md5"?: string,
+    "custom-coze-knowledge-file-id"?: string,
+    "custom-qf-doc-md5"?: string,
+    "custom-qf-knowledge-file-id"?: string,
+    "custom-qf-file-id"?: string,
+    "custom-fastnote"?: string,
+    "custom-fastdraft"?: string,
+    "custom-lnk-my-id"?: string,
+    "custom-lnk-to-ids"?: string,
+    "custom-bkMenDocCount"?: string,
+    "custom-bkRefDocCount"?: string,
+    "custom-graph-isVertical"?: string,
+    "custom-graph-node-positions"?: string,
+    "custom-super-list"?: string,
+    "custom-tomato-reflink"?: string,
+    "custom-sync-block-id"?: string,
+    "custom-sync-block-count"?: string,
+    "custom-sync-version"?: string,
+    "custom-sync-origin-id"?: string,
+    "custom-sync-item-id"?: string,
+    "custom-sync-hash"?: string,//SYNC_HASH 内容基线哈希
+    "custom-sync-status"?: string,//SYNC_STATUS ok(缺省)/conflict
+    "data-node-id"?: string,
+    "tomato-control-card-priority"?: string,
+    "custom-prog-words"?: string,
+    "custom-super-card-box"?: string,
+    "custom-super-card-question"?: string,
+    "custom-super-card-answer"?: string,
+    "custom-comment-fold"?: string,
+    "custom-comment-bk-id"?: string,
+    "custom-lnk-bottom"?: string,
+    "fold"?: string,
+    "heading-fold"?: string,
+    "custom-doc-notes"?: string,
+    "custom-prog-piece-previous"?: string,
+    "custom-mindwire-enable"?: string,
+    "custom-comment-superblock-fold"?: string,
+};
+
+type AttrKey = keyof AttrType;
+
+type RiffCard = { due: string, reps: number };
+
+type BacklinkSv<T = any> = {
+    bk: Backlink;
+    bkDiv: HTMLElement;
+    id: string;
+    attrs: LinkElementAttr;
+    isMention: boolean;
+    isFold: boolean;
+    backlink: Backlink2;
+    atBottom: boolean;
+    blockID: string;
+    parentID?: string;
+    parentType?: string;
+    edit?: boolean;
+    updated: string;
+    sortBy: string;
+    protyle: T;
+    ob: MutationObserver;
+    row?: Block; // commentbox用.
+};
+
+type EventsReadingPoint = { docID: string, blockID: string, title: string, time: Date };
+
+interface PluginSpec {
+    name: string;
+    author: string;
+    url: string;
+    version: string;
+    minAppVersion: string;
+    backends: string[];
+    frontends: string[];
+    displayName: Description;
+    description: Description;
+    readme: Description;
+    funding: Funding;
+    keywords: string[];
+}
+
+interface Description {
+    default: string;
+    "zh-CN": string;
+}
+
+interface Funding {
+    openCollective: string;
+    patreon: string;
+    github: string;
+    custom: string[];
+}
+
+interface ID_Time {
+    id: string;
+    time: string;
+    interval: string;
+}
+
+type WindowOpenStyle = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "nop" | "front" | "back" | "right" | "bottom" | "move" | "peek"
+
+interface GraphDockData<T> {
+    svelte: T;
+    setCanvasSize: () => void;
+    locateID: (id: string) => Promise<void>;
+    changeDoc: (p: IProtyle) => Promise<void>;
+}
+
+interface NodeMenu<T> {
+    node?: T;
+    x?: number;
+    y?: number;
+    canvasHeight?: number;
+    canvasWidth?: number;
+}
+
+interface WsMain {
+    cmd: string;
+    reqId: number;
+    app: string;
+    sid: string;
+    pushMode: number;
+    callback: string;
+    code: number;
+    msg: string;
+    data: WsMainData;
+}
+
+interface ProtyleWs {
+    cmd: string;
+    reqId: number;
+    app: string;
+    sid: string;
+    pushMode: number;
+    callback: string;
+    code: number;
+    msg: string;
+    data: Datum[];
+}
+
+interface Datum {
+    timestamp: number;
+    doOperations: DoOperation[];
+    undoOperations: DoOperation[];
+}
+
+interface DoOperation {
+    action: string;
+    data: string;
+    id: string;
+    parentID: string;
+    previousID: string;
+    nextID: string;
+    retData: string;
+    blockIDs: string;
+    blockID: string;
+    deckID: string;
+    avID: string;
+    srcIDs: string;
+    srcs: string;
+    isDetached: boolean;
+    name: string;
+    type: string;
+    format: string;
+    keyID: string;
+    rowID: string;
+    isTwoWay: boolean;
+    backRelationKeyID: string;
+    removeDest: boolean;
+    layout: string;
+    groupID: string;
+    targetGroupID: string;
+    viewID: string;
+    ignoreDefaultFill: boolean;
+    context: string;
+}
+
+interface WsMainData {
+    tasks?: WsMainTask[];
+    ids?: string[];
+    id?: string;
+    box?: string;
+    path?: string;
+    refText?: string;
+    title?: string;
+}
+
+interface WsMainTask {
+    action: string;
+}
+
+type CozeListDoc = {
+    code?: number;
+    document_infos?: CozeDocumentInfo[];
+    msg?: string;
+    total?: number;
+}
+
+type CozeDocumentInfo = {
+    char_count?: number;
+    chunk_strategy?: CozeChunkStrategy;
+    create_time?: number;
+    document_id?: string;
+    filter_strategy?: CozeStrategy;
+    format_type?: number;
+    hit_count?: number;
+    index_strategy?: CozeStrategy;
+    name?: string;
+    parsing_strategy?: CozeParsingStrategy;
+    size?: number;
+    slice_count?: number;
+    source_type?: number;
+    status?: number;
+    type?: string;
+    update_interval?: number;
+    update_time?: number;
+    update_type?: number;
+    web_url?: string;
+}
+
+type CozeChunkStrategy = {
+    chunk_type?: number;
+    max_tokens?: number;
+    remove_extra_spaces?: boolean;
+    remove_urls_emails?: boolean;
+    separator?: string;
+}
+
+type CozeStrategy = {
+}
+
+type CozeParsingStrategy = {
+    image_extraction?: boolean;
+    image_ocr?: boolean;
+    parsing_type?: number;
+    table_extraction?: boolean;
+}
+
+type CozeAddDoc = {
+    docID?: string,
+    docName?: string,
+    cozeName?: string,
+    docContent?: string,
+    md5?: string,
+    attrs?: AttrType,
+    newAttrs?: AttrType,
+    cozeDoc?: CozeDocumentInfo,
+    syExists?: boolean,
+    done?: boolean,
+    updated?: string,
+}
+
+type FloatingDocItem = {
+    enableMobile?: boolean;
+    enable?: boolean;
+    docName?: string;
+    docID?: string;
+    docIcon?: string;
+    openDocType?: number;
+    openOnCreate?: boolean;
+}
+
+type FloatingKeyboardItem = {
+    enableMobile?: boolean;
+    enable?: boolean;
+    keyIcon?: string;
+    key?: string;
+    altKey?: boolean;
+    shiftKey?: boolean;
+    ctrlKey?: boolean;
+}
+
+type ArticlesPrefix = { id: string; docName: string; prefix: string }
+
+type SyDock = Record<string, SyDockItem>;
+
+type SyDockItem = {
+    config: Config;
+}
+
+type Config = {
+    index: number;
+    position: string;
+    size: Size;
+    icon: string;
+    title: string;
+    hotkey: string;
+    show: boolean;
+}
+
+type Size = {
+    height: number;
+    width: number;
+}
+
+type Tag = {
+    name: string;
+    label: string;
+    children: null;
+    type: string;
+    depth: number;
+    count: number;
+}

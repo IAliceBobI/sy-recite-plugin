@@ -1,0 +1,1627 @@
+// sy-recite-plugin 样式（批注变色、.recite-floatbar 浮条、视觉增强批 2026-08-25「琉璃琥珀」）
+@use "sass:map";
+
+// ========== 设计 token（视觉批项0）==========
+// 明暗两套：亮色挂 :root 为默认，暗色由 html[data-theme-mode="dark"] 覆盖——data-theme-mode 是
+// 思源内核 loadAssets 挂在 <html> 上的权威主题判别（桌面/浏览器窗口一致，比 prefers-color-scheme 可靠，
+// 用户切主题即时变）。底色/描边从 b3 变量 color-mix 派生，自定义主题改 b3 值时自动跟随。
+// 主题扩展位：后续主题批次在 body[data-recite-theme="<皮肤名>"] 上覆盖本组变量即成新皮肤，
+// 全部视觉规则只引用 token 不写死色（本批只实现默认「琉璃琥珀」，无切换逻辑）。
+:root {
+    --recite-accent: #8a5a20;        // 琥珀主色（亮：深金棕；暗：#d4a960 暖金）
+    --recite-accent-soft: rgba(138, 90, 32, 0.12);
+    --recite-accent-strong: #7a4c15; // 徽章底色（比 accent 深一档，白字对比达标）
+    --recite-card-bg: color-mix(in srgb, var(--recite-accent) 5%, var(--b3-theme-surface));
+    --recite-card-border: color-mix(in srgb, var(--recite-accent) 24%, var(--b3-border-color));
+    --recite-shadow: 0 2px 8px rgba(122, 76, 21, 0.10);
+    --recite-yours: #2f7d6e;         // 「你的句」专属色（青绿，本批预留，后续批次用）
+}
+html[data-theme-mode="dark"] {
+    --recite-accent: #d4a960;
+    --recite-accent-soft: rgba(212, 169, 96, 0.14);
+    --recite-accent-strong: #b98a43;
+    --recite-card-bg: color-mix(in srgb, var(--recite-accent) 8%, var(--b3-theme-surface));
+    --recite-card-border: color-mix(in srgb, var(--recite-accent) 28%, var(--b3-border-color));
+    --recite-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
+    --recite-yours: #5c9c8f;
+}
+
+// ========== 皮肤主题（2026-08-25 真切换）：四套 Pro 皮肤整组 token 覆盖 ==========
+// 机制：body[data-recite-theme="<slug>"]（theme.ts RECITE_SKINS 同名对齐；默认无属性=琉璃琥珀）。
+// ⚠️ 必须整套重声明（含 card-bg/card-border/color-mix 派生项）：var() 在「声明它的元素」上求值后
+// 整体继承——body 只覆盖 accent 并不会让 :root 上的派生变量重算；同理暗色组被 body 覆盖整体屏蔽，
+// 暗色必须用 html[data-theme-mode="dark"] 前缀在 body 上重新声明。
+// 取色：货架样机主色（theme.ts color）按默认琥珀同款手法派生——亮色 accent 为主色加深档（文字
+// 对比达标）、strong 再深一档（徽章底白字）、soft=0.12 alpha、shadow 走 strong 色调；暗色 accent
+// 直接用主色、strong 微降档、soft=0.14、阴影回中性黑。yours 为「你的句」预留色（本批未消费），
+// 默认绿系，仅青瓷主题与 accent 同族冲突时换琥珀对色。
+$recite-skins: (
+    "ink-teal": (la: #3a7466, ls: #2e5c51, ly: #8a5a20, da: #7fb5a8, ds: #639a8b, dy: #d4a960),
+    "plum": (la: #6a5a99, ls: #55477d, ly: #2f7d6e, da: #9d8cc4, ds: #8071ae, dy: #5c9c8f),
+    "sakura": (la: #a34a62, ls: #873b50, ly: #2f7d6e, da: #d98a9c, ds: #b96f82, dy: #5c9c8f),
+    "mist": (la: #44739c, ls: #365c7e, ly: #2f7d6e, da: #8fb6d9, ds: #7199bd, dy: #5c9c8f),
+    // 装饰皮肤三套 token（proposals.md；nocturne 亮色自方案 #8f9bd4 加深一档保白底文字对比）
+    "sunny-kitty": (la: #b3702b, ls: #96571f, ly: #2f7d6e, da: #e8a94d, ds: #c98a2f, dy: #5c9c8f),
+    "celadon-rabbit": (la: #3a7466, ls: #2e5c51, ly: #8a5a20, da: #7fb5a8, ds: #639a8b, dy: #d4a960),
+    "nocturne": (la: #5c68a8, ls: #4a5490, ly: #2f7d6e, da: #aab2e0, ds: #828cc0, dy: #5c9c8f),
+    // 护眼皮肤（2026-08-27 □18，bg-library proposals §4，免费）：豆沙绿低饱和苔绿 accent，
+    // 配羊皮纸背景即主打护眼组合；yours 复用已验证赭金对色（异族防红绿盲并排失衡）
+    "eye-care": (la: #477253, ls: #31573d, ly: #8a5a20, da: #8fbf9a, ds: #6ba377, dy: #d4a960),
+);
+@each $slug, $c in $recite-skins {
+    body[data-recite-theme="#{$slug}"] {
+        --recite-accent: #{map.get($c, la)};
+        --recite-accent-soft: #{rgba(map.get($c, la), 0.12)};
+        --recite-accent-strong: #{map.get($c, ls)};
+        --recite-card-bg: color-mix(in srgb, #{map.get($c, la)} 5%, var(--b3-theme-surface));
+        --recite-card-border: color-mix(in srgb, #{map.get($c, la)} 24%, var(--b3-border-color));
+        --recite-shadow: 0 2px 8px #{rgba(map.get($c, ls), 0.10)};
+        --recite-yours: #{map.get($c, ly)};
+    }
+    html[data-theme-mode="dark"] body[data-recite-theme="#{$slug}"] {
+        --recite-accent: #{map.get($c, da)};
+        --recite-accent-soft: #{rgba(map.get($c, da), 0.14)};
+        --recite-accent-strong: #{map.get($c, ds)};
+        --recite-card-bg: color-mix(in srgb, #{map.get($c, da)} 8%, var(--b3-theme-surface));
+        --recite-card-border: color-mix(in srgb, #{map.get($c, da)} 28%, var(--b3-border-color));
+        --recite-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
+        --recite-yours: #{map.get($c, dy)};
+    }
+}
+
+// ========== 全局背景库（2026-08-27 □18 重做，数值唯一事实源 docs/research/recite-bg-library/proposals.md） ==========
+// 背景与皮肤两轴正交：皮肤管 accent/贴纸装饰，背景管全窗口底材。旧「主题配套纸纹」（八套弱透明
+// 颗粒+94% 半透明容器，有效颗粒 0.006 肉眼无感）与练习态加深层已整体退役，被本库取代。
+// 路线=容器直写纸色：纸款 body 与四类容器直接覆写字面量纸色 + 纹样 tile 挂 body 与容器（正文区
+// 也要有纸感）；custom 款 body 铺用户图（--recite-bg-custom 变量）+ 容器 color-mix 半透明透出。
+// 属性轴 body[data-recite-bg]（theme.ts RECITE_BGS 对齐）：无属性=羊皮纸缺省档在场（免费）；
+// 显式 'none'=零规则命中思源原生完整还原；Pro 四款带 :not(.recite-unpaid) 门禁（纸色/半透明与
+// 纹样同选择器成对产出防悬空）。亮色在选择器本体、暗色 html[data-theme-mode] 前缀整组重生成
+// （全字面量，无 var 免修例外；custom 段是唯一例外——color-mix 底是 b3 变量，明暗自动跟随）。
+// 纹样生死线（bg-library §1.4 + §9 重调）：颗粒叠在不透明纸色上且全体为「加深纸面」方向
+// （染色恒暗于亮态底色；暗态染色走 ≤0.42 出不来重色），正文对比只增不减——这是 §9 有据突破
+// 旧糊感帽的安全边际；暗染 RGB 各通道 ≤0.42 防洗灰；feTurbulence 保持低频大颗粒（0.24~0.45），
+// 统一带 stitchTiles。
+//
+// ---- □19 背景库二波（2026-08-27，数值唯一事实源 proposals.md §8）----
+// ①ta 列语义 = 预渲染上限（基准 ÷ k₀，k₀=0.5）——纱层按 --recite-bg-k 压回默认位时逐像素
+//   等于现网基准；「基准/帽/默认位」三角互锁勿单角动（§8.8-4）。
+// ②纱（veil）= background-image 中一层纸色 linear-gradient，α=(1-k) 合成，body 规则纱色用
+//   bcX、容器规则纱色用 ccX（纱色必须恒等于所在元素底色，§8.2 数学前提）；层序 [渐晕(恒定
+//   基准，不参与滑块)] → [纱] → [tile 预渲染]。
+// ③grid 线不走纱、直接把 k 乘进线色 α（color-mix direct-var，1px 确定性线隔纱会发闷）；
+//   暗线基准 0.08→0.11（终审遗留+用户证实太淡，§8.4）。
+// ④free 字段：免费档。parchment=免费缺省（无属性形态在场）；eye-care=免费显式档（无门禁）；
+//   其余 Pro 带 :not(.recite-unpaid)。
+// ---- §9 可感性重调（2026-08-27 bug 修复，数值唯一事实源 proposals.md §9）----
+// 用户实测 texture + k=0.96 仍不可感，坐实数值低于感知阈（逻辑链路已验通）。重调三件套：
+// ·锚点整体重解：rough L1 亮新锚 基准0.13↔帽0.26（2 倍比锁死 k₀=0.5）；grid 暗线旧锚
+//   0.11↔0.22 原样保留——两组各自闭环，默认刻度 50 视觉仍≈出厂基准位（老用户零感漂移）。
+// ·全库 ta 列上调（详见 §9 总表），滑块两端 0↔1 全员肉眼可辨；旧糊感帽（亮≤0.20/暗≤0.16）
+//   在 texture/rough 有据突破——依据=纹样只向「加深纸面」方向染色+正文对比铁线实测富余。
+// ·texture 整行重造：底色沉降一档拉开与羊皮纸/护眼的距离，纤维各向异性频率调粗防亚像素
+//   湮没（X 低频→更长纤维、Y 由 0.55 收到 0.42 防细线抖成灰雾），增益大幅上调。
+@function recite-veil($c) {
+    @return linear-gradient(
+        color-mix(in srgb, #{$c} calc((1 - var(--recite-bg-k, 0.5)) * 100%), transparent),
+        color-mix(in srgb, #{$c} calc((1 - var(--recite-bg-k, 0.5)) * 100%), transparent)
+    );
+}
+$recite-bg-turb: (
+    // 字段：bcL/ccL/bcD/ccD 亮暗 body/容器纸色（四类容器共用一档，亮浅暗深微差分层）｜ts tile 边长
+    // （数字，SVG 与 background-size 两用）｜bf/oc/seed/fid 频率·八度·种子·filter id｜
+    // tr/tg/tb/taL/D tile 染色+增益（feColorMatrix 第 5 列 offset + α 行；ta=预渲染上限，
+    // 染色 offset 铁律不随滑块动）｜vg 渜（null=该款无渐晕）｜l2 第二层晕染斑（rough 专用）｜
+    // free 免费档标记（缺省档语义只属 parchment）
+    "parchment": (bcL: #f4ecd2, ccL: #faf5e6, bcD: #2b2419, ccD: #231c11,
+                  ts: 240, bf: 0.35, oc: 2, seed: 7, fid: g7, free: true,
+                  trL: 0.54, tgL: 0.45, tbL: 0.28, taL: 0.18,
+                  trD: 0.41, tgD: 0.34, tbD: 0.24, taD: 0.11,
+                  vgStop: 58%, vgCL: rgba(122, 97, 58, 0.10), vgCD: rgba(0, 0, 0, 0.26), l2: null),
+    "eye-care":  (bcL: #e3eed9, ccL: #eef4e7, bcD: #232d20, ccD: #1a2318,
+                  ts: 240, bf: 0.45, oc: 2, seed: 61, fid: e61, free: true,
+                  trL: 0.48, tgL: 0.55, tbL: 0.42, taL: 0.15,
+                  trD: 0.31, tgD: 0.38, tbD: 0.30, taD: 0.09,
+                  vgStop: null, vgCL: null, vgCD: null, l2: null),
+    "rough":     (bcL: #ddc49c, ccL: #e8d5b4, bcD: #2e2417, ccD: #251c10,
+                  ts: 280, bf: 0.24, oc: 3, seed: 23, fid: h23,
+                  trL: 0.40, tgL: 0.31, tbL: 0.18, taL: 0.26,
+                  trD: 0.40, tgD: 0.31, tbD: 0.19, taD: 0.16,
+                  vgStop: 55%, vgCL: rgba(94, 72, 40, 0.14), vgCD: rgba(0, 0, 0, 0.32),
+                  l2: (ts: 280, bf: 0.045, oc: 2, seed: 29, fid: k29,
+                       trL: 0.66, tgL: 0.54, tbL: 0.32, taL: 0.13,
+                       trD: 0.36, tgD: 0.29, tbD: 0.18, taD: 0.08)),
+    // texture §9 重造：燕麦灰亚麻底（亮 Y≈0.63 全纸库第二深，Pro 档与免费三浅档拉开）；
+    // 纤维 '0.045 0.42'+octaves 3 粗化到亚像素以上；染色深苔藓（ΔRGB 对新底 ≈100 档位）
+    // + 帽 0.32/0.22——用户点名档，可感性第一优先
+    "texture":   (bcL: #d5d0bd, ccL: #e8e4d4, bcD: #27261e, ccD: #1e1d16,
+                  ts: 400, bf: "0.045 0.42", oc: 3, seed: 47, fid: t47,
+                  trL: 0.42, tgL: 0.44, tbL: 0.34, taL: 0.32,
+                  trD: 0.39, tgD: 0.42, tbD: 0.32, taD: 0.22,
+                  vgStop: null, vgCL: null, vgCD: null, l2: null),
+);
+@each $slug, $p in $recite-bg-turb {
+    // 前缀三分支：parchment=免费缺省（无属性+显式双形态）；free 显式档（eye-care，无门禁）；
+    // 其余 Pro 单形态带门禁
+    $pre-l: null;
+    $pre-d: null;
+    @if $slug == "parchment" {
+        $pre-l: "body:not([data-recite-bg]), body[data-recite-bg='parchment']";
+        $pre-d: "html[data-theme-mode='dark'] body:not([data-recite-bg]), html[data-theme-mode='dark'] body[data-recite-bg='parchment']";
+    } @else if map.get($p, free) {
+        $pre-l: "body[data-recite-bg='#{$slug}']";
+        $pre-d: "html[data-theme-mode='dark'] body[data-recite-bg='#{$slug}']";
+    } @else {
+        $pre-l: "body:not(.recite-unpaid)[data-recite-bg='#{$slug}']";
+        $pre-d: "html[data-theme-mode='dark'] body:not(.recite-unpaid)[data-recite-bg='#{$slug}']";
+    }
+    // 纱色配对纪律：body 纱用 bcX、容器纱用 ccX（§8.2 数学前提——纱色必须恒等于所在元素底色）
+    $veilBL: recite-veil(map.get($p, bcL));
+    $veilBD: recite-veil(map.get($p, bcD));
+    $veilCL: recite-veil(map.get($p, ccL));
+    $veilCD: recite-veil(map.get($p, ccD));
+    // tile 单资产复用挂 body 与容器（窗格间颗粒不断层=整窗一张纸）；亮暗各一 URI。
+    // 层数动态：渐晕（有 vgStop 才有，只挂 body 防容器「内嵌相框」）+ 主颗粒 + 第二晕染斑（rough）
+    $t1L: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='#{map.get($p, ts)}' height='#{map.get($p, ts)}'%3E%3Cfilter id='#{map.get($p, fid)}'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='#{map.get($p, bf)}' numOctaves='#{map.get($p, oc)}' seed='#{map.get($p, seed)}' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 #{map.get($p, trL)} 0 0 0 0 #{map.get($p, tgL)} 0 0 0 0 #{map.get($p, tbL)} 0 0 0 #{map.get($p, taL)} 0'/%3E%3C/filter%3E%3Crect width='#{map.get($p, ts)}' height='#{map.get($p, ts)}' filter='url(%23#{map.get($p, fid)})'/%3E%3C/svg%3E");
+    $t1D: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='#{map.get($p, ts)}' height='#{map.get($p, ts)}'%3E%3Cfilter id='#{map.get($p, fid)}'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='#{map.get($p, bf)}' numOctaves='#{map.get($p, oc)}' seed='#{map.get($p, seed)}' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 #{map.get($p, trD)} 0 0 0 0 #{map.get($p, tgD)} 0 0 0 0 #{map.get($p, tbD)} 0 0 0 #{map.get($p, taD)} 0'/%3E%3C/filter%3E%3Crect width='#{map.get($p, ts)}' height='#{map.get($p, ts)}' filter='url(%23#{map.get($p, fid)})'/%3E%3C/svg%3E");
+    $t2L: null;
+    $t2D: null;
+    @if map.get($p, l2) {
+        $l2: map.get($p, l2);
+        $t2L: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='#{map.get($l2, ts)}' height='#{map.get($l2, ts)}'%3E%3Cfilter id='#{map.get($l2, fid)}'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='#{map.get($l2, bf)}' numOctaves='#{map.get($l2, oc)}' seed='#{map.get($l2, seed)}' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 #{map.get($l2, trL)} 0 0 0 0 #{map.get($l2, tgL)} 0 0 0 0 #{map.get($l2, tbL)} 0 0 0 #{map.get($l2, taL)} 0'/%3E%3C/filter%3E%3Crect width='#{map.get($l2, ts)}' height='#{map.get($l2, ts)}' filter='url(%23#{map.get($l2, fid)})'/%3E%3C/svg%3E");
+        $t2D: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='#{map.get($l2, ts)}' height='#{map.get($l2, ts)}'%3E%3Cfilter id='#{map.get($l2, fid)}'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='#{map.get($l2, bf)}' numOctaves='#{map.get($l2, oc)}' seed='#{map.get($l2, seed)}' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 #{map.get($l2, trD)} 0 0 0 0 #{map.get($l2, tgD)} 0 0 0 0 #{map.get($l2, tbD)} 0 0 0 #{map.get($l2, taD)} 0'/%3E%3C/filter%3E%3Crect width='#{map.get($l2, ts)}' height='#{map.get($l2, ts)}' filter='url(%23#{map.get($l2, fid)})'/%3E%3C/svg%3E");
+    }
+    #{$pre-l} {
+        background-color: #{map.get($p, bcL)};
+        // 层数互斥三态（渐晕恒定基准在最上、纱次之、tile 预渲染上限版在下）：
+        // rough=渐晕+纱+主颗粒+晕染斑 / parchment=渐晕+纱+颗粒 / texture·eye-care=纱+颗粒
+        @if $t2L {
+            background-image: radial-gradient(140% 120% at 50% 38%, transparent #{map.get($p, vgStop)}, #{map.get($p, vgCL)} 100%), #{$veilBL}, #{$t1L}, #{$t2L};
+            background-repeat: no-repeat, repeat, repeat, repeat;
+            background-size: auto, auto, #{map.get($p, ts)}px #{map.get($p, ts)}px, #{map.get($p, ts)}px #{map.get($p, ts)}px;
+            background-position: center, 0 0, 0 0, 0 0;
+        } @else if map.get($p, vgStop) {
+            background-image: radial-gradient(140% 120% at 50% 38%, transparent #{map.get($p, vgStop)}, #{map.get($p, vgCL)} 100%), #{$veilBL}, #{$t1L};
+            background-repeat: no-repeat, repeat, repeat;
+            background-size: auto, auto, #{map.get($p, ts)}px #{map.get($p, ts)}px;
+            background-position: center, 0 0, 0 0;
+        } @else {
+            background-image: #{$veilBL}, #{$t1L};
+            background-repeat: repeat, repeat;
+            background-size: auto, #{map.get($p, ts)}px #{map.get($p, ts)}px;
+            background-position: 0 0, 0 0;
+        }
+        // 四类容器共用一档容器色（亮浅暗深微差分层）；颗粒同 tile 复用，0 0 起铺不强求跨元素
+        // 连续（随机颗粒无接缝感）；面包屑透明防「容器色带接缝」（DOM 在 .protyle 内）
+        .layout__dockl,
+        .layout__dockr,
+        .protyle,
+        .layout-tab-bar {
+            background-color: #{map.get($p, ccL)};
+            @if $t2L {
+                background-image: #{$veilCL}, #{$t1L}, #{$t2L};
+                background-repeat: repeat, repeat, repeat;
+                background-size: auto, #{map.get($p, ts)}px #{map.get($p, ts)}px, #{map.get($p, ts)}px #{map.get($p, ts)}px;
+            } @else {
+                background-image: #{$veilCL}, #{$t1L};
+                background-repeat: repeat, repeat;
+                background-size: auto, #{map.get($p, ts)}px #{map.get($p, ts)}px;
+            }
+            background-position: 0 0;
+        }
+        .protyle-breadcrumb {
+            background-color: transparent;
+        }
+    }
+    #{$pre-d} {
+        background-color: #{map.get($p, bcD)};
+        // repeat/size/position 与亮态同构（暗块选择器在亮块规则命中时同样匹配，仅覆写字面量项）
+        @if $t2D {
+            background-image: radial-gradient(140% 120% at 50% 38%, transparent #{map.get($p, vgStop)}, #{map.get($p, vgCD)} 100%), #{$veilBD}, #{$t1D}, #{$t2D};
+        } @else if map.get($p, vgStop) {
+            background-image: radial-gradient(140% 120% at 50% 38%, transparent #{map.get($p, vgStop)}, #{map.get($p, vgCD)} 100%), #{$veilBD}, #{$t1D};
+        } @else {
+            background-image: #{$veilBD}, #{$t1D};
+        }
+        .layout__dockl,
+        .layout__dockr,
+        .protyle,
+        .layout-tab-bar {
+            background-color: #{map.get($p, ccD)};
+            @if $t2D {
+                background-image: #{$veilCD}, #{$t1D}, #{$t2D};
+            } @else {
+                background-image: #{$veilCD}, #{$t1D};
+            }
+        }
+    }
+}
+
+// ---- 方格网 grid（Pro）：CSS 渐变线为主层 + 弱颗粒垫底，横竖两组同色同距叠成方格 ----
+// 线色固定灰豆沙绿系（不跟 accent，铅笔线意象）；线层 attachment fixed 钉视口全局通网
+// （§1.3 预留的升级已启用，实测零重绘代价，bg-library §9.6）。
+// □19：线不走纱、k 直接乘进线色 α（36%/22% × k，默认位等效 18%/11%——暗线基准 0.08→0.11，
+// §8.4）；垫底颗粒预渲染 0.10/0.08（§9 再上一档，基准等效 0.05/0.04）+ 纱层只盖颗粒（线在纱上，
+// 勿双乘）。线组是本款身份载体维持原锚不动；k 端点可辨性由线的 0↔36% 全行程承担。
+$grid-line-l: color-mix(in srgb, rgba(96, 118, 104, 1) calc(36% * var(--recite-bg-k, 0.5)), transparent);
+$grid-line-d: color-mix(in srgb, rgba(190, 205, 185, 1) calc(22% * var(--recite-bg-k, 0.5)), transparent);
+body:not(.recite-unpaid)[data-recite-bg="grid"] {
+    background-color: #eef0ea;
+    background-image:
+        repeating-linear-gradient(to right, #{$grid-line-l} 0, #{$grid-line-l} 1px, transparent 1px, transparent 28px),
+        repeating-linear-gradient(to bottom, #{$grid-line-l} 0, #{$grid-line-l} 1px, transparent 1px, transparent 28px),
+        #{recite-veil(#eef0ea)},
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g59'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' seed='59' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.53 0 0 0 0 0.56 0 0 0 0 0.49 0 0 0 0.10 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g59)'/%3E%3C/svg%3E");
+    background-repeat: repeat, repeat, repeat, repeat;
+    background-size: auto, auto, auto, 200px 200px;
+    background-position: 0 0, 0 0, 0 0, 0 0;
+    // 通网升级（§1.3 预留 / §9.6 启用）：线右/线下两层钉视口，跨面板共享全局网；
+    // 纱与颗粒贴自身盒不动。层序与 background-image 四层一一对应，加减层须同步改此处。
+    // 暗块不重复声明 attachment（暗块只覆写 color/image 的既有约定），级联自此处生效。
+    background-attachment: fixed, fixed, scroll, scroll;
+    .layout__dockl,
+    .layout__dockr,
+    .protyle,
+    .layout-tab-bar {
+        background-color: #f6f8f3;
+        background-image:
+            repeating-linear-gradient(to right, #{$grid-line-l} 0, #{$grid-line-l} 1px, transparent 1px, transparent 28px),
+            repeating-linear-gradient(to bottom, #{$grid-line-l} 0, #{$grid-line-l} 1px, transparent 1px, transparent 28px),
+            #{recite-veil(#f6f8f3)},
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g59'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' seed='59' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.53 0 0 0 0 0.56 0 0 0 0 0.49 0 0 0 0.10 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g59)'/%3E%3C/svg%3E");
+        background-repeat: repeat, repeat, repeat, repeat;
+        background-size: auto, auto, auto, 200px 200px;
+        background-position: 0 0, 0 0, 0 0, 0 0;
+        // 同 body：线层钉视口通网（层序对应线右/线下/纱/颗粒，§9.6）
+        background-attachment: fixed, fixed, scroll, scroll;
+    }
+    .protyle-breadcrumb {
+        background-color: transparent;
+    }
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-bg="grid"] {
+    background-color: #20241f;
+    background-image:
+        repeating-linear-gradient(to right, #{$grid-line-d} 0, #{$grid-line-d} 1px, transparent 1px, transparent 28px),
+        repeating-linear-gradient(to bottom, #{$grid-line-d} 0, #{$grid-line-d} 1px, transparent 1px, transparent 28px),
+        #{recite-veil(#20241f)},
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g59'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' seed='59' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.33 0 0 0 0 0.37 0 0 0 0 0.32 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g59)'/%3E%3C/svg%3E");
+    .layout__dockl,
+    .layout__dockr,
+    .protyle,
+    .layout-tab-bar {
+        background-color: #181c17;
+        background-image:
+            repeating-linear-gradient(to right, #{$grid-line-d} 0, #{$grid-line-d} 1px, transparent 1px, transparent 28px),
+            repeating-linear-gradient(to bottom, #{$grid-line-d} 0, #{$grid-line-d} 1px, transparent 1px, transparent 28px),
+            #{recite-veil(#181c17)},
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g59'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' seed='59' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.33 0 0 0 0 0.37 0 0 0 0 0.32 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g59)'/%3E%3C/svg%3E");
+    }
+}
+
+// ---- 自定义图片 custom（Pro）：body 铺用户图（cover+center）+ 容器 color-mix 半透明透出 ----
+// 图 URL 走 --recite-bg-custom 变量（theme.ts applyReciteBg 注入，图片文件由 Settings 上传到
+// /data/assets 走思源静态服务）。N 档（bg-library §3.5）：dock 90% 小字最密给最实一档；
+// 正文/页签 86% 让图真正在场（旧 94% 的无感主要是这一味），最坏全黑衬图正文对比仍 9.2:1。
+// 本组 color-mix 底是 b3 变量明暗自动跟随——「暗色必须重声明」铁律的唯一真例外，不写暗块
+body:not(.recite-unpaid)[data-recite-bg="custom"] {
+    background-image: var(--recite-bg-custom, none);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+    .layout__dockl,
+    .layout__dockr {
+        background-color: color-mix(in srgb, var(--b3-theme-background) 90%, transparent);
+    }
+    .protyle,
+    .layout-tab-bar {
+        background-color: color-mix(in srgb, var(--b3-theme-background) 86%, transparent);
+    }
+    .protyle-breadcrumb {
+        background-color: transparent;
+    }
+}
+
+// （2026-08-25 入口去重：状态栏「仿写」文字开关已删，相关 .recite-status-btn 样式一并移除）
+
+// ========== 付费门禁（2026-08 商业化，spec「CSS 门禁」节） ==========
+// verifyKeyRecite 失败时 index.ts 给 body 挂 recite-unpaid：三块收费视觉（染色/快照/对比卡片）
+// 整体退化为朴素态；JS 功能零改动（防君子不防小人的立场）。默认（无 class）与付费态现状完全一致。
+
+// ---- 项2：原文·仿写模式双色区分（付费态）----
+// 你的句 = 仿写模式（wysiwyg 由 highlight 加 .recite-practicing）下无 custom-recite-old 的顶层块
+// （进入仿写后用户新写/批注的句子，属性判据随块 IAL 走，渲染同帧生效）：accent 字色 + 浅底 + 左侧 3px 竖条
+body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]) {
+    color: var(--recite-accent);
+    background-color: var(--recite-accent-soft);
+    border-inline-start: 3px solid var(--recite-accent);
+    border-radius: 4px;
+    padding-inline: 4px;
+}
+// 作者句 = 有 custom-recite-old 的原文块：中性弱化（轻微降不透明度），让「你的句」跳出来、
+// 不另加色（克制，避免两套颜色互相打架）
+body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old] {
+    opacity: 0.75;
+}
+
+// ---- 抽取文档中的批注快照（块自带 custom-recite-note 属性，CSS 直接命中）----
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] {
+    color: var(--recite-accent);
+    font-weight: 500;
+}
+
+// ---- 项3：抽取文档·复述位填空卡（付费态）----
+// 复述位 = 总结快照块之后的第一个段块（extract 播种空块，用户在此落笔）。
+// 待填态：虚线框 + 圆角 12px + 浅底；:not([custom-recite-note]) 排除旧版布局「总结连总结」
+// 把第二条总结误标成复述位的情况。
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] + div[data-node-id][data-type="NodeParagraph"]:not([custom-recite-note]) {
+    border: 1.5px dashed var(--recite-accent);
+    border-radius: 12px;
+    background-color: var(--recite-accent-soft);
+    margin: 4px 0 14px;
+    padding: 8px 12px;
+}
+// 完成态：有内容后虚线转实线、底色退隐。:has 判空 2026-08-25 实测可用（思源空段块的
+// contenteditable div 真为空；打字后清空残留空文本节点，Chromium :empty 仍匹配——
+// 空文本节点按 Selectors L4 计为空；wbr 仅光标驻留瞬间存在，可接受）。
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] + div[data-node-id][data-type="NodeParagraph"]:not([custom-recite-note]):not(:has(> div[contenteditable]:empty)) {
+    border-style: solid;
+    background-color: transparent;
+}
+// 落笔提示：伪元素不进块内容、不改 IAL，块一旦有字自然消失（:empty 失配）
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] + div[data-node-id][data-type="NodeParagraph"]:not([custom-recite-note]) > div[contenteditable]:empty::before {
+    content: "✍ 在这里写下你的复述…";
+    color: var(--recite-accent);
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+// ---- 项4：对比文档·卡片升级（付费态）----
+// 外层 col sb 挂 custom-recite-cmp-card（每题一张卡）。子元素实测序（思源 3.8.1）为
+// [左栏 div.sb(row), span.sb__resize, 右栏 div.sb(row), div.protyle-attr]——中缝有 resize
+// span 横着且 protyle-attr 也是 div，故两栏取法：左 = div.sb:first-of-type、右 = div.sb:nth-of-type(2)
+// （旧写法 .sb + .sb 因 span 相邻从不匹配；:last-of-type 恒命中 protyle-attr，皆不可用）。
+.protyle-wysiwyg {
+    counter-reset: recite-card; // 题号 counter（每 wysiwyg 独立计数，多标签页互不串号）
+}
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-cmp-card] {
+    counter-increment: recite-card;
+    position: relative; // 题号徽章定位锚
+    border: 1px solid var(--recite-card-border);
+    border-radius: 12px;
+    background-color: var(--recite-card-bg);
+    box-shadow: var(--recite-shadow);
+    padding: 14px 10px;
+    margin: 1.4em 0;
+
+    // 左栏（原文）：透明底直接坐在卡面上，留出与右栏的呼吸
+    > div.sb:first-of-type {
+        background-color: transparent;
+        padding: 2px 14px 2px 6px;
+    }
+    // 右栏（你的复述）：浅 accent 底差异化，中缝不画线——底色差即分隔。
+    // 注意 :nth-of-type 按 div 计序（卡内 div 序 = [左sb, 右sb, protyle-attr]）：
+    // :last-of-type 命中的恒是末位的 protyle-attr，右栏必须用 nth-of-type(2)（2026-08-25 实测踩坑）
+    > div.sb:nth-of-type(2) {
+        background-color: var(--recite-accent-soft);
+        border-radius: 8px;
+        padding: 4px 12px;
+        margin-left: 6px;
+    }
+}
+// 左上题号徽章：胶囊 24px 高，accent-strong 底白字（counter 取序，无 JS）
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-cmp-card]::before {
+    content: counter(recite-card);
+    position: absolute;
+    top: -11px;
+    left: 12px;
+    min-width: 24px;
+    height: 24px;
+    box-sizing: border-box;
+    padding: 0 8px;
+    border-radius: 12px;
+    background: var(--recite-accent-strong);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 24px;
+    text-align: center;
+    box-shadow: var(--recite-shadow);
+    pointer-events: none;
+}
+
+// ---- 退化态（body.recite-unpaid）：保「能分清标没标」，视觉退普通 ----
+
+// 已批注句退柔和黄底（2026-08-25 反馈调柔：mark 原生 0.4 太亮刺眼，降透明度到 0.2 保「能分清
+// 标没标」底线；不用 --b3-protyle-inline-mark-background——部分主题该值恒 0.4 拉不柔），未批注句
+// 原样；作者句不弱化（免费态全文档一个视觉层级）
+body.recite-unpaid .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]) {
+    background-color: rgba(255, 208, 0, 0.2);
+    border-radius: var(--b3-border-radius);
+}
+// 暗主题黄底对比更刺眼，再降一档
+html[data-theme-mode="dark"] body.recite-unpaid .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]) {
+    background-color: rgba(255, 208, 0, 0.13);
+}
+
+// 批注快照弱区分（2026-08-25 反馈）：免费态快照与用户复述原本同色难分「题目 vs 自己写的」，
+// 加 opacity 弱化 + 左侧 2px 中性灰细竖条（刻意不用付费金 accent——朴素感留给付费态当落差）
+body.recite-unpaid .protyle-wysiwyg div[custom-recite-note="1"] {
+    color: inherit;
+    font-weight: 400;
+    opacity: 0.65;
+    border-inline-start: 2px solid color-mix(in srgb, var(--b3-theme-on-surface) 35%, transparent);
+    padding-inline-start: 4px;
+}
+
+// 对比卡片免费态：「看得清」的朴素底线——中性细边框圈出每题 + 淡中缝分左右栏 + 小圆角，
+// 无底色无阴影无徽章（与付费态的 accent 底/阴影/题号徽章保留落差）
+body.recite-unpaid .protyle-wysiwyg div[custom-recite-cmp-card] {
+    border: 1px solid color-mix(in srgb, var(--b3-theme-on-surface) 18%, transparent);
+    border-radius: var(--b3-border-radius);
+    background-color: transparent;
+    box-shadow: none;
+    padding: 8px 4px;
+    margin: 1em 0;
+
+    > div.sb:first-of-type {
+        background-color: transparent;
+        border-right: 1px solid color-mix(in srgb, var(--b3-theme-on-surface) 13%, transparent);
+        padding: 0 12px 0 4px;
+    }
+    > div.sb:nth-of-type(2) {
+        background-color: transparent;
+        padding-left: 12px;
+    }
+}
+
+// ========== AI 判卷结果（2026-08-25，功能免费→视觉免费，勿挂 recite-unpaid 门禁） ==========
+// 判卷头 = 块引用「🧑‍🏫 AI 判卷 · 时间」挂 custom-recite-ai：弱视觉只调字色/字重/字号
+// （accent 随皮肤 token 联动，明暗自适应）；正文是 AI markdown 拆开的普通块，零属性依赖。
+.protyle-wysiwyg div[custom-recite-ai="1"] {
+    color: var(--recite-accent);
+    font-weight: 600;
+    font-size: 0.9em;
+    opacity: 0.92;
+}
+
+// ========== 项1：仿写浮条（常驻于已标记文档，可拖，位置 localStorage） ==========
+// 纵向两行——文档名标题 + 按钮行。标题 width:0 + min-width:100% 自适应机制（宽度由按钮行决定、
+// 超长省略号）勿动。基础款 = 免费默认「晨光便签」（surface 纯色 + 细描边 + 主题 accent 主按钮），
+// Pro 款（墨玉轻雾/宣纸）由 body[data-recite-floatbar-skin]（theme.ts 注册表同名对齐）覆盖，
+// 门禁 body:not(.recite-unpaid) 包裹——unpaid 即使挂了属性也回落晨光便签（CSS 级保证）。
+// 文字色 token 按明暗声明在 :root / dark 组（皮肤只换容器/按钮底，文字色跨皮肤通用）。
+:root {
+    --recite-fb-title: rgba(0, 0, 0, 0.55);      // 晨光便签标题弱字
+    --recite-fb-btn-fg: #fff;                    // 主按钮字色（亮色 accent 深金棕，白字对比达标）
+}
+html[data-theme-mode="dark"] {
+    --recite-fb-title: rgba(255, 255, 255, 0.55);
+    --recite-fb-btn-fg: #23242a;                 // 暗色 accent 暖金亮，深字对比更好
+}
+
+// ---- 出现/拖动动效 ----
+// 出现：opacity 0→1 + translateY(-6px)→0（.18s ease-out，仅 mount 时播放一次）。
+// 拖动：坐标走内联 left/top（FloatBar.svelte），过渡只挂在 --drag/--settle 态类上——拖动中
+// .12s 缓动追手（连续 mousemove 重启过渡 = 指数逼近的跟手感），释放换 --settle 把时长拉到
+// .25s 收尾停稳，300ms 后摘类。平时无过渡：localStorage 位置恢复/皮肤切换不产生滑移。
+// transform 只用于拖动微放大（1.02 抬起感），与出现动画（keyframes 一次性）互不干扰。
+@keyframes recite-floatbar-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.recite-floatbar {
+    position: fixed;
+    // 10 = 浮层安全档（2026-08-30 纠错：原 12 的「低于动态弹层计数器」认知有误——计数器
+    // ++window.siyuan.zIndex 自 10 起，首个弹层就是 11，z12 仍会盖住 confirm/Dialog 首弹窗，
+    // 渐进加书弹窗同款实弹 DOM 复核实锤）。10 恒低于一切内核弹层（≥11），仍高于 protyle
+    // 常驻元素（≤9）；与本仓库浮层组件（渐进浮条/浮球/移动端顶栏、tomato 浮球）统一。
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--b3-theme-surface);
+    border: 1px solid var(--b3-border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    cursor: move;
+    user-select: none;
+    // 触摸拖拽前提（2026-08-27）：浮条区域禁浏览器滚动手势，否则 pointermove 流被滚动打断；
+    // 只作用于浮条自身，不影响页面其余区域触摸滚动，tap 按钮 click 也不受影响
+    touch-action: none;
+    animation: recite-floatbar-in 0.18s ease-out;
+}
+html[data-theme-mode="dark"] .recite-floatbar {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+// 无激活文档整体隐藏（FloatBar 根 div 常驻 DOM 供宠物栖身，{#if} 收进了内部；display
+// 翻转同样会重播上面的 floatbar-in 出场动画，与原卸载重建行为一致）
+.recite-floatbar--idle {
+    display: none;
+}
+.recite-floatbar--drag,
+.recite-floatbar--settle {
+    transition: left 0.12s cubic-bezier(0.2, 0, 0.2, 1), top 0.12s cubic-bezier(0.2, 0, 0.2, 1),
+        transform 0.12s cubic-bezier(0.2, 0, 0.2, 1);
+}
+.recite-floatbar--settle {
+    transition-duration: 0.25s; // 释放收尾：同属性列表仅拉长时长，停稳更从容
+}
+.recite-floatbar--drag {
+    cursor: grabbing;
+    transform: scale(1.02); // 抬起感
+}
+// 标题宽度由按钮行决定：width:0 使其不参与浮条 shrink-to-fit 宽度计算，min-width:100% 拉齐按钮行，
+// 超长省略号截断；截短时悬停浮条按钮看完整名（aria-label + 思源 b3-tooltips__n，见 FloatBar）。
+// relative 给标题行 ✕（收起键）做定位锚
+.recite-floatbar-title {
+    position: relative;
+    width: 0;
+    min-width: 100%;
+    box-sizing: border-box; // 100% 计入 padding，盒子与按钮行严格对齐
+    padding: 0 2px 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1.4;
+    letter-spacing: 0.3px;
+    text-align: center;
+    color: var(--recite-fb-title);
+}
+// 标题行 ✕（2026-08-27 顶栏改造，渐进 floatbar-close 先例 20×20）：绝对定位右上不参与
+// width:0/min-width:100% 的标题排版计算；弱字起手悬浮才浮出
+.recite-floatbar-close {
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--recite-fb-title);
+    cursor: pointer;
+}
+.recite-floatbar-close:hover {
+    background-color: var(--b3-list-hover);
+    color: var(--b3-theme-on-surface);
+}
+.recite-floatbar-btns {
+    display: flex;
+    gap: 6px;
+}
+// 两行方形（2026-08-26 对比浮条改版，用户拍板「不要越来越长的横条」）：判分行 + 文档操作行
+// 两行等宽对齐成方块——行宽拉满浮条宽、按钮保底内容宽后剩余均分；抽取浮条 3 键/原文浮条
+// 3 键（AI 拆分+抽取+删除，2026-08-28）单行不挂此类，保持自然宽。三款浮条皮肤只覆盖容器
+// 与按钮底色，对本布局零感知自动适配。
+// flex-basis 用 auto 不用 0（2026-08-27 修「复制提示词」末字截断）：0 均分把宽度从长文案键
+// 挪给短文案键，中间键贴边被 b3-tooltips 的 overflow:hidden 硬裁；auto 保底自身内容宽。
+.recite-floatbar--square .recite-floatbar-btns {
+    width: 100%;
+}
+.recite-floatbar--square .recite-floatbar-btns button {
+    flex: 1 1 auto;
+}
+// 主按钮：accent 底 + 明暗分档字色（token 见上），hover 上浮 1px。
+// inline-flex + gap 5：图标（2026-08-27 图标化，iconReciteXxx sprite）与文字并排；
+// padding 左右 10→9：图标挤占视觉重心后各收 1px 保总宽近似
+.recite-floatbar button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 9px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--recite-accent);
+    color: var(--recite-fb-btn-fg);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap; // 标题拉齐按钮行后，按钮行是浮条宽度唯一决定者，防换行压扁
+    transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, color 0.12s ease-out;
+}
+.recite-floatbar button > svg {
+    flex: none; // 防 nowrap 下 svg 被压
+}
+.recite-floatbar button:hover {
+    transform: translateY(-1px);
+}
+// 破坏性/次要操作（删除/重新写）ghost 细边弱字，hover 边字转淡红（思源 error 色）
+.recite-floatbar button.recite-btn-ghost {
+    background: transparent;
+    color: var(--recite-fb-title);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-theme-on-surface) 28%, transparent);
+}
+.recite-floatbar button.recite-btn-ghost:hover {
+    color: var(--b3-theme-error);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-theme-error) 55%, transparent);
+}
+// AI 判卷进行中（免费功能免费态）：图标自旋（iconReciteSpin 断口弧）+ 禁点禁 hover
+// （pointer-events 挡掉悬浮上移）。图标化后进行时靠图形讲（移动端无文案），转圈比旧
+// opacity 呼吸的可感知度强；disabled 属性在 FloatBar.svelte 侧
+.recite-floatbar button.recite-btn-busy {
+    pointer-events: none;
+}
+// □30 未激活门禁可视化：AI 拆分钮（本浮条唯一 Pro 钮）灰但可点——hover 回亮暗示可点，
+// 点击引导在 aiSplit.startAISplit（toast）；body.recite-unpaid 由 index.ts verify 后挂摘，
+// 激活即全局满活力（--topbar 移动端顶栏同根类天然覆盖）。亮色提亮一档同渐进口径
+// （vision 复审：.45 浅底读作禁用）
+body.recite-unpaid .recite-floatbar button.recite-btn-pro {
+    opacity: 0.45;
+}
+html:not([data-theme-mode="dark"]) body.recite-unpaid .recite-floatbar button.recite-btn-pro {
+    opacity: 0.55;
+}
+body.recite-unpaid .recite-floatbar button.recite-btn-pro:hover {
+    opacity: 0.8;
+}
+.recite-floatbar button.recite-btn-busy > svg {
+    animation: recite-spin 0.9s linear infinite;
+}
+@keyframes recite-spin {
+    to { transform: rotate(360deg); }
+}
+
+// ---- Pro 浮条皮肤「墨玉轻雾」（毛玻璃）----
+// 毛玻璃必须 @supports 包裹：不支持 backdrop-filter 的环境回落 0.92 透明度纯色（视觉仍完整，
+// 只是没了通透感）。金渐变主按钮 + hover 金色投影；内高光随毛玻璃一起声明。
+body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar {
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.92); // fallback 纯色
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar {
+    background: rgba(30, 31, 34, 0.92); // fallback 纯色
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+@supports (backdrop-filter: blur(1px)) {
+    body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar {
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(14px) saturate(140%);
+        -webkit-backdrop-filter: blur(14px) saturate(140%);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12); // 内高光
+    }
+    html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar {
+        background: linear-gradient(145deg, rgba(42, 43, 46, 0.82), rgba(30, 31, 34, 0.9));
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar button {
+    background: linear-gradient(135deg, #e6c079, #d4a960);
+    color: #2a2b2e;
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar button:hover {
+    box-shadow: 0 4px 12px rgba(212, 169, 96, 0.45); // 金色投影
+}
+
+// ---- Pro 浮条皮肤「宣纸」（纸面 + 金棕细边 + 硬软双投影）----
+body:not(.recite-unpaid)[data-recite-floatbar-skin="xuan"] .recite-floatbar {
+    border-radius: 4px;
+    background: #f7f1e6;
+    border-color: rgba(180, 140, 80, 0.35);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.06), 0 6px 16px rgba(0, 0, 0, 0.1); // 硬投影 + 软影
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="xuan"] .recite-floatbar {
+    background: #33302b;
+    border-color: rgba(212, 169, 96, 0.28);
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="xuan"] .recite-floatbar button {
+    background: linear-gradient(135deg, #e6c079, #d4a960);
+    color: #3a2c18; // 深褐字
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="xuan"] .recite-floatbar button:hover {
+    box-shadow: 0 4px 12px rgba(180, 140, 80, 0.4);
+}
+
+// ---- Pro 浮条皮肤「扇贝花边」（2026-08-27 二波：自装饰皮肤段迁移改轴，唯一事实源
+// docs/research/recite-floatbar-skins/proposals.md §5.1）----
+// bottom:-12px = 高度 12px（生死线：偏移须 ≥ 高度，弧才不被浮条本体遮住，POC e2e 实测）
+body:not(.recite-unpaid)[data-recite-floatbar-skin="scallop"] .recite-floatbar::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -12px;
+    height: 12px;
+    background: radial-gradient(circle 6px at 6px 0, var(--b3-theme-surface) 97%, transparent) -6px 0 / 12px 12px repeat-x;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
+    pointer-events: none;
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="scallop"] .recite-floatbar::after {
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.32)); // 暗态投影加深提层次；填充走 surface 变量自动翻色
+}
+
+// ---- Pro 浮条皮肤「回纹滚边」（2026-08-27 二波迁移；描边青瓷→黛灰青：SVG data URI 无法吃
+// CSS 变量，低饱近墨色是对全皮肤正交的折中，见 proposals §6）----
+body:not(.recite-unpaid)[data-recite-floatbar-skin="fret"] .recite-floatbar::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -12px;
+    height: 12px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12' viewBox='0 0 20 12'%3E%3Cpath d='M0 10 Q5 0 10 10 Q15 20 20 10' fill='none' stroke='%23556859' stroke-width='1.6'/%3E%3Cpath d='M5 10 Q5 4 10 4 Q15 4 15 10' fill='none' stroke='%237a8c80' stroke-width='1.2' opacity='0.85'/%3E%3C/svg%3E") repeat-x center top / 20px 12px;
+    opacity: 0.8;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+    pointer-events: none;
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="fret"] .recite-floatbar::after {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12' viewBox='0 0 20 12'%3E%3Cpath d='M0 10 Q5 0 10 10 Q15 20 20 10' fill='none' stroke='%239db3a9' stroke-width='1.6'/%3E%3Cpath d='M5 10 Q5 4 10 4 Q15 4 15 10' fill='none' stroke='%23bccdc2' stroke-width='1.2' opacity='0.85'/%3E%3C/svg%3E") repeat-x center top / 20px 12px;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+
+// ---- Pro 浮条皮肤「鎏金嵌边」（2026-08-27 二波：nocturne 容器段原文迁移换轴，accent 驱动
+// 保持与任意皮肤正交；顶线 α0.70 为滚边生死线主承载、底线 0.40/侧线 0.30 为陪衬弱线，
+// 照抄原实测组合勿单改单删）----
+body:not(.recite-unpaid)[data-recite-floatbar-skin="gilded"] .recite-floatbar {
+    border-color: color-mix(in srgb, var(--recite-accent) 60%, var(--b3-border-color));
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -1px 0 color-mix(in srgb, var(--recite-accent) 40%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--recite-accent) 30%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--recite-accent) 30%, transparent);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="gilded"] .recite-floatbar {
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -1px 0 color-mix(in srgb, var(--recite-accent) 40%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--recite-accent) 30%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--recite-accent) 30%, transparent);
+}
+
+// ---- Free 浮条皮肤「竹简」（2026-08-27 二波原创）：竖向竹节纹纸面。纹路双层叠加——
+// 第一层亮暗交替竖栏（26px 节距一半亮一半沉），第二层节缝细线压在交界处；α 全部 ≤0.16，
+// 按钮/标题在其上对比不受损（文字色 token 全皮肤通用，见 index.scss 浮条基础段头注释）----
+body:not(.recite-unpaid)[data-recite-floatbar-skin="bamboo"] .recite-floatbar {
+    border-radius: 6px;
+    background-color: #eef1e2;
+    background-image:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.45) 0 13px, rgba(96, 116, 74, 0.06) 13px 26px),
+        repeating-linear-gradient(90deg, rgba(96, 116, 74, 0.16) 0 1px, transparent 1px 26px);
+    border-color: rgba(108, 130, 84, 0.42);
+    box-shadow: 0 4px 12px rgba(56, 72, 40, 0.14);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="bamboo"] .recite-floatbar {
+    background-color: #2b2f27;
+    background-image:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 13px, rgba(0, 0, 0, 0.16) 13px 26px),
+        repeating-linear-gradient(90deg, rgba(214, 226, 196, 0.09) 0 1px, transparent 1px 26px);
+    border-color: rgba(168, 186, 142, 0.30);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+// ---- Pro 浮条皮肤「朱丝栏」（2026-08-27 二波原创）：信笺双栏朱丝框 + 右上朱印 + 朱砂按钮。
+// 生死线对照：内环 1px 实线有效 α0.65×纯红高识别度 + 外框 0.40 主次分明；::before 凸出本体
+// 仅 6px 且 pointer-events:none 不挡拖拽；ghost 显式还原描边形（mist/xuan 特异性吞 ghost 是
+// 遗留现状不改，新款不复刻）----
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar {
+    border-radius: 4px;
+    background: #fcf4ea;
+    border-color: rgba(176, 64, 46, 0.40);
+    box-shadow:
+        0 2px 0 rgba(140, 50, 36, 0.10),
+        0 6px 16px rgba(140, 50, 36, 0.12);
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    top: 3px;
+    bottom: 3px;
+    border-radius: 3px;
+    border: 1px solid rgba(200, 84, 62, 0.65);
+    pointer-events: none;
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    right: 16px;
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    background: #c14b33;
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 246, 238, 0.85),
+        0 1px 3px rgba(140, 50, 36, 0.35);
+    transform: rotate(10deg);
+    pointer-events: none;
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar {
+    background: #302823;
+    border-color: rgba(210, 110, 88, 0.32);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar::after {
+    border-color: rgba(224, 128, 104, 0.55);
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar button {
+    background: linear-gradient(135deg, #cd5843, #b14431);
+    color: #fff8f3;
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar button:hover {
+    box-shadow: 0 4px 12px rgba(177, 68, 49, 0.45);
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar button.recite-btn-ghost {
+    background: transparent;
+    color: rgba(150, 52, 38, 0.90);
+    box-shadow: inset 0 0 0 1px rgba(176, 64, 46, 0.50);
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar button.recite-btn-ghost:hover {
+    color: #a13222;
+    box-shadow: inset 0 0 0 1px rgba(176, 64, 46, 0.75);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar button {
+    background: linear-gradient(135deg, #d96a52, #c05540);
+    color: #fff;
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar button.recite-btn-ghost {
+    color: rgba(228, 150, 132, 0.92);
+    box-shadow: inset 0 0 0 1px rgba(210, 110, 88, 0.55);
+}
+
+// ========== 移动端顶栏形态（2026-08-27 □31，方案 docs/research/recite-mobile-topbar/proposals.md）==========
+// 移动端浮条整体换形态：钉思源 toolbar 下沿的 44px 全宽矮条（渐进 PieceTopBar 同构）——纯图标
+// 横滑 + ✕ 收起，不拖拽（用户真机拍板「手机端不适合拖动，学渐进吸附顶部」）。定位 top 由
+// FloatBar.svelte 实测注入内联 style（含渐进顶栏让位 +44、400ms 轮询）；编辑区顶开走本段
+// body 类双规则。根类名保留 .recite-floatbar → 八款皮肤选择器自动命中，观感适配见本段末
+// 「皮肤 × 顶栏」覆写（同特异性后置取胜，勿挪到皮肤段之前——特异性生死线见方案 §5）。
+:root { --recite-topbar-h: 44px; }
+
+// 编辑区顶开双规则：单 recite 顶开 44；与渐进顶栏共存顶开 88（共存规则特异性高于任一单规则，
+// 渐进侧零改动、由本插件单侧定义）。body 类挂摘由 FloatBar.svelte $effect 驱动（顶栏可见才挂）
+body.recite-topbar-on #editor { padding-top: var(--recite-topbar-h); }
+body.prog-topbar-on.recite-topbar-on #editor {
+    padding-top: calc(var(--prog-topbar-h, 44px) + var(--recite-topbar-h));
+}
+
+// 顶栏容器覆写：全宽贴边矮条、横排；touch-action 覆回 auto 是生死线——基类的 none（触摸拖拽
+// 前提）会沿祖先链禁掉按钮行的横滑手势
+.recite-floatbar.recite-floatbar--topbar {
+    left: 0;
+    right: 0;
+    height: var(--recite-topbar-h);
+    box-sizing: border-box; // 44 含 padding/边框（渐进 PieceTopBar 同款；漏则内容盒 44+9=53 超 #editor 顶开量盖住首行）
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 4px calc(8px + env(safe-area-inset-right, 0px)) 4px calc(8px + env(safe-area-inset-left, 0px));
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--b3-border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    cursor: default;
+    z-index: 12; // 与渐进顶栏同档；不用桌面 999——顶栏要被思源弹窗等更高层正常盖住
+    touch-action: auto;
+}
+html[data-theme-mode="dark"] .recite-floatbar.recite-floatbar--topbar {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+// 按钮行横滑（渐进 prog-topbar-btns 同构）：min-width:0 是触发溢出滚动的前提（flex 子项默认
+// min-width:auto 不收缩）；滚动条隐藏
+.recite-floatbar--topbar .recite-floatbar-btns {
+    flex: 1;
+    min-width: 0;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
+}
+.recite-floatbar--topbar .recite-floatbar-btns::-webkit-scrollbar { display: none; }
+// 纯图标键：触摸目标 36×36（渐进实测下限）；文字 span 靠形态类隐藏（标记里永远渲染，桌面共用
+// 同一按钮结构）；图标 CSS 放大 18px（渲染参数 14 是桌面图文钮尺寸）
+.recite-floatbar--topbar .recite-floatbar-btns button {
+    flex: none;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 9px;
+}
+.recite-floatbar--topbar .recite-floatbar-btns button svg,
+.recite-floatbar--topbar .recite-topbar-close svg { width: 18px; height: 18px; }
+.recite-floatbar--topbar .recite-btn-text { display: none; }
+// compare 五键分组分隔线（判分行 | 操作行——桌面两行分组认知的横滑版）；
+// α 28% 与 ghost 描边同档（视觉终审：14% 在真机不可见等于白做）
+.recite-floatbar--topbar .recite-topbar-sep {
+    flex: none;
+    width: 1px;
+    height: 20px;
+    background: color-mix(in srgb, var(--b3-theme-on-surface) 28%, transparent);
+}
+// ✕ 收起键：横滑滚动区外常驻（flex 兄弟节点，非 btns 行成员）
+.recite-floatbar--topbar .recite-topbar-close {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--b3-theme-on-surface);
+    cursor: pointer;
+}
+.recite-floatbar--topbar .recite-topbar-close:hover { background-color: var(--b3-list-hover); }
+// 移动端不渲染宠物（2026-08-27 用户拍板「移动端就纯功能」）：CSS 隐藏即可，mascot.ts 与
+// aiGrade 的 pose 驱动零改动（元素仍在 DOM 挂属性照常，只是不可见，无副作用）；桌面照旧
+.recite-floatbar--topbar .recite-mascot { display: none; }
+
+// ---- 皮肤 × 顶栏覆写（同特异性后置于皮肤段取胜；默认款无皮肤段，上面公共覆写直接管）----
+// ink-mist：撤毛玻璃回落实底（手机 blur 持续合成开销 + 半透明条底下滚字干扰阅读）；皮肤段的
+// radius 12/padding 10px 12px 特异性高，一并压回顶栏值
+body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar--topbar {
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-radius: 0;
+    padding: 4px calc(8px + env(safe-area-inset-right, 0px)) 4px calc(8px + env(safe-area-inset-left, 0px));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar--topbar {
+    background: rgba(30, 31, 34, 0.96);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+// xuan：硬落影是「离地纸片」语言，贴边条不该有（换收敛悬浮影）；纸面底/金棕描边保留——
+// 横条上的信笺气质成立
+body:not(.recite-unpaid)[data-recite-floatbar-skin="xuan"] .recite-floatbar--topbar {
+    border-radius: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="xuan"] .recite-floatbar--topbar {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+// scallop / fret：悬垂花边会盖住正文第一行、且吸附条下方每个滚动位置都拖着花边，整撤
+// （fret 暗色变体在 ::after 生成处一并失效）
+body:not(.recite-unpaid)[data-recite-floatbar-skin="scallop"] .recite-floatbar--topbar::after,
+body:not(.recite-unpaid)[data-recite-floatbar-skin="fret"] .recite-floatbar--topbar::after {
+    content: none;
+}
+// gilded：外影收敛；三向 inset 嵌边线照抄保留（描边框在横条上成立，accent 正交机制不动）
+body:not(.recite-unpaid)[data-recite-floatbar-skin="gilded"] .recite-floatbar--topbar {
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -1px 0 color-mix(in srgb, var(--recite-accent) 40%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--recite-accent) 30%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--recite-accent) 30%, transparent);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="gilded"] .recite-floatbar--topbar {
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -1px 0 color-mix(in srgb, var(--recite-accent) 40%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--recite-accent) 30%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--recite-accent) 30%, transparent);
+}
+// bamboo：竹节纹横条成立（α≤0.16 密而不闹），仅 radius/shadow 收敛贴边
+body:not(.recite-unpaid)[data-recite-floatbar-skin="bamboo"] .recite-floatbar--topbar {
+    border-radius: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="bamboo"] .recite-floatbar--topbar {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+// vermilion：右上朱印凸出条顶 6px 会穿进思源 toolbar 阴影带，撤；内环双线信笺框在横条上
+// 成立（inset 3px 双线是笺纸语言的横版），保留
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar--topbar {
+    border-radius: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar--topbar::before {
+    content: none;
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin="vermilion"] .recite-floatbar--topbar {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+// ========== 装饰皮肤三套（2026-08-26 □8：晨光橘猫/青瓷墨兔/暗夜轻奢） ==========
+// 方案唯一事实源：docs/research/recite-skin-decoration/proposals.md（vision-deepseek 出，数值级）。
+// 机制：装饰跟主题维度走（body[data-recite-theme] 同 slug）管 accent token 与对比卡片蕾丝。
+// （2026-08-27 □23 浮条解耦：原浮条贴纸/花边/嵌边覆盖段整体退役——花边三件套迁移为浮条轴
+// 独立款式 scallop/fret/gilded 见上 data-recite-floatbar-skin 段；橘猫/墨兔贴纸随宠物让位
+// 规则一并退役，角色归宠物轴、器物归浮条轴。）
+// 全部门禁 body:not(.recite-unpaid) 双保险；动效只用 transform/opacity/background-position
+// （GPU 合成，移动端安全）；装饰一律 pointer-events:none。
+
+// ---- 对比卡片蕾丝：竖蕾丝右栏前置（三套都有竖纹，右栏须自成为定位上下文） ----
+body:not(.recite-unpaid)[data-recite-theme="sunny-kitty"] .protyle-wysiwyg div[custom-recite-cmp-card] > div.sb:nth-of-type(2),
+body:not(.recite-unpaid)[data-recite-theme="celadon-rabbit"] .protyle-wysiwyg div[custom-recite-cmp-card] > div.sb:nth-of-type(2),
+body:not(.recite-unpaid)[data-recite-theme="nocturne"] .protyle-wysiwyg div[custom-recite-cmp-card] > div.sb:nth-of-type(2) {
+    position: relative;
+}
+
+// ---- A 卡片蕾丝：横向波浪（暖金）+ 右栏竖向 S 纹 ----
+body:not(.recite-unpaid)[data-recite-theme="sunny-kitty"] .protyle-wysiwyg div[custom-recite-cmp-card]::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 14px;
+    right: 14px;
+    height: 12px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12' viewBox='0 0 24 12'%3E%3Cpath d='M0 9 Q6 -1 12 9 Q18 19 24 9' fill='none' stroke='%23c98a2f' stroke-width='1.1'/%3E%3Ccircle cx='12' cy='4' r='1.4' fill='%23d4a960'/%3E%3Ccircle cx='0' cy='9' r='1' fill='%23c98a2f'/%3E%3Ccircle cx='24' cy='9' r='1' fill='%23c98a2f'/%3E%3C/svg%3E") repeat-x center top / 28px 14px;
+    opacity: 0.9;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+}
+body:not(.recite-unpaid)[data-recite-theme="sunny-kitty"] .protyle-wysiwyg div[custom-recite-cmp-card] > div.sb:nth-of-type(2)::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 6px;
+    bottom: 6px;
+    width: 10px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='24' viewBox='0 0 12 24'%3E%3Cpath d='M6 0 Q-2 6 6 12 Q14 18 6 24' fill='none' stroke='%23c98a2f' stroke-width='1.1'/%3E%3Ccircle cx='6' cy='12' r='1.3' fill='%23d4a960'/%3E%3C/svg%3E") repeat-y center left / 10px 24px;
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+// ---- B 卡片蕾丝：右栏竖向 S 纹（青瓷；横蕾丝 B 套默认关不落） ----
+body:not(.recite-unpaid)[data-recite-theme="celadon-rabbit"] .protyle-wysiwyg div[custom-recite-cmp-card] > div.sb:nth-of-type(2)::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 6px;
+    bottom: 6px;
+    width: 10px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='24' viewBox='0 0 12 24'%3E%3Cpath d='M6 0 Q-2 6 6 12 Q14 18 6 24' fill='none' stroke='%232e5c51' stroke-width='1.1'/%3E%3Ccircle cx='6' cy='12' r='1.3' fill='%23639a8b'/%3E%3C/svg%3E") repeat-y center left / 10px 24px;
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+// ---- C 卡片蕾丝：鎏金横向饰带（C 套主视觉：双波叠金属闪 + 顶点圆点）+ 竖向金纹 ----
+body:not(.recite-unpaid)[data-recite-theme="nocturne"] .protyle-wysiwyg div[custom-recite-cmp-card]::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 12px;
+    right: 12px;
+    height: 14px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='14' viewBox='0 0 28 14'%3E%3Cpath d='M0 10 Q7 0 14 10 Q21 20 28 10' fill='none' stroke='%23c9a86a' stroke-width='1.6'/%3E%3Cpath d='M0 10 Q7 2 14 10 Q21 18 28 10' fill='none' stroke='%23e8d5a0' stroke-width='0.9' opacity='0.9'/%3E%3Ccircle cx='7' cy='4' r='1.6' fill='%23e8d5a0'/%3E%3Ccircle cx='21' cy='4' r='1.6' fill='%23e8d5a0'/%3E%3C/svg%3E") repeat-x center top / 28px 14px;
+    opacity: 0.85;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+}
+body:not(.recite-unpaid)[data-recite-theme="nocturne"] .protyle-wysiwyg div[custom-recite-cmp-card] > div.sb:nth-of-type(2)::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 6px;
+    bottom: 6px;
+    width: 10px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='24' viewBox='0 0 12 24'%3E%3Cpath d='M6 0 Q-2 6 6 12 Q14 18 6 24' fill='none' stroke='%23c9a86a' stroke-width='1.1'/%3E%3Ccircle cx='6' cy='12' r='1.3' fill='%23e8d5a0'/%3E%3C/svg%3E") repeat-y center left / 10px 24px;
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+// （练习文档纸纹·练习态加深层已随 □18 背景库重做退役，2026-08-27：用户实测反馈「编辑器单独
+// 区域与周边有色差反差，对眼睛不舒服」——背景统一归全局背景库一份，练习文档不再单独加深。
+// 原 2026-08-26 的收编语义（装饰三套加深一档仪式感）随之作废，决策记录见
+// docs/research/recite-bg-library/proposals.md §0.1）
+
+// ---- 手动级装饰通道（用户拍板统一手动级，右键菜单入口见 contextMenu） ----
+// 超级块蕾丝 custom-recite-lace：accent 驱动统一款（五套老主题也可用），挂属性实时渲染
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace] {
+    border-inline-start: 3px solid color-mix(in srgb, var(--recite-accent) 55%, transparent);
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--recite-accent-soft), transparent 70%);
+}
+// （单文档背景 custom-recite-bg 三条已随全局纸纹退役，2026-08-26：全局背景铺满视口后，
+// 单文档再挂皮肤纸纹语义重叠且互抢主视觉；存量文档 IAL 上的旧属性值成无害孤儿属性，
+// CSS 侧零命中。决策记录见 docs/research/recite-global-bg/proposals.md）
+
+// ========== 顶栏图标主题色（2026-08-25 用户反馈：跟主题 accent 金色系） ==========
+// 渐进/番茄无 CSS 改色惯例（官方图标原样继承 .toolbar__item 的 --b3-toolbar-color）；recite 独有
+// 通道：思源全局 reset svg{fill:currentColor}，改 color 即改图标颜色。setTopBarIcon 给返回元素挂
+// 本类，特异性 (0,2,0) 压过 .toolbar__item (0,1,0)，不依赖内核生成的元素 id。
+.toolbar__item.recite-topbar-icon {
+    color: var(--recite-accent);
+}
+
+// 顶栏「设置」齿轮按钮：青绿第二主题色（--recite-yours token 首次启用，亮 #2f7d6e / 暗 #5c9c8f，
+// 皮肤映射表里随各皮肤的 yours 档联动）——与笔金色 accent 一金一青一眼可辨
+.toolbar__item.recite-topbar-gear {
+    color: var(--recite-yours);
+}
+
+
+// ========== 判卷小宠物（2026-08-26 □12：柴犬豆豆 / 精灵小盼） ==========
+// 方案唯一事实源：docs/research/recite-pet/proposals.md（vision-deepseek 数值级任务书；帧
+// SVG 按标题锚定提取，data URI 转义经 XML 良构校验）。机制：div.recite-mascot 常驻
+// .recite-floatbar 根内（absolute 贴纸位，随浮条拖动跟随，浮条 --idle 隐藏时同隐）——
+// **常驻待机**（眨眼 sprite + 呼吸摇摆，hover 兴奋摆、click 摸头蹦跳冒爱心）+ 判卷姿态
+// （wait 打盹 → 出分 great/medium/poor 原地放大 1.75 定格 ~1.6s 自动化烟回常驻；AI 回传
+// <pose> 协议行经 stripPoseLine 剥离不污染正文 × 判官等级组合出 gentle-great/strict-poor
+// 特征态 → error 失败）。宠物开着时橘猫/墨兔贴纸经 body:not([data-recite-mascot-off])
+// 让位（猫头位变成真宠物，见段尾规则）。帧组织按方案甲 6 对拍结论：每 pose 独立 data URI
+// 类切换；眨眼走 96×48 双帧 sprite 的 background-position 专轴、呼吸摆动走 transform
+// （两轴互不干扰，□8 贴纸管线同款）。落地简化：方案甲 3「wait 眨眼 sprite（Pro）」的
+// 眨眼在常驻态对两形象通用生效（sprite 帧）；wait 判卷态统一免费单帧 + sway 呼吸，Pro 集
+// = error + 两特征帧。门禁：Pro 帧与 Pro 形象（精灵小盼整体）统一 body:not(.recite-unpaid)
+// 前缀——unpaid 时特征态选择器不命中自然回落成绩基础帧（免费集）、强挂 spirit 属性也
+// 回落豆豆帧；开关 body[data-recite-mascot-off]（settingCfg.reciteMascotOn === false 才挂）
+// 关显示（贴纸随之回归）。
+
+// ---- 帧素材（$m-shiba-* 默认形象免费集 + Pro 特征帧；$m-spirit-* Pro 形象全套） ----
+$m-shiba-idle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 48'%3E%3Cdefs%3E%3Cg id='s'%3E%3Cpath d='M35.2 43.0q4.4 1.2 4.8-2.6q.4-3.2-2.8-3.2q-2.6 0-2.4 2.6q.2 2 2 1.8' fill='none' stroke='%23c98a52' stroke-width='2.1' stroke-linecap='round'/%3E%3Cpath d='M13.6 48V44.9Q13.6 43.4 15.1 42.8L19.5 41.4Q21.8 43.4 24 43.4Q26.2 43.4 28.5 41.4L32.9 42.8Q34.4 43.4 34.4 44.9V48Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2'/%3E%3Cpath d='M21.7 45.3L17.3 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M26.3 45.3L30.7 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='45.3' r='1.9' fill='%23c24b46'/%3E%3Cpath d='M7.4 16.8L10.6 4.2L18.4 14.6Q13.2 17.9 7.4 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M9.3 14.9L11 7.1L15.9 13.9Q12.6 15.6 9.3 14.9Z' fill='%23c98a52'/%3E%3Cpath d='M40.6 16.8L37.4 4.2L29.6 14.6Q34.8 17.9 40.6 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M38.7 14.9L37 7.1L32.1 13.9Q35.4 15.6 38.7 14.9Z' fill='%23c98a52'/%3E%3Cellipse cx='24' cy='29.5' rx='15.8' ry='13.2' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2'/%3E%3Cpath d='M14.5 29.5C14.2 34.5 16 38.3 19.5 40.3C21.5 41.4 22.8 41.6 24 41.6C25.2 41.6 26.5 41.4 28.5 40.3C32 38.3 33.8 34.5 33.5 29.5C31.8 32.8 28.6 34.9 24 34.9C19.4 34.9 16.2 32.8 14.5 29.5Z' fill='%23fdf6ea'/%3E%3Cellipse cx='12.4' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cellipse cx='35.6' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Ccircle cx='16.8' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Ccircle cx='31.2' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Cpath d='M20.4 29.8Q24 29.3 27.6 29.8C27.9 32.2 26.3 34.2 24 34.2C21.7 34.2 20.1 32.2 20.4 29.8Z' fill='%232b2320'/%3E%3Cpath d='M19.9 36Q24 39.9 28.1 36' stroke='%236b3d12' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23s'/%3E%3Cg%3E%3Ccircle cx='17.6' cy='27.6' r='2.7' fill='%233a2413'/%3E%3Ccircle cx='30.4' cy='27.6' r='2.7' fill='%233a2413'/%3E%3Ccircle cx='18.7' cy='26.5' r='.9' fill='%23fff'/%3E%3Ccircle cx='31.5' cy='26.5' r='.9' fill='%23fff'/%3E%3C/g%3E%3Cuse href='%23s' transform='translate(48 0)'/%3E%3Cg transform='translate(48 0)'%3E%3Cpath d='M14.9 28.2Q17.6 30.4 20.3 28.2' stroke='%233a2413' stroke-width='2.3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.7 28.2Q30.4 30.4 33.1 28.2' stroke='%233a2413' stroke-width='2.3' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+$m-shiba-wait: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg transform='rotate(-5 24 28)'%3E%3Cpath d='M33.7 43.0q4.4 1.2 4.8-2.6q.4-3.2-2.8-3.2q-2.6 0-2.4 2.6q.2 2 2 1.8' fill='none' stroke='%23c98a52' stroke-width='2.1' stroke-linecap='round'/%3E%3Cpath d='M13.6 48V44.9Q13.6 43.4 15.1 42.8L19.5 41.4Q21.8 43.4 24 43.4Q26.2 43.4 28.5 41.4L32.9 42.8Q34.4 43.4 34.4 44.9V48Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2'/%3E%3Cpath d='M21.7 45.3L17.3 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M26.3 45.3L30.7 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='45.3' r='1.9' fill='%23c24b46'/%3E%3Cpath d='M7.4 16.8L10.6 4.2L18.4 14.6Q13.2 17.9 7.4 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M9.3 14.9L11 7.1L15.9 13.9Q12.6 15.6 9.3 14.9Z' fill='%23c98a52'/%3E%3Cpath d='M40.6 16.8L37.4 4.2L29.6 14.6Q34.8 17.9 40.6 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M38.7 14.9L37 7.1L32.1 13.9Q35.4 15.6 38.7 14.9Z' fill='%23c98a52'/%3E%3Cellipse cx='24' cy='29.5' rx='15.8' ry='13.2' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2'/%3E%3Cpath d='M14.5 29.5C14.2 34.5 16 38.3 19.5 40.3C21.5 41.4 22.8 41.6 24 41.6C25.2 41.6 26.5 41.4 28.5 40.3C32 38.3 33.8 34.5 33.5 29.5C31.8 32.8 28.6 34.9 24 34.9C19.4 34.9 16.2 32.8 14.5 29.5Z' fill='%23fdf6ea'/%3E%3Cellipse cx='12.4' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cellipse cx='35.6' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Ccircle cx='16.8' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Ccircle cx='31.2' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Cpath d='M14.9 28.2Q17.6 30.4 20.3 28.2' stroke='%233a2413' stroke-width='2.3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.7 28.2Q30.4 30.4 33.1 28.2' stroke='%233a2413' stroke-width='2.3' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='37' r='1.7' fill='%2364300f'/%3E%3Cpath d='M20.4 29.8Q24 29.3 27.6 29.8C27.9 32.2 26.3 34.2 24 34.2C21.7 34.2 20.1 32.2 20.4 29.8Z' fill='%232b2320'/%3E%3C/g%3E%3Ccircle cx='17.5' cy='7' r='1.15' fill='%23b98a4f'/%3E%3Ccircle cx='21' cy='5.4' r='1' fill='%23b98a4f'/%3E%3Ccircle cx='24.5' cy='4.1' r='.85' fill='%23b98a4f'/%3E%3C/svg%3E");
+$m-shiba-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.2 43.0q4.4 1.2 4.8-2.6q.4-3.2-2.8-3.2q-2.6 0-2.4 2.6q.2 2 2 1.8' fill='none' stroke='%23c98a52' stroke-width='2.1' stroke-linecap='round'/%3E%3Cpath d='M13.6 48V44.9Q13.6 43.4 15.1 42.8L19.5 41.4Q21.8 43.4 24 43.4Q26.2 43.4 28.5 41.4L32.9 42.8Q34.4 43.4 34.4 44.9V48Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2'/%3E%3Cpath d='M21.7 45.3L17.3 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M26.3 45.3L30.7 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='45.3' r='1.9' fill='%23c24b46'/%3E%3Cpath d='M7.4 16.8L10.6 4.2L18.4 14.6Q13.2 17.9 7.4 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M9.3 14.9L11 7.1L15.9 13.9Q12.6 15.6 9.3 14.9Z' fill='%23c98a52'/%3E%3Cpath d='M40.6 16.8L37.4 4.2L29.6 14.6Q34.8 17.9 40.6 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M38.7 14.9L37 7.1L32.1 13.9Q35.4 15.6 38.7 14.9Z' fill='%23c98a52'/%3E%3Cellipse cx='24' cy='29.5' rx='15.8' ry='13.2' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2'/%3E%3Cpath d='M14.5 29.5C14.2 34.5 16 38.3 19.5 40.3C21.5 41.4 22.8 41.6 24 41.6C25.2 41.6 26.5 41.4 28.5 40.3C32 38.3 33.8 34.5 33.5 29.5C31.8 32.8 28.6 34.9 24 34.9C19.4 34.9 16.2 32.8 14.5 29.5Z' fill='%23fdf6ea'/%3E%3Cellipse cx='12.4' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cellipse cx='35.6' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Ccircle cx='16.8' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Ccircle cx='31.2' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Cpath d='M15 27.9Q17.6 25.4 20.2 27.9' stroke='%233a2413' stroke-width='2.3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.8 27.9Q30.4 25.4 33 27.9' stroke='%233a2413' stroke-width='2.3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M20.4 29.8Q24 29.3 27.6 29.8C27.9 32.2 26.3 34.2 24 34.2C21.7 34.2 20.1 32.2 20.4 29.8Z' fill='%232b2320'/%3E%3Cpath d='M19.6 35.2Q24 40.8 28.4 35.2Q24 36.9 19.6 35.2Z' fill='%2364300f' stroke='%236b3d12' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='38.2' rx='2.4' ry='1.5' fill='%23ef8a80'/%3E%3Cpath d='M40 8.9l1.7 1.7-1.7 1.7-1.7-1.7z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1' stroke-linejoin='round'/%3E%3Cpath d='M43.2 14.8l1.2 1.2-1.2 1.2-1.2-1.2z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1' stroke-linejoin='round'/%3E%3C/svg%3E");
+$m-shiba-medium: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.2 43.0q4.4 1.2 4.8-2.6q.4-3.2-2.8-3.2q-2.6 0-2.4 2.6q.2 2 2 1.8' fill='none' stroke='%23c98a52' stroke-width='2.1' stroke-linecap='round'/%3E%3Cpath d='M13.6 48V44.9Q13.6 43.4 15.1 42.8L19.5 41.4Q21.8 43.4 24 43.4Q26.2 43.4 28.5 41.4L32.9 42.8Q34.4 43.4 34.4 44.9V48Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2'/%3E%3Cpath d='M21.7 45.3L17.3 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M26.3 45.3L30.7 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='45.3' r='1.9' fill='%23c24b46'/%3E%3Cpath d='M7.4 16.8L10.6 4.2L18.4 14.6Q13.2 17.9 7.4 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M9.3 14.9L11 7.1L15.9 13.9Q12.6 15.6 9.3 14.9Z' fill='%23c98a52'/%3E%3Cpath d='M40.6 16.8L37.4 4.2L29.6 14.6Q34.8 17.9 40.6 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M38.7 14.9L37 7.1L32.1 13.9Q35.4 15.6 38.7 14.9Z' fill='%23c98a52'/%3E%3Cellipse cx='24' cy='29.5' rx='15.8' ry='13.2' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2'/%3E%3Cpath d='M14.5 29.5C14.2 34.5 16 38.3 19.5 40.3C21.5 41.4 22.8 41.6 24 41.6C25.2 41.6 26.5 41.4 28.5 40.3C32 38.3 33.8 34.5 33.5 29.5C31.8 32.8 28.6 34.9 24 34.9C19.4 34.9 16.2 32.8 14.5 29.5Z' fill='%23fdf6ea'/%3E%3Cellipse cx='12.4' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cellipse cx='35.6' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Ccircle cx='16.8' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Ccircle cx='31.2' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Ccircle cx='17.6' cy='27.6' r='2.4' fill='%233a2413'/%3E%3Ccircle cx='30.4' cy='27.6' r='2.4' fill='%233a2413'/%3E%3Cpath d='M20.4 29.8Q24 29.3 27.6 29.8C27.9 32.2 26.3 34.2 24 34.2C21.7 34.2 20.1 32.2 20.4 29.8Z' fill='%232b2320'/%3E%3Cpath d='M20.2 36.5Q24 38.7 27.8 36.5' stroke='%236b3d12' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+$m-shiba-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.2 43.0q4.4 1.2 4.8-2.6q.4-3.2-2.8-3.2q-2.6 0-2.4 2.6q.2 2 2 1.8' fill='none' stroke='%23c98a52' stroke-width='2.1' stroke-linecap='round'/%3E%3Cpath d='M13.6 48V44.9Q13.6 43.4 15.1 42.8L19.5 41.4Q21.8 43.4 24 43.4Q26.2 43.4 28.5 41.4L32.9 42.8Q34.4 43.4 34.4 44.9V48Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2'/%3E%3Cpath d='M21.7 45.3L17.3 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M26.3 45.3L30.7 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='45.3' r='1.9' fill='%23c24b46'/%3E%3Cpath d='M7.4 16.8L10.6 4.2L18.4 14.6Q13.2 17.9 7.4 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M9.3 14.9L11 7.1L15.9 13.9Q12.6 15.6 9.3 14.9Z' fill='%23c98a52'/%3E%3Cpath d='M40.6 16.8L37.4 4.2L29.6 14.6Q34.8 17.9 40.6 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M38.7 14.9L37 7.1L32.1 13.9Q35.4 15.6 38.7 14.9Z' fill='%23c98a52'/%3E%3Cellipse cx='24' cy='29.5' rx='15.8' ry='13.2' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2'/%3E%3Cpath d='M14.5 29.5C14.2 34.5 16 38.3 19.5 40.3C21.5 41.4 22.8 41.6 24 41.6C25.2 41.6 26.5 41.4 28.5 40.3C32 38.3 33.8 34.5 33.5 29.5C31.8 32.8 28.6 34.9 24 34.9C19.4 34.9 16.2 32.8 14.5 29.5Z' fill='%23fdf6ea'/%3E%3Cellipse cx='12.4' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cellipse cx='35.6' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cpath d='M20.4 29.8Q24 29.3 27.6 29.8C27.9 32.2 26.3 34.2 24 34.2C21.7 34.2 20.1 32.2 20.4 29.8Z' fill='%232b2320'/%3E%3Cpath d='M14.7 21.9L20.3 23.5M33.3 21.9L27.7 23.5' stroke='%236b3d12' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='17.6' cy='27.6' r='2.5' fill='%233a2413'/%3E%3Ccircle cx='30.4' cy='27.6' r='2.5' fill='%233a2413'/%3E%3Cpath d='M20.4 39.4Q24 36.8 27.6 39.4' stroke='%236b3d12' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M13.4 30.1q-2 2.7 0 4.3q2-1.5 0-4.3' fill='%238fc6e8'/%3E%3C/svg%3E");
+$m-shiba-error: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.2 43.0q4.4 1.2 4.8-2.6q.4-3.2-2.8-3.2q-2.6 0-2.4 2.6q.2 2 2 1.8' fill='none' stroke='%23c98a52' stroke-width='2.1' stroke-linecap='round'/%3E%3Cpath d='M13.6 48V44.9Q13.6 43.4 15.1 42.8L19.5 41.4Q21.8 43.4 24 43.4Q26.2 43.4 28.5 41.4L32.9 42.8Q34.4 43.4 34.4 44.9V48Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2'/%3E%3Cpath d='M21.7 45.3L17.3 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M26.3 45.3L30.7 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='45.3' r='1.9' fill='%23c24b46'/%3E%3Cpath d='M7.4 16.8L10.6 4.2L18.4 14.6Q13.2 17.9 7.4 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M9.3 14.9L11 7.1L15.9 13.9Q12.6 15.6 9.3 14.9Z' fill='%23c98a52'/%3E%3Cpath d='M40.6 16.8L37.4 4.2L29.6 14.6Q34.8 17.9 40.6 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M38.7 14.9L37 7.1L32.1 13.9Q35.4 15.6 38.7 14.9Z' fill='%23c98a52'/%3E%3Cellipse cx='24' cy='29.5' rx='15.8' ry='13.2' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2'/%3E%3Cpath d='M14.5 29.5C14.2 34.5 16 38.3 19.5 40.3C21.5 41.4 22.8 41.6 24 41.6C25.2 41.6 26.5 41.4 28.5 40.3C32 38.3 33.8 34.5 33.5 29.5C31.8 32.8 28.6 34.9 24 34.9C19.4 34.9 16.2 32.8 14.5 29.5Z' fill='%23fdf6ea'/%3E%3Cellipse cx='12.4' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cellipse cx='35.6' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cpath d='M14.9 20.6Q17.6 18.7 20.3 20.6M33.1 20.6Q30.4 18.7 27.7 20.6' stroke='%236b3d12' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='17.6' cy='27.2' r='3.4' fill='%233a2413'/%3E%3Ccircle cx='30.4' cy='27.2' r='3.4' fill='%233a2413'/%3E%3Ccircle cx='18.9' cy='25.9' r='1' fill='%23fff'/%3E%3Ccircle cx='31.7' cy='25.9' r='1' fill='%23fff'/%3E%3Cellipse cx='24' cy='37.3' rx='2' ry='2.5' fill='%2364300f'/%3E%3Cpath d='M43 9.8q-2 2.7 0 4.3q2-1.5 0-4.3' fill='%238fc6e8'/%3E%3C/svg%3E");
+$m-shiba-gentle-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.2 43.0q4.4 1.2 4.8-2.6q.4-3.2-2.8-3.2q-2.6 0-2.4 2.6q.2 2 2 1.8' fill='none' stroke='%23c98a52' stroke-width='2.1' stroke-linecap='round'/%3E%3Cpath d='M13.6 48V44.9Q13.6 43.4 15.1 42.8L19.5 41.4Q21.8 43.4 24 43.4Q26.2 43.4 28.5 41.4L32.9 42.8Q34.4 43.4 34.4 44.9V48Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2'/%3E%3Cpath d='M21.7 45.3L17.3 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M26.3 45.3L30.7 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='45.3' r='1.9' fill='%23c24b46'/%3E%3Cpath d='M7.4 16.8L10.6 4.2L18.4 14.6Q13.2 17.9 7.4 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M9.3 14.9L11 7.1L15.9 13.9Q12.6 15.6 9.3 14.9Z' fill='%23c98a52'/%3E%3Cpath d='M40.6 16.8L37.4 4.2L29.6 14.6Q34.8 17.9 40.6 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M38.7 14.9L37 7.1L32.1 13.9Q35.4 15.6 38.7 14.9Z' fill='%23c98a52'/%3E%3Cellipse cx='24' cy='29.5' rx='15.8' ry='13.2' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2'/%3E%3Cpath d='M14.5 29.5C14.2 34.5 16 38.3 19.5 40.3C21.5 41.4 22.8 41.6 24 41.6C25.2 41.6 26.5 41.4 28.5 40.3C32 38.3 33.8 34.5 33.5 29.5C31.8 32.8 28.6 34.9 24 34.9C19.4 34.9 16.2 32.8 14.5 29.5Z' fill='%23fdf6ea'/%3E%3Cellipse cx='12.4' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cellipse cx='35.6' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Ccircle cx='16.8' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Ccircle cx='31.2' cy='20.8' r='1.6' fill='%23fdf6ea'/%3E%3Cpath d='M15 27.9Q17.6 25.4 20.2 27.9' stroke='%233a2413' stroke-width='2.3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.8 27.9Q30.4 25.4 33 27.9' stroke='%233a2413' stroke-width='2.3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M20.4 29.8Q24 29.3 27.6 29.8C27.9 32.2 26.3 34.2 24 34.2C21.7 34.2 20.1 32.2 20.4 29.8Z' fill='%232b2320'/%3E%3Cpath d='M19.6 35.2Q24 40.8 28.4 35.2Q24 36.9 19.6 35.2Z' fill='%2364300f' stroke='%236b3d12' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='38.2' rx='2.4' ry='1.5' fill='%23ef8a80'/%3E%3Cpath d='M24 9.4C22.5 6.9 19.2 8 19.8 10.6C20.2 12.2 22.3 13.4 24 14.4C25.7 13.4 27.8 12.2 28.2 10.6C28.8 8 25.5 6.9 24 9.4Z' fill='%23e0574f' stroke='%23a83c34' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M9.9 35.3v2.3M12.1 35.3v2.3M38.1 35.3v2.3M35.9 35.3v2.3' stroke='%2374481b' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='11' cy='37.4' r='3' fill='%23eeb26b' stroke='%2374481b' stroke-width='1.9'/%3E%3Ccircle cx='37' cy='37.4' r='3' fill='%23eeb26b' stroke='%2374481b' stroke-width='1.9'/%3E%3C/svg%3E");
+$m-shiba-strict-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.2 43.0q4.4 1.2 4.8-2.6q.4-3.2-2.8-3.2q-2.6 0-2.4 2.6q.2 2 2 1.8' fill='none' stroke='%23c98a52' stroke-width='2.1' stroke-linecap='round'/%3E%3Cpath d='M13.6 48V44.9Q13.6 43.4 15.1 42.8L19.5 41.4Q21.8 43.4 24 43.4Q26.2 43.4 28.5 41.4L32.9 42.8Q34.4 43.4 34.4 44.9V48Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2'/%3E%3Cpath d='M21.7 45.3L17.3 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M26.3 45.3L30.7 42.8V47.8Z' fill='%23e0605c' stroke='%238a3a34' stroke-width='1.8' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='45.3' r='1.9' fill='%23c24b46'/%3E%3Cpath d='M7.4 16.8L10.6 4.2L18.4 14.6Q13.2 17.9 7.4 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M9.3 14.9L11 7.1L15.9 13.9Q12.6 15.6 9.3 14.9Z' fill='%23c98a52'/%3E%3Cpath d='M40.6 16.8L37.4 4.2L29.6 14.6Q34.8 17.9 40.6 16.8Z' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M38.7 14.9L37 7.1L32.1 13.9Q35.4 15.6 38.7 14.9Z' fill='%23c98a52'/%3E%3Cellipse cx='24' cy='29.5' rx='15.8' ry='13.2' fill='%23eeb26b' stroke='%2374481b' stroke-width='2.2'/%3E%3Cpath d='M14.5 29.5C14.2 34.5 16 38.3 19.5 40.3C21.5 41.4 22.8 41.6 24 41.6C25.2 41.6 26.5 41.4 28.5 40.3C32 38.3 33.8 34.5 33.5 29.5C31.8 32.8 28.6 34.9 24 34.9C19.4 34.9 16.2 32.8 14.5 29.5Z' fill='%23fdf6ea'/%3E%3Cellipse cx='12.4' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cellipse cx='35.6' cy='33.6' rx='4.4' ry='2.7' fill='%23f0968c' opacity='.55'/%3E%3Cpath d='M20.4 29.8Q24 29.3 27.6 29.8C27.9 32.2 26.3 34.2 24 34.2C21.7 34.2 20.1 32.2 20.4 29.8Z' fill='%232b2320'/%3E%3Cpath d='M14.4 23L20.4 24.3M33.6 23L27.6 24.3' stroke='%234a2c10' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='17.6' cy='28' r='3' fill='%233a2413'/%3E%3Ccircle cx='30.4' cy='28' r='3' fill='%233a2413'/%3E%3Cpath d='M20.3 39.7Q24 37.2 27.7 39.7' stroke='%236b3d12' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M42.6 4.9v6.2M39.5 8h6.2' stroke='%23c0392b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+$m-spirit-idle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 48'%3E%3Cg transform='translate(0 0)'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cellipse cx='18.5' cy='27.5' rx='2.9' ry='3.4' fill='%234a2f3a'/%3E%3Ccircle cx='19.6' cy='25.7' r='1.15' fill='%23fff'/%3E%3Ccircle cx='17.6' cy='29.4' r='.6' fill='%23fff'/%3E%3Cellipse cx='29.5' cy='27.5' rx='2.9' ry='3.4' fill='%234a2f3a'/%3E%3Ccircle cx='30.6' cy='25.7' r='1.15' fill='%23fff'/%3E%3Ccircle cx='28.6' cy='29.4' r='.6' fill='%23fff'/%3E%3Cpath d='M21.8 33 Q24 35.2 26.2 33' stroke='%23c25b6b' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.7'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.7'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3C/g%3E%3Cg transform='translate(48 0)'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cpath d='M16.4 28 Q18.6 30 20.8 28' stroke='%234a2f3a' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.2 28 Q29.4 30 31.6 28' stroke='%234a2f3a' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M21.8 33 Q24 35.2 26.2 33' stroke='%23c25b6b' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.7'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.7'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E");
+$m-spirit-wait: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg transform='rotate(-6 24 28)'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cpath d='M16.6 28 Q18.6 29.4 20.6 28' stroke='%234a2f3a' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.4 28 Q29.4 29.4 31.4 28' stroke='%234a2f3a' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M21.8 33.4 L26.2 33.4' stroke='%23c25b6b' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.6'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.6'/%3E%3C/g%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3Ccircle cx='14.5' cy='7.2' r='2' fill='%237d5b73'/%3E%3Ccircle cx='8.9' cy='8.9' r='1' fill='%237d5b73'/%3E%3Ccircle cx='6.6' cy='11.6' r='.85' fill='%237d5b73'/%3E%3C/svg%3E");
+$m-spirit-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cpath d='M16.2 27 Q18.5 24.8 20.8 27' stroke='%234a2f3a' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.2 27 Q29.5 24.8 31.8 27' stroke='%234a2f3a' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M20.8 32.6 Q22.3 35 24 35 Q25.7 35 27.2 32.6 Z' fill='%23c98a90' stroke='%23a2566a' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M22.6 34.6 Q24 35.8 25.4 34.6' fill='%23e98a86'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.85'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.85'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3Cpath d='M37 14 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3C/svg%3E");
+$m-spirit-medium: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cellipse cx='18.5' cy='27.5' rx='2.6' ry='3.1' fill='%234a2f3a'/%3E%3Ccircle cx='19.4' cy='26' r='1' fill='%23fff'/%3E%3Cellipse cx='29.5' cy='27.5' rx='2.6' ry='3.1' fill='%234a2f3a'/%3E%3Ccircle cx='30.4' cy='26' r='1' fill='%23fff'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.65'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.65'/%3E%3Cpath d='M22 33.4 L26 33.4' stroke='%23c25b6b' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3C/svg%3E");
+$m-spirit-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cpath d='M15.4 22 L19.8 23' stroke='%236f3d53' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M32.6 22 L28.2 23' stroke='%236f3d53' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M16.4 29.4 Q18.5 27.6 20.6 29.4' stroke='%234a2f3a' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.4 29.4 Q29.5 27.6 31.6 29.4' stroke='%234a2f3a' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M21.6 34.6 Q24 33 26.4 34.6' stroke='%23c25b6b' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cpath d='M17 30.6 q-1.4 2.2 0 3.3 q1.5 -1.1 0 -3.3' fill='%238fc6e8'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.4'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.4'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3C/svg%3E");
+$m-spirit-error: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cpath d='M15.4 21.4 Q18 19.4 20.4 21.4' stroke='%236f3d53' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M32.6 21.4 Q30 19.4 27.6 21.4' stroke='%236f3d53' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='18.5' cy='27.5' rx='2.9' ry='3.4' fill='%234a2f3a'/%3E%3Ccircle cx='19.6' cy='25.7' r='1.3' fill='%23fff'/%3E%3Cellipse cx='29.5' cy='27.5' rx='2.9' ry='3.4' fill='%234a2f3a'/%3E%3Ccircle cx='30.6' cy='25.7' r='1.3' fill='%23fff'/%3E%3Cellipse cx='24' cy='34.6' rx='1.7' ry='1.9' fill='%23a2664a'/%3E%3Cpath d='M6 5 q-1.6 2.4 0 3.6 q1.7 -1.2 0 -3.6' fill='%238fc6e8'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.7'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.7'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3C/svg%3E");
+$m-spirit-gentle-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cpath d='M16.2 27 Q18.5 24.8 20.8 27' stroke='%234a2f3a' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.2 27 Q29.5 24.8 31.8 27' stroke='%234a2f3a' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M20.8 32.6 Q22.3 35 24 35 Q25.7 35 27.2 32.6 Z' fill='%23c98a90' stroke='%23a2566a' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M22.6 34.6 Q24 35.8 25.4 34.6' fill='%23e98a86'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.9'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.9'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3Cpath d='M24 9.4C22.5 6.9 19.2 8 19.8 10.6C20.2 12.2 22.3 13.4 24 14.4C25.7 13.4 27.8 12.2 28.2 10.6C28.8 8 25.5 6.9 24 9.4Z' fill='%23e0574f' stroke='%23a83c34' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M13.1 38.3v2M15 38.3v2M34.9 38.3v2M33 38.3v2' stroke='%23a2664a' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='14' cy='40.4' r='2.8' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='1.8'/%3E%3Ccircle cx='34' cy='40.4' r='2.8' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='1.8'/%3E%3C/svg%3E");
+$m-spirit-strict-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cpath d='M15.2 22 L20.2 22.8' stroke='%236f3d53' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M32.8 22 L27.8 22.8' stroke='%236f3d53' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='18.5' cy='27' r='2.9' fill='%234a2f3a'/%3E%3Ccircle cx='29.5' cy='27' r='2.9' fill='%234a2f3a'/%3E%3Ccircle cx='19.7' cy='25.6' r='1.05' fill='%23fff'/%3E%3Ccircle cx='30.7' cy='25.6' r='1.05' fill='%23fff'/%3E%3Cpath d='M21 34.4 Q24 32.8 27 34.4' stroke='%23c25b6b' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='13.4' cy='33' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.6'/%3E%3Cellipse cx='34.6' cy='33' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.6'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3C/svg%3E");
+// pat 变身帧（2026-08-26 □16，vision-deepseek 定稿）：小盼展翅全身像——头部缩至 ~63%
+// 上移 + A 字精灵裙 + 肤色欢呼手臂 + 背后每侧三羽半透明米白翅（金描边）+ 三颗小金星。
+// 唯一消费方 = spirit pat 组（click 变身演出切帧 + scale 放大定格看翅膀）
+$m-spirit-pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3Cg id='pw'%3E%3Cpath d='M13.2 26.4C8 23 5 17.2 4.4 10.2C7.4 12.6 9.8 15.8 11.4 19.8C11.2 14.6 12.2 10.2 14.2 6.8C15.1 12.4 15 18.4 13.6 23.8Z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpath d='M12.1 22.2C9.3 19.6 7.3 15.9 6.4 12' fill='none' stroke='%23c99a2f' stroke-width='1.3' stroke-linecap='round'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23pw'/%3E%3Cuse href='%23pw' transform='matrix(-1 0 0 1 48 0)'/%3E%3Cpath d='M9.1 47C9.8 38.6 15.4 34.4 24 34.4C32.6 34.4 38.2 38.6 38.9 47Z' fill='%23c98a90' stroke='%23a2566a' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M11 25 C11 15 17 10 24 10 C31 10 37 15 37 25 C33 19 30 17 24 17 C18 17 15 19 11 25 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M12.6 24.9L4.4 22.9L11.6 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M35.4 24.9L43.6 22.9L36.4 30.1Z' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11 22 C7 30 7 36 9 40 L13 40 C11 36 11 31 13 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cpath d='M37 22 C41 30 41 36 39 40 L35 40 C37 36 37 31 35 26 Z' fill='%239c5a70' stroke='%236f3d53' stroke-width='2'/%3E%3Cellipse cx='24' cy='28' rx='13' ry='12' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='2.2'/%3E%3Cpath d='M16.2 27 Q18.5 24.8 20.8 27' stroke='%234a2f3a' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M27.2 27 Q29.5 24.8 31.8 27' stroke='%234a2f3a' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M20.8 32.6 Q22.3 35 24 35 Q25.7 35 27.2 32.6 Z' fill='%23c98a90' stroke='%23a2566a' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M22.6 34.6 Q24 35.8 25.4 34.6' fill='%23e98a86'/%3E%3Cellipse cx='13.4' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.85'/%3E%3Cellipse cx='34.6' cy='31' rx='4.4' ry='2.4' fill='%23ffb0bd' opacity='0.85'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E%3Cpath d='M33 12 l1.1 2 l2.3 0.3 l-1.7 1.6 l0.4 2.3 l-2.1 -1.1 l-2.1 1.1 l0.4 -2.3 l-1.7 -1.6 l2.3 -0.3 z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1'/%3E transform='translate(7 -6.6)' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='.9'/%3E%3Cpath d='M13.2 38.6Q11.4 36.4 11 34.4' stroke='%23ffe7dd' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='10.6' cy='33.2' r='2.2' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='1.3'/%3E%3Cpath d='M34.8 38.6Q36.6 36.4 37 34.4' stroke='%23ffe7dd' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='37.4' cy='33.2' r='2.2' fill='%23ffe7dd' stroke='%23a2664a' stroke-width='1.3'/%3E%3C/svg%3E");
+
+// ---- □26 宠物形象扩容：雪团/博士/豆芽 26 帧（提取契约与自验记录见 rework-26.md）----
+// ---- 雪团（白兔，免费形象） □26 新增（docs/research/recite-pet/rework-26.md）----
+$m-snow-idle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 48'%3E%3Cdefs%3E%3Cg id='n'%3E%3Cpath d='M11.6 48Q11.6 41.6 17 40.4L31 40.4Q36.4 41.6 36.4 48Z' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2'/%3E%3Cellipse cx='13.6' cy='13.4' rx='4.3' ry='11.8' transform='rotate(-6 13.6 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='13.9' cy='14.1' rx='2.1' ry='8.5' transform='rotate(-6 13.9 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='34.4' cy='13.4' rx='4.3' ry='11.8' transform='rotate(6 34.4 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='34.1' cy='14.1' rx='2.1' ry='8.5' transform='rotate(6 34.1 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='24' cy='30.5' rx='12.6' ry='10.2' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='12.7' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.62'/%3E%3Cellipse cx='35.3' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.62'/%3E%3Ccircle cx='24' cy='33.1' r='1.75' fill='%23ef93a0'/%3E%3Cpath d='M24 34.85V36.3M24 36.3Q22.6 37.9 21.2 36.9M24 36.3Q25.4 37.9 26.8 36.9' fill='none' stroke='%235b4e44' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23n'/%3E%3Cg%3E%3Ccircle cx='17.8' cy='28.9' r='2.7' fill='%23463a32'/%3E%3Ccircle cx='30.2' cy='28.9' r='2.7' fill='%23463a32'/%3E%3Ccircle cx='18.9' cy='27.8' r='1.05' fill='%23fff'/%3E%3Ccircle cx='31.3' cy='27.8' r='1.05' fill='%23fff'/%3E%3C/g%3E%3Cuse href='%23n' transform='translate(48 0)'/%3E%3Cg transform='translate(48 0)'%3E%3Cpath d='M15.2 29.5Q17.9 31.6 20.6 29.5M27.4 29.5Q30.1 31.6 32.8 29.5' fill='none' stroke='%23463a32' stroke-width='2.3' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+$m-snow-wait: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg transform='rotate(-5 24 28)'%3E%3Cpath d='M11.6 48Q11.6 41.6 17 40.4L31 40.4Q36.4 41.6 36.4 48Z' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2'/%3E%3Cellipse cx='13.6' cy='13.4' rx='4.3' ry='11.8' transform='rotate(-6 13.6 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='13.9' cy='14.1' rx='2.1' ry='8.5' transform='rotate(-6 13.9 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='34.4' cy='13.4' rx='4.3' ry='11.8' transform='rotate(6 34.4 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='34.1' cy='14.1' rx='2.1' ry='8.5' transform='rotate(6 34.1 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='24' cy='30.5' rx='12.6' ry='10.2' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='12.7' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.55'/%3E%3Cellipse cx='35.3' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.55'/%3E%3Ccircle cx='24' cy='33.1' r='1.75' fill='%23ef93a0'/%3E%3Ccircle cx='24' cy='37.3' r='1.35' fill='%23463a32'/%3E%3Cpath d='M15.2 29.5Q17.9 27.4 20.6 29.5M27.4 29.5Q30.1 27.4 32.8 29.5' fill='none' stroke='%23463a32' stroke-width='2.3' stroke-linecap='round'/%3E%3C/g%3E%3Ccircle cx='19.6' cy='7.4' r='1.15' fill='%23ab9f92'/%3E%3Ccircle cx='23.2' cy='5.5' r='1' fill='%23ab9f92'/%3E%3Ccircle cx='26.6' cy='4.1' r='.85' fill='%23ab9f92'/%3E%3C/svg%3E");
+$m-snow-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11.6 48Q11.6 41.6 17 40.4L31 40.4Q36.4 41.6 36.4 48Z' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2'/%3E%3Cellipse cx='13.6' cy='13.4' rx='4.3' ry='11.8' transform='rotate(-6 13.6 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='13.9' cy='14.1' rx='2.1' ry='8.5' transform='rotate(-6 13.9 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='34.4' cy='13.4' rx='4.3' ry='11.8' transform='rotate(6 34.4 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='34.1' cy='14.1' rx='2.1' ry='8.5' transform='rotate(6 34.1 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='24' cy='30.5' rx='12.6' ry='10.2' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='12.7' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.7'/%3E%3Cellipse cx='35.3' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.7'/%3E%3Ccircle cx='24' cy='33.1' r='1.75' fill='%23ef93a0'/%3E%3Cpath d='M21.6 36.7Q24 40.9 26.4 36.7Q24 38.1 21.6 36.7Z' fill='%235b4e44' stroke='%23463a32' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='38.6' rx='2.1' ry='1.3' fill='%23f39a9a'/%3E%3Cpath d='M15.2 28.9Q17.9 26.799999999999997 20.6 28.9M27.4 28.9Q30.1 26.799999999999997 32.8 28.9' fill='none' stroke='%23463a32' stroke-width='2.3' stroke-linecap='round'/%3E%3Cpath d='M40.2 6.3999999999999995l1.7 1.7-1.7 1.7-1.7-1.7z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M43.4 12.5l1.2 1.2-1.2 1.2-1.2-1.2z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E");
+$m-snow-medium: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11.6 48Q11.6 41.6 17 40.4L31 40.4Q36.4 41.6 36.4 48Z' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2'/%3E%3Cellipse cx='13.6' cy='13.4' rx='4.3' ry='11.8' transform='rotate(-6 13.6 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='13.9' cy='14.1' rx='2.1' ry='8.5' transform='rotate(-6 13.9 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='34.4' cy='13.4' rx='4.3' ry='11.8' transform='rotate(6 34.4 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='34.1' cy='14.1' rx='2.1' ry='8.5' transform='rotate(6 34.1 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='24' cy='30.5' rx='12.6' ry='10.2' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='12.7' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.62'/%3E%3Cellipse cx='35.3' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.62'/%3E%3Ccircle cx='24' cy='33.1' r='1.75' fill='%23ef93a0'/%3E%3Ccircle cx='17.8' cy='28.9' r='2.3' fill='%23463a32'/%3E%3Ccircle cx='30.2' cy='28.9' r='2.3' fill='%23463a32'/%3E%3Cpath d='M21 36.7Q24 38.5 27 36.7' fill='none' stroke='%235b4e44' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+$m-snow-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11.6 48Q11.6 41.6 17 40.4L31 40.4Q36.4 41.6 36.4 48Z' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2'/%3E%3Cellipse cx='13.6' cy='13.4' rx='4.3' ry='11.8' transform='rotate(-6 13.6 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='13.9' cy='14.1' rx='2.1' ry='8.5' transform='rotate(-6 13.9 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='34.4' cy='13.4' rx='4.3' ry='11.8' transform='rotate(6 34.4 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='34.1' cy='14.1' rx='2.1' ry='8.5' transform='rotate(6 34.1 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='24' cy='30.5' rx='12.6' ry='10.2' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='12.7' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.45'/%3E%3Cellipse cx='35.3' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.45'/%3E%3Ccircle cx='24' cy='33.1' r='1.75' fill='%23ef93a0'/%3E%3Cpath d='M20.7 39.4Q24 37.1 27.3 39.4' fill='none' stroke='%235b4e44' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M14.9 23.1L20.3 24.6M33.1 23.1L27.7 24.6' stroke='%23463a32' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='17.8' cy='28.9' r='2.45' fill='%23463a32'/%3E%3Ccircle cx='30.2' cy='28.9' r='2.45' fill='%23463a32'/%3E%3Cpath d='M13.2 30.8q-2 2.7 0 4.3q2-1.5 0-4.3' fill='%238fc6e8'/%3E%3C/svg%3E");
+$m-snow-error: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11.6 48Q11.6 41.6 17 40.4L31 40.4Q36.4 41.6 36.4 48Z' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2'/%3E%3Cellipse cx='13.6' cy='13.4' rx='4.3' ry='11.8' transform='rotate(-6 13.6 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='13.9' cy='14.1' rx='2.1' ry='8.5' transform='rotate(-6 13.9 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='34.4' cy='13.4' rx='4.3' ry='11.8' transform='rotate(6 34.4 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='34.1' cy='14.1' rx='2.1' ry='8.5' transform='rotate(6 34.1 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='24' cy='30.5' rx='12.6' ry='10.2' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='12.7' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.55'/%3E%3Cellipse cx='35.3' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.55'/%3E%3Ccircle cx='24' cy='33.1' r='1.75' fill='%23ef93a0'/%3E%3Cellipse cx='24' cy='37.7' rx='1.95' ry='2.45' fill='%23463a32'/%3E%3Cpath d='M15.2 21.4Q17.9 19.4 20.6 21.4M32.8 21.4Q30.1 19.4 27.4 21.4' fill='none' stroke='%23463a32' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='17.8' cy='28.9' r='3.25' fill='%23463a32'/%3E%3Ccircle cx='30.2' cy='28.9' r='3.25' fill='%23463a32'/%3E%3Ccircle cx='18.9' cy='27.8' r='1.05' fill='%23fff'/%3E%3Ccircle cx='31.3' cy='27.8' r='1.05' fill='%23fff'/%3E%3Cpath d='M43.8 6.8q-2 2.7 0 4.3q2-1.5 0-4.3' fill='%238fc6e8'/%3E%3C/svg%3E");
+$m-snow-gentle-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11.6 48Q11.6 41.6 17 40.4L31 40.4Q36.4 41.6 36.4 48Z' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2'/%3E%3Cellipse cx='13.6' cy='13.4' rx='4.3' ry='11.8' transform='rotate(-6 13.6 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='13.9' cy='14.1' rx='2.1' ry='8.5' transform='rotate(-6 13.9 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='34.4' cy='13.4' rx='4.3' ry='11.8' transform='rotate(6 34.4 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='34.1' cy='14.1' rx='2.1' ry='8.5' transform='rotate(6 34.1 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='24' cy='30.5' rx='12.6' ry='10.2' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='12.7' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.72'/%3E%3Cellipse cx='35.3' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.72'/%3E%3Ccircle cx='24' cy='33.1' r='1.75' fill='%23ef93a0'/%3E%3Cpath d='M21.6 36.7Q24 40.9 26.4 36.7Q24 38.1 21.6 36.7Z' fill='%235b4e44' stroke='%23463a32' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='38.6' rx='2.1' ry='1.3' fill='%23f39a9a'/%3E%3Cpath d='M15.2 28.9Q17.9 26.799999999999997 20.6 28.9M27.4 28.9Q30.1 26.799999999999997 32.8 28.9' fill='none' stroke='%23463a32' stroke-width='2.3' stroke-linecap='round'/%3E%3Cpath d='M24 9.4C22.5 6.9 19.2 8 19.8 10.6C20.2 12.2 22.3 13.4 24 14.4C25.7 13.4 27.8 12.2 28.2 10.6C28.8 8 25.5 6.9 24 9.4Z' fill='%23e0574f' stroke='%23a83c34' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M8.2 37.1v2M10.2 37.1v2M39.8 37.1v2M37.8 37.1v2' stroke='%236d6057' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='9.2' cy='38.9' r='2.9' fill='%23fdf9f1' stroke='%236d6057' stroke-width='1.9'/%3E%3Ccircle cx='38.8' cy='38.9' r='2.9' fill='%23fdf9f1' stroke='%236d6057' stroke-width='1.9'/%3E%3C/svg%3E");
+$m-snow-strict-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M11.6 48Q11.6 41.6 17 40.4L31 40.4Q36.4 41.6 36.4 48Z' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2'/%3E%3Cellipse cx='13.6' cy='13.4' rx='4.3' ry='11.8' transform='rotate(-6 13.6 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='13.9' cy='14.1' rx='2.1' ry='8.5' transform='rotate(-6 13.9 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='34.4' cy='13.4' rx='4.3' ry='11.8' transform='rotate(6 34.4 13.4)' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='34.1' cy='14.1' rx='2.1' ry='8.5' transform='rotate(6 34.1 14.1)' fill='%23f6bfc2'/%3E%3Cellipse cx='24' cy='30.5' rx='12.6' ry='10.2' fill='%23fdf9f1' stroke='%236d6057' stroke-width='2.2'/%3E%3Cellipse cx='12.7' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.5'/%3E%3Cellipse cx='35.3' cy='32.7' rx='4.4' ry='2.7' fill='%23f7a49e' opacity='.5'/%3E%3Ccircle cx='24' cy='33.1' r='1.75' fill='%23ef93a0'/%3E%3Cpath d='M20.6 39.7Q24 37.2 27.4 39.7' fill='none' stroke='%235b4e44' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M14.6 23.6L20.6 25M33.4 23.6L27.4 25' stroke='%23463a32' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='17.8' cy='28.9' r='3' fill='%23463a32'/%3E%3Ccircle cx='30.2' cy='28.9' r='3' fill='%23463a32'/%3E%3Cpath d='M42.6 4.9v6.2M39.5 8.0h6.2' stroke='%23c0392b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+
+// ---- 博士（灰林鸮，Pro 形象） □26 新增（docs/research/recite-pet/rework-26.md）----
+$m-owl-idle: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2096%2048'%3E%3Cdefs%3E%3Cg%20id='o'%3E%3Cellipse%20cx='24'%20cy='32.6'%20rx='14.6'%20ry='15.6'%20fill='%238fa3b8'%20stroke='%233a4b61'%20stroke-width='2.2'/%3E%3Cpath%20d='M7.6%2022.3L12.3%2010.9L17.5%2020.4Z'%20fill='%238fa3b8'%20stroke='%233a4b61'%20stroke-width='2'%20stroke-linejoin='round'/%3E%3Cpath%20d='M40.4%2022.3L35.7%2010.9L30.5%2020.4Z'%20fill='%238fa3b8'%20stroke='%233a4b61'%20stroke-width='2'%20stroke-linejoin='round'/%3E%3Cpath%20d='M24%2033.9C18.9%2036%2013.5%2034.1%2012.3%2029.7C11.1%2025.4%2014.6%2020.5%2019.3%2020.2C21.3%2020.1%2023.1%2021.4%2024%2023.2C24.9%2021.4%2026.7%2020.1%2028.7%2020.2C33.4%2020.5%2036.9%2025.4%2035.7%2029.7C34.5%2034.1%2029.1%2036%2024%2033.9Z'%20fill='%23fdf8ec'/%3E%3Cellipse%20cx='13.4'%20cy='31.4'%20rx='3.9'%20ry='2.4'%20fill='%23efa39b'%20opacity='.55'/%3E%3Cellipse%20cx='34.6'%20cy='31.4'%20rx='3.9'%20ry='2.4'%20fill='%23efa39b'%20opacity='.55'/%3E%3Cpath%20d='M21.9%2030.4L26.1%2030.4L24%2033.8Z'%20fill='%23eba03f'%20stroke='%23a56a1e'%20stroke-width='1.6'%20stroke-linejoin='round'/%3E%3Cpath%20d='M24%205.8L38.4%2012L24%2018.2L9.6%2012Z'%20fill='%2346628a'%20stroke='%23263a52'%20stroke-width='2.2'%20stroke-linejoin='round'/%3E%3Cpath%20d='M25.1%2010.9Q32.1%2012.3%2032.7%2017.5'%20fill='none'%20stroke='%23dbb04c'%20stroke-width='1.8'%20stroke-linecap='round'/%3E%3Ccircle%20cx='32.9'%20cy='19.3'%20r='1.65'%20fill='%23dbb04c'/%3E%3Ccircle%20cx='24'%20cy='12'%20r='1.35'%20fill='%23263a52'/%3E%3C/g%3E%3C/defs%3E%3Cuse%20href='%23o'/%3E%3Ccircle%20cx='18.4'%20cy='26.1'%20r='3.65'%20fill='%23e9b84e'%20stroke='%233a4b61'%20stroke-width='2'/%3E%3Ccircle%20cx='29.6'%20cy='26.1'%20r='3.65'%20fill='%23e9b84e'%20stroke='%233a4b61'%20stroke-width='2'/%3E%3Ccircle%20cx='18.4'%20cy='26.1'%20r='1.55'%20fill='%2333302c'/%3E%3Ccircle%20cx='19.4'%20cy='25'%20r='.8'%20fill='%23fff'/%3E%3Ccircle%20cx='29.6'%20cy='26.1'%20r='1.55'%20fill='%2333302c'/%3E%3Ccircle%20cx='30.6'%20cy='25'%20r='.8'%20fill='%23fff'/%3E%3Cuse%20href='%23o'%20transform='translate(48%200)'/%3E%3Cg%20transform='translate(48%200)'%3E%3Cpath%20d='M15.3%2026.6Q18.4%2028.8%2021.5%2026.6M26.5%2026.6Q29.6%2028.8%2032.7%2026.6'%20fill='none'%20stroke='%233a4b61'%20stroke-width='2.3'%20stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+$m-owl-wait: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg transform='rotate(-5 24 28)'%3E%3Cellipse cx='24' cy='32.6' rx='14.6' ry='15.6' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2.2'/%3E%3Cpath d='M7.6 22.3L12.3 10.9L17.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M40.4 22.3L35.7 10.9L30.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M24 33.9C18.9 36 13.5 34.1 12.3 29.7C11.1 25.4 14.6 20.5 19.3 20.2C21.3 20.1 23.1 21.4 24 23.2C24.9 21.4 26.7 20.1 28.7 20.2C33.4 20.5 36.9 25.4 35.7 29.7C34.5 34.1 29.1 36 24 33.9Z' fill='%23fdf8ec'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Ccircle cx='18.4' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='29.6' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='18.4' cy='27.8' r='1.15' fill='%2333302c'/%3E%3Ccircle cx='29.6' cy='27.8' r='1.15' fill='%2333302c'/%3E%3Cpath d='M15.399999999999999 28.4h6' stroke='%233a4b61' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M26.6 28.4h6' stroke='%233a4b61' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M21.9 30.4L26.1 30.4L24 33.8Z' fill='%23eba03f' stroke='%23a56a1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M24 5.8L38.4 12L24 18.2L9.6 12Z' fill='%2346628a' stroke='%23263a52' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M25.1 10.9Q32.1 12.3 32.7 17.5' fill='none' stroke='%23dbb04c' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='32.9' cy='19.3' r='1.65' fill='%23dbb04c'/%3E%3Ccircle cx='24' cy='12' r='1.35' fill='%23263a52'/%3E%3C/g%3E%3Ccircle cx='35.9' cy='4.9' r='1.05' fill='%238ba0b5'/%3E%3Ccircle cx='39.1' cy='3.2' r='.9' fill='%238ba0b5'/%3E%3Ccircle cx='42.1' cy='1.9' r='.75' fill='%238ba0b5'/%3E%3C/svg%3E");
+$m-owl-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cellipse cx='24' cy='32.6' rx='14.6' ry='15.6' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2.2'/%3E%3Cpath d='M7.6 22.3L12.3 10.9L17.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M40.4 22.3L35.7 10.9L30.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M24 33.9C18.9 36 13.5 34.1 12.3 29.7C11.1 25.4 14.6 20.5 19.3 20.2C21.3 20.1 23.1 21.4 24 23.2C24.9 21.4 26.7 20.1 28.7 20.2C33.4 20.5 36.9 25.4 35.7 29.7C34.5 34.1 29.1 36 24 33.9Z' fill='%23fdf8ec'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Ccircle cx='18.4' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='29.6' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Cpath d='M18.4 24.35l1.25 1.75-1.25 1.75-1.25-1.75z' fill='%23fffdf4'/%3E%3Cpath d='M29.6 24.35l1.25 1.75-1.25 1.75-1.25-1.75z' fill='%23fffdf4'/%3E%3Cpath d='M21.9 30.4L26.1 30.4L24 33.8Z' fill='%23eba03f' stroke='%23a56a1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M24 5.8L38.4 12L24 18.2L9.6 12Z' fill='%2346628a' stroke='%23263a52' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M25.1 10.9Q32.1 12.3 32.7 17.5' fill='none' stroke='%23dbb04c' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='32.9' cy='19.3' r='1.65' fill='%23dbb04c'/%3E%3Ccircle cx='24' cy='12' r='1.35' fill='%23263a52'/%3E%3Cpath d='M41.6 4.95l1.45 1.45-1.45 1.45-1.45-1.45z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M44.6 10.85l1.05 1.05-1.05 1.05-1.05-1.05z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E");
+$m-owl-medium: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cellipse cx='24' cy='32.6' rx='14.6' ry='15.6' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2.2'/%3E%3Cpath d='M7.6 22.3L12.3 10.9L17.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M40.4 22.3L35.7 10.9L30.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M24 33.9C18.9 36 13.5 34.1 12.3 29.7C11.1 25.4 14.6 20.5 19.3 20.2C21.3 20.1 23.1 21.4 24 23.2C24.9 21.4 26.7 20.1 28.7 20.2C33.4 20.5 36.9 25.4 35.7 29.7C34.5 34.1 29.1 36 24 33.9Z' fill='%23fdf8ec'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Ccircle cx='18.4' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='29.6' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='18.4' cy='26.1' r='1.55' fill='%2333302c'/%3E%3Ccircle cx='29.6' cy='26.1' r='1.55' fill='%2333302c'/%3E%3Cpath d='M21.9 30.4L26.1 30.4L24 33.8Z' fill='%23eba03f' stroke='%23a56a1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M24 5.8L38.4 12L24 18.2L9.6 12Z' fill='%2346628a' stroke='%23263a52' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M25.1 10.9Q32.1 12.3 32.7 17.5' fill='none' stroke='%23dbb04c' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='32.9' cy='19.3' r='1.65' fill='%23dbb04c'/%3E%3Ccircle cx='24' cy='12' r='1.35' fill='%23263a52'/%3E%3C/svg%3E");
+$m-owl-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cellipse cx='24' cy='32.6' rx='14.6' ry='15.6' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2.2'/%3E%3Cpath d='M7.6 22.3L12.3 10.9L17.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M40.4 22.3L35.7 10.9L30.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M24 33.9C18.9 36 13.5 34.1 12.3 29.7C11.1 25.4 14.6 20.5 19.3 20.2C21.3 20.1 23.1 21.4 24 23.2C24.9 21.4 26.7 20.1 28.7 20.2C33.4 20.5 36.9 25.4 35.7 29.7C34.5 34.1 29.1 36 24 33.9Z' fill='%23fdf8ec'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cpath d='M15.3 21.2L19.7 23.2M32.7 21.2L28.3 23.2' stroke='%233a4b61' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='18.4' cy='26.1' r='3.4' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='29.6' cy='26.1' r='3.4' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='18.4' cy='27.8' r='1.35' fill='%2333302c'/%3E%3Ccircle cx='29.6' cy='27.8' r='1.35' fill='%2333302c'/%3E%3Cpath d='M16.099999999999998 29.6Q18.4 30.9 20.7 29.6' fill='none' stroke='%238fc6e8' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M27.3 29.6Q29.6 30.9 31.900000000000002 29.6' fill='none' stroke='%238fc6e8' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M21.9 30.4L26.1 30.4L24 33.8Z' fill='%23eba03f' stroke='%23a56a1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.4'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.4'/%3E%3Cpath d='M12.9 30.2q-2 2.7 0 4.3q2-1.5 0-4.3' fill='%238fc6e8'/%3E%3Cpath d='M24 5.8L38.4 12L24 18.2L9.6 12Z' fill='%2346628a' stroke='%23263a52' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M25.1 10.9Q32.1 12.3 32.7 17.5' fill='none' stroke='%23dbb04c' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='32.9' cy='19.3' r='1.65' fill='%23dbb04c'/%3E%3Ccircle cx='24' cy='12' r='1.35' fill='%23263a52'/%3E%3C/svg%3E");
+$m-owl-error: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cellipse cx='24' cy='32.6' rx='14.6' ry='15.6' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2.2'/%3E%3Cpath d='M7.6 22.3L12.3 10.9L17.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M40.4 22.3L35.7 10.9L30.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M24 33.9C18.9 36 13.5 34.1 12.3 29.7C11.1 25.4 14.6 20.5 19.3 20.2C21.3 20.1 23.1 21.4 24 23.2C24.9 21.4 26.7 20.1 28.7 20.2C33.4 20.5 36.9 25.4 35.7 29.7C34.5 34.1 29.1 36 24 33.9Z' fill='%23fdf8ec'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cpath d='M14.9 19.9Q18 17.9 21.1 19.9M33.1 19.9Q30 17.9 26.9 19.9' fill='none' stroke='%233a4b61' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='18.4' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='29.6' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='18.4' cy='26.1' r='.85' fill='%2333302c'/%3E%3Ccircle cx='29.6' cy='26.1' r='.85' fill='%2333302c'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.45'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.45'/%3E%3Cpath d='M24 30.4L26.6 33.3L24 36.2L21.4 33.3Z' fill='%23a96a20' stroke-linejoin='round'/%3E%3Cpath d='M43.4 5.6q-2 2.7 0 4.3q2-1.5 0-4.3' fill='%238fc6e8'/%3E%3Cpath d='M24 5.8L38.4 12L24 18.2L9.6 12Z' fill='%2346628a' stroke='%23263a52' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M25.1 10.9Q32.1 12.3 32.7 17.5' fill='none' stroke='%23dbb04c' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='32.9' cy='19.3' r='1.65' fill='%23dbb04c'/%3E%3Ccircle cx='24' cy='12' r='1.35' fill='%23263a52'/%3E%3C/svg%3E");
+$m-owl-gentle-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cellipse cx='24' cy='32.6' rx='14.6' ry='15.6' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2.2'/%3E%3Cpath d='M7.6 22.3L12.3 10.9L17.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M40.4 22.3L35.7 10.9L30.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M24 33.9C18.9 36 13.5 34.1 12.3 29.7C11.1 25.4 14.6 20.5 19.3 20.2C21.3 20.1 23.1 21.4 24 23.2C24.9 21.4 26.7 20.1 28.7 20.2C33.4 20.5 36.9 25.4 35.7 29.7C34.5 34.1 29.1 36 24 33.9Z' fill='%23fdf8ec'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Ccircle cx='18.4' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='29.6' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Cpath d='M18.4 24.35l1.25 1.75-1.25 1.75-1.25-1.75z' fill='%23fffdf4'/%3E%3Cpath d='M29.6 24.35l1.25 1.75-1.25 1.75-1.25-1.75z' fill='%23fffdf4'/%3E%3Cpath d='M21.9 30.4L26.1 30.4L24 33.8Z' fill='%23eba03f' stroke='%23a56a1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.8'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.8'/%3E%3Cellipse cx='10.1' cy='34.6' rx='3' ry='5.2' transform='rotate(20 10.1 34.6)' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2'/%3E%3Cellipse cx='37.9' cy='34.6' rx='3' ry='5.2' transform='rotate(-20 37.9 34.6)' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2'/%3E%3Cpath d='M24 5.8L38.4 12L24 18.2L9.6 12Z' fill='%2346628a' stroke='%23263a52' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M25.1 10.9Q32.1 12.3 32.7 17.5' fill='none' stroke='%23dbb04c' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='32.9' cy='19.3' r='1.65' fill='%23dbb04c'/%3E%3Ccircle cx='24' cy='12' r='1.35' fill='%23263a52'/%3E%3Cpath d='M24 9.4C22.5 6.9 19.2 8 19.8 10.6C20.2 12.2 22.3 13.4 24 14.4C25.7 13.4 27.8 12.2 28.2 10.6C28.8 8 25.5 6.9 24 9.4Z' transform='translate(15.4 -3.9)' fill='%23e0574f' stroke='%23a83c34' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E");
+$m-owl-strict-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cellipse cx='24' cy='32.6' rx='14.6' ry='15.6' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2.2'/%3E%3Cpath d='M7.6 22.3L12.3 10.9L17.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M40.4 22.3L35.7 10.9L30.5 20.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M24 33.9C18.9 36 13.5 34.1 12.3 29.7C11.1 25.4 14.6 20.5 19.3 20.2C21.3 20.1 23.1 21.4 24 23.2C24.9 21.4 26.7 20.1 28.7 20.2C33.4 20.5 36.9 25.4 35.7 29.7C34.5 34.1 29.1 36 24 33.9Z' fill='%23fdf8ec'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.55'/%3E%3Cpath d='M14.3 22.4L20.4 24.1M33.7 22.4L27.6 24.1' stroke='%23263a52' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='18.4' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='29.6' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='18.4' cy='26.1' r='.85' fill='%2333302c'/%3E%3Ccircle cx='29.6' cy='26.1' r='.85' fill='%2333302c'/%3E%3Cellipse cx='13.4' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.45'/%3E%3Cellipse cx='34.6' cy='31.4' rx='3.9' ry='2.4' fill='%23efa39b' opacity='.45'/%3E%3Cpath d='M21.9 30.4L26.1 30.4L24 33.8Z' fill='%23eba03f' stroke='%23a56a1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M24 5.8L38.4 12L24 18.2L9.6 12Z' fill='%2346628a' stroke='%23263a52' stroke-width='2.2' stroke-linejoin='round'/%3E%3Cpath d='M25.1 10.9Q32.1 12.3 32.7 17.5' fill='none' stroke='%23dbb04c' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='32.9' cy='19.3' r='1.65' fill='%23dbb04c'/%3E%3Ccircle cx='24' cy='12' r='1.35' fill='%23263a52'/%3E%3Cpath d='M42.6 4.9v6.2M39.5 8.0h6.2' stroke='%23c0392b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+$m-owl-pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3Cg id='w'%3E%3Cpath d='M13.2 31.4Q5.4 27.6 3.9 17.9Q4.6 12.9 7.9 10.4Q9.4 14.6 11.6 17.4Q10.9 12.6 12.4 8.6Q14.9 12.1 15.7 16.9Q16.4 22.1 15.2 26.4Q14.5 29.3 13.2 31.4Z' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M11.4 24.4Q9.1 20.4 8.4 16.1' fill='none' stroke='%233a4b61' stroke-width='1.3' stroke-linecap='round'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23w'/%3E%3Cuse href='%23w' transform='matrix(-1 0 0 1 48 0)'/%3E%3Crect x='5.9' y='5.9' width='5.6' height='4.1' rx='.8' transform='rotate(-16 8.7 7.9)' fill='%23fdf8ec' stroke='%236a7c92' stroke-width='1.4'/%3E%3Crect x='35.4' y='19.9' width='5.6' height='4.1' rx='.8' transform='rotate(22 38.2 21.9)' fill='%23fdf8ec' stroke='%236a7c92' stroke-width='1.4'/%3E%3Crect x='34.4' y='32.4' width='5.1' height='3.8' rx='.8' transform='rotate(10 36.9 34.3)' fill='%23fdf8ec' stroke='%236a7c92' stroke-width='1.4'/%3E%3Cellipse cx='24' cy='28.9' rx='12.9' ry='13.9' fill='%238fa3b8' stroke='%233a4b61' stroke-width='2.2'/%3E%3Cellipse cx='24' cy='37.6' rx='7.2' ry='4.2' fill='%23fdf8ec'/%3E%3Cpath d='M19.8 42.4v2.9M22.2 42.4v2.9M25.8 42.4v2.9M28.2 42.4v2.9' stroke='%23e0912f' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M24 32.4C19.9 34.1 15.6 32.6 14.7 29.2C13.8 25.9 16.7 22.1 20.5 21.9C22.1 21.8 23.4 22.8 24 24.2C24.6 22.8 25.9 21.8 27.5 21.9C31.3 22.1 34.2 25.9 33.3 29.2C32.4 32.6 28.1 34.1 24 32.4Z' fill='%23fdf8ec'/%3E%3Ccircle cx='18.4' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Ccircle cx='29.6' cy='26.1' r='3.65' fill='%23e9b84e' stroke='%233a4b61' stroke-width='2'/%3E%3Cpath d='M18.4 24.35l1.25 1.75-1.25 1.75-1.25-1.75z' fill='%23fffdf4'/%3E%3Cpath d='M29.6 24.35l1.25 1.75-1.25 1.75-1.25-1.75z' fill='%23fffdf4'/%3E%3Cpath d='M21.9 30.4L26.1 30.4L24 33.8Z' fill='%23eba03f' stroke='%23a56a1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M24 2.4L36.4 7.9L24 13.4L11.6 7.9Z' fill='%2346628a' stroke='%23263a52' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='7.9' r='1.2' fill='%23263a52'/%3E%3Cpath d='M25 6.9Q31.9 5.4 33.3 1.4' fill='none' stroke='%23dbb04c' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='33.7' cy='1.6' r='1.55' fill='%23dbb04c'/%3E%3Cpath d='M42.4 10.1l1.3 1.3-1.3 1.3-1.3-1.3z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M5.1 26.9l1.0 1.0-1.0 1.0-1.0-1.0z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M16.4 2.0l0.9 0.9-0.9 0.9-0.9-0.9z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+// ---- 豆芽（小恐龙，Pro 形象） □26 新增（docs/research/recite-pet/rework-26.md）----
+$m-dino-idle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 48'%3E%3Cdefs%3E%3Cg id='d'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.6'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.6'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Cpath d='M20.7 35.4Q24 38 27.3 35.4' fill='none' stroke='%233a561f' stroke-width='2' stroke-linecap='round'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23d'/%3E%3Ccircle cx='18.2' cy='27.4' r='2.7' fill='%232f3d22'/%3E%3Ccircle cx='29.8' cy='27.4' r='2.7' fill='%232f3d22'/%3E%3Ccircle cx='19.3' cy='26.3' r='1.05' fill='%23fff'/%3E%3Ccircle cx='30.9' cy='26.3' r='1.05' fill='%23fff'/%3E%3Cuse href='%23d' transform='translate(48 0)'/%3E%3Cg transform='translate(48 0)'%3E%3Cpath d='M15.5 28.4Q18.2 26.299999999999997 20.9 28.4M27.1 28.4Q29.8 26.299999999999997 32.5 28.4' fill='none' stroke='%232f3d22' stroke-width='2.3' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+$m-dino-wait: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg transform='rotate(-5 24 28)'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.52'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.52'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='24' cy='36.9' r='1.3' fill='%233a561f'/%3E%3Cpath d='M15.5 27.9Q18.2 25.799999999999997 20.9 27.9M27.1 27.9Q29.8 25.799999999999997 32.5 27.9' fill='none' stroke='%232f3d22' stroke-width='2.3' stroke-linecap='round'/%3E%3C/g%3E%3Ccircle cx='13.4' cy='8.1' r='1.1' fill='%2382a763'/%3E%3Ccircle cx='10.2' cy='6.4' r='.95' fill='%2382a763'/%3E%3Ccircle cx='7.2' cy='4.9' r='.8' fill='%2382a763'/%3E%3C/svg%3E");
+$m-dino-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.68'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.68'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Cpath d='M20.6 35.1Q24 40.1 27.4 35.1Q24 36.6 20.6 35.1Z' fill='%233a561f' stroke='%233f5b1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='37.9' rx='2.1' ry='1.3' fill='%23ff9e80'/%3E%3Cpath d='M15.5 27.4Q18.2 25.299999999999997 20.9 27.4M27.1 27.4Q29.8 25.299999999999997 32.5 27.4' fill='none' stroke='%232f3d22' stroke-width='2.3' stroke-linecap='round'/%3E%3Cpath d='M41.4 6.2l1.7 1.7-1.7 1.7-1.7-1.7z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M44.4 12.200000000000001l1.2 1.2-1.2 1.2-1.2-1.2z' fill='%23f2d06b' stroke='%23c99a2f' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E");
+$m-dino-medium: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.6'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.6'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='18.2' cy='27.4' r='2.3' fill='%232f3d22'/%3E%3Ccircle cx='29.8' cy='27.4' r='2.3' fill='%232f3d22'/%3E%3Cpath d='M20.7 36.7Q24 38.4 27.3 36.7' fill='none' stroke='%233a561f' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+$m-dino-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.45'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.45'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Cpath d='M20.7 38.4Q24 36.1 27.3 38.4' fill='none' stroke='%233a561f' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M14.9 22.6L20.3 24.1M33.1 22.6L27.7 24.1' stroke='%233a561f' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='18.2' cy='27.4' r='2.45' fill='%232f3d22'/%3E%3Ccircle cx='29.8' cy='27.4' r='2.45' fill='%232f3d22'/%3E%3Cpath d='M13.1 30.6q-2 2.7 0 4.3q2-1.5 0-4.3' fill='%238fc6e8'/%3E%3C/svg%3E");
+$m-dino-error: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.5'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.5'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Cellipse cx='24' cy='37.4' rx='1.9' ry='2.35' fill='%233a561f'/%3E%3Cpath d='M15.1 21.1Q18.1 19.1 21.1 21.1M32.9 21.1Q29.9 19.1 26.9 21.1' fill='none' stroke='%233a561f' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='18.2' cy='27.4' r='3.25' fill='%232f3d22'/%3E%3Ccircle cx='29.8' cy='27.4' r='3.25' fill='%232f3d22'/%3E%3Ccircle cx='19.3' cy='26.3' r='1.05' fill='%23fff'/%3E%3Ccircle cx='30.9' cy='26.3' r='1.05' fill='%23fff'/%3E%3Cpath d='M44.3 6.6q-2 2.7 0 4.3q2-1.5 0-4.3' fill='%238fc6e8'/%3E%3C/svg%3E");
+$m-dino-gentle-great: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.7'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.7'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Cpath d='M20.6 35.1Q24 40.1 27.4 35.1Q24 36.6 20.6 35.1Z' fill='%233a561f' stroke='%233f5b1e' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='37.9' rx='2.1' ry='1.3' fill='%23ff9e80'/%3E%3Cpath d='M15.5 27.4Q18.2 25.299999999999997 20.9 27.4M27.1 27.4Q29.8 25.299999999999997 32.5 27.4' fill='none' stroke='%232f3d22' stroke-width='2.3' stroke-linecap='round'/%3E%3Cpath d='M24 9.4C22.5 6.9 19.2 8 19.8 10.6C20.2 12.2 22.3 13.4 24 14.4C25.7 13.4 27.8 12.2 28.2 10.6C28.8 8 25.5 6.9 24 9.4Z' transform='translate(15.2 -2.6)' fill='%23e0574f' stroke='%23a83c34' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M12.4 41.1Q10.4 39.1 10.1 36.6M35.6 41.1Q37.6 39.1 37.9 36.6' fill='none' stroke='%2346682c' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='9.9' cy='35.1' r='2.55' fill='%238bc34a' stroke='%2346682c' stroke-width='1.9'/%3E%3Ccircle cx='38.1' cy='35.1' r='2.55' fill='%238bc34a' stroke='%2346682c' stroke-width='1.9'/%3E%3C/svg%3E");
+$m-dino-strict-poor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.48'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.48'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Cpath d='M20.7 38.4Q24 36.1 27.3 38.4' fill='none' stroke='%233a561f' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M14.5 22.8L20.5 24.2M33.5 22.8L27.5 24.2' stroke='%232c471a' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='18.2' cy='27.4' r='3' fill='%232f3d22'/%3E%3Ccircle cx='29.8' cy='27.4' r='3' fill='%232f3d22'/%3E%3Cpath d='M42.3 4.6v6.2M39.199999999999996 7.699999999999999h6.2' stroke='%23c0392b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+$m-dino-pat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M35.6 44.1q5.1-.9 4.7-5.3q-.4-3.1-3-3q-2.2.1-1.9 2.5q.3 2.1 2.1 1.7' fill='none' stroke='%2377a044' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10.9 48Q10.9 41.1 16.6 39.9L31.4 39.9Q37.1 41.1 37.1 48Z' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='24' cy='44.6' rx='7.6' ry='4.4' fill='%23f8eecb'/%3E%3Ccircle cx='10.9' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='16.4' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='31.6' cy='18.1' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Ccircle cx='37.1' cy='24.4' r='2.7' fill='%236f9736' stroke='%233f5b1e' stroke-width='2'/%3E%3Cpath d='M18.6 17.9Q17.9 12.1 19.7 9.1Q20.3 8.6 20.8 9.2Q22.4 12.4 21.4 17.6Q20 18.4 18.6 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cpath d='M29.4 17.9Q30.1 12.1 28.3 9.1Q27.7 8.6 27.2 9.2Q25.6 12.4 26.6 17.6Q28 18.4 29.4 17.9Z' fill='%23ffc985' stroke='%23c8823c' stroke-width='1.9' stroke-linejoin='round'/%3E%3Cellipse cx='24' cy='28.9' rx='13.1' ry='11.2' fill='%238bc34a' stroke='%2346682c' stroke-width='2.2'/%3E%3Cellipse cx='11.9' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.55'/%3E%3Cellipse cx='36.1' cy='31.6' rx='4.3' ry='2.7' fill='%23ff9d76' opacity='.55'/%3E%3Ccircle cx='21.6' cy='32.6' r='.95' fill='%2355792f'/%3E%3Ccircle cx='26.4' cy='32.6' r='.95' fill='%2355792f'/%3E%3Cpath d='M15.5 26.4Q18.2 25.4 20.9 26.4M27.1 26.4Q29.8 25.4 32.5 26.4' fill='none' stroke='%232f3d22' stroke-width='2.3' stroke-linecap='round'/%3E%3Cpath d='M20.7 35.4Q24 38 27.3 35.4' fill='none' stroke='%233a561f' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='12.4' cy='32.4' r='3.1' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Ccircle cx='35.6' cy='32.4' r='3.1' fill='%238bc34a' stroke='%2346682c' stroke-width='2'/%3E%3Cellipse cx='18.9' cy='40.1' rx='3.4' ry='2.6' fill='%23ff9f43'/%3E%3Cellipse cx='18.9' cy='40.1' rx='1.6' ry='1.2' fill='%23ffe08c'/%3E%3Cellipse cx='14.2' cy='42.7' rx='2.5' ry='1.9' fill='%23ff9f43'/%3E%3Cellipse cx='14.2' cy='42.7' rx='1.15' ry='.9' fill='%23ffe08c'/%3E%3Ccircle cx='10.3' cy='44.4' r='1.5' fill='%23ff9f43'/%3E%3Ccircle cx='10.3' cy='44.4' r='.7' fill='%23ffe08c'/%3E%3C/svg%3E");
+
+.recite-mascot {
+    // 常驻浮条左上贴纸位（mascot.ts 挂 .recite-floatbar 根内，absolute 随浮条拖动自动
+    // 跟随；浮条 --idle 隐藏时宠物随之隐藏）。判卷演出（wait/出分）同位叠加，无 JS 坐标。
+    position: absolute;
+    left: 8px;
+    top: -42px; // 48px 盒底边压浮条顶缘 6px，站在浮条上
+    width: 48px;
+    height: 48px;
+    z-index: 999;
+    display: block; // 常驻待机（第四版演出）：平时就蹲浮条上，判卷只是姿态变化
+    cursor: pointer; // 可摸（click = 蹦跳+眯眼笑+爱心，见 --pat 组）
+    pointer-events: auto; // 互动需要可点；判卷演出区在浮条外上方，不挡浮条按钮与拖拽
+    transform-origin: 50% 100%;
+    will-change: transform, opacity;
+    background-image: $m-shiba-idle; // 常驻待机帧（96×48 sprite）+ 眨眼动画；unpaid 兜底同款
+    background-size: 96px 48px;
+    background-repeat: no-repeat;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.18));
+    animation: recite-mascot-blink 4.6s steps(1, end) infinite,
+        recite-mascot-sway 2.6s ease-in-out infinite; // 眨眼走 position 轴、呼吸走 transform 轴
+}
+// 兜底位（mascot.ts 竞态没找到浮条、挂了 body）：回落右下角老位（fixed 覆盖 absolute）
+body > .recite-mascot {
+    position: fixed;
+    left: calc(100% - 66px);
+    top: calc(100% - 66px);
+}
+// 明暗双模式：贴纸自身深描边保对比（方案 10.5），暗色仅加深投影提层次
+html[data-theme-mode="dark"] .recite-mascot {
+    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.28));
+}
+// 出场开关（mascot.ts applyMascotEnabled）：!important 压过 [data-pose] 的 display:block
+body[data-recite-mascot-off] .recite-mascot {
+    display: none !important;
+}
+// wait 待机组（判卷中 48px 打盹，整组动画替换常驻眨眼+呼吸为 in+sway）：淡入 + 呼吸摇摆
+.recite-mascot[data-pose] {
+    display: block;
+    animation: recite-mascot-in 0.3s ease-out,
+        recite-mascot-sway 2.6s 0.3s ease-in-out infinite;
+}
+
+// ---- 常驻互动（2026-08-26 用户提议：hover 有反应、点击有反应）----
+// hover = 「注意到你了」：快速兴奋摇摆 + 微放大（整组替换眨眼+呼吸，眨眼 sprite 停在
+// 睁眼帧盯你看）。仅常驻待机态响应（判卷演出态不被 hover 打断），摸头期间也让贤给 pat
+// 蹦跳——点击时鼠标还悬在宠物上，不排除则 wiggle 特异性压过 pat 看不到蹦跳。
+.recite-mascot:not([data-pose]):not(.recite-mascot--pat):hover {
+    animation: recite-mascot-wiggle 0.5s ease-in-out infinite;
+}
+// click = 摸头（mascot.ts 挂 --pat 类 0.9s）：蹦两下（带微放大，「点击=开心」语言）+ 切
+// 「眯眼笑」帧一瞬 + 冒两颗小爱心
+.recite-mascot.recite-mascot--pat {
+    animation: recite-mascot-pat 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    background-image: $m-shiba-great;
+    background-size: 48px 48px;
+}
+// 小盼 click = 展翅变身（2026-08-26 用户提议「点击了之后就变大，出来全身有翅膀的」）：
+// 切展翅全身帧 + 蓄力→过冲→放大定格（~1.8x 看翅膀）→收回，1.6s（mascot.ts
+// MASCOT_PAT_TRANSFORM_MS 对齐摘类）。unpaid 强挂 spirit 走本组不命中 → 豆豆蹦跳。
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot.recite-mascot--pat {
+    animation: recite-mascot-transform 1.6s ease-in-out both;
+    background-image: $m-spirit-pat;
+    background-size: 48px 48px;
+}
+// 爱心 ×2（伪元素空闲可用；两颗错开方向与延迟，从头顶冒出上浮渐隐）
+.recite-mascot--pat::before,
+.recite-mascot--pat::after {
+    content: "❤";
+    position: absolute;
+    top: -6px;
+    font-size: 13px;
+    line-height: 1;
+    pointer-events: none;
+    animation: recite-mascot-heart 0.75s ease-out both;
+}
+.recite-mascot--pat::before {
+    left: 2px;
+}
+.recite-mascot--pat::after {
+    right: 2px;
+    animation-delay: 0.14s;
+}
+// 中央登场组（出分时刻专属演出）→ 第四版（2026-08-26 用户拍板）：宠物常驻浮条贴纸位
+// （absolute 定位随浮条拖动跟随），出分**原地**放大——不瞬移不跳位，浮条位置是用户拖
+// 好的，绝不挡内容。本组只剩「放大登场」演出：烟雾先绽 0.18s 宠物再过冲弹出放大 1.75
+// （48→84px，transform-origin 脚底从浮条顶长出来）定格给表情，stayMs 后 JS 两段式收场
+// 回常驻待机。
+.recite-mascot[data-pose]:not([data-pose="wait"]) {
+    --m-vanish-from: 1.75; // vanish 起点跟随放大定格（wait 组默认 1）
+    animation: recite-mascot-pop 0.55s 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+// 收场（mascot.ts dismiss 两段式的 CSS 半段）：缩小淡出 + 一轮小烟雾，0.32s 后 JS 清 pose
+.recite-mascot[data-pose].recite-mascot--out {
+    animation: recite-mascot-vanish 0.32s ease-in both;
+}
+
+// ---- 烟雾 puff（mascot.ts mount 时建的 4 个装饰 span，纯 CSS 播放） ----
+// 出场即播（display:none→block 重启动画，每次登场都是新一场）；--dx/--dy 按 nth 差异化
+// 散开方向，opacity 收在 0 平时零渲染
+.recite-mascot__puff {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(238, 238, 243, 0.9) 0%, rgba(238, 238, 243, 0) 70%);
+    filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+}
+.recite-mascot[data-pose]:not([data-pose="wait"]) .recite-mascot__puff {
+    animation: recite-mascot-puff 0.55s ease-out both;
+}
+.recite-mascot__puff:nth-child(2) { animation-delay: 0.06s; --dx: 15px; --dy: -9px; }
+.recite-mascot__puff:nth-child(3) { animation-delay: 0.1s; --dx: -14px; --dy: 10px; }
+.recite-mascot__puff:nth-child(4) { animation-delay: 0.02s; --dx: 4px; --dy: 13px; }
+// 暗色模式换亮紫烟（灰白烟在暗底不可见）
+html[data-theme-mode="dark"] .recite-mascot__puff {
+    background: radial-gradient(circle, rgba(208, 192, 255, 0.85) 0%, rgba(208, 192, 255, 0) 70%);
+}
+// 收场小烟雾（--out 期间反向一轮，源顺序在登场组之后压过同特异性）
+.recite-mascot[data-pose].recite-mascot--out .recite-mascot__puff {
+    animation: recite-mascot-puff-out 0.3s ease-in both;
+}
+
+// ---- 豆豆（默认形象，免费基础集；未知形象 slug 回落此套） ----
+// idle 帧也走中央登场组（pop 弹出后定格）——眨眼 sprite 双帧退役动画（48px 下中央静止
+// 定格更稳，96×48 素材保留只显第一帧）
+.recite-mascot[data-pose="idle"] {
+    background-image: $m-shiba-idle;
+}
+.recite-mascot[data-pose="wait"] {
+    background-image: $m-shiba-wait;
+    background-size: 48px 48px;
+}
+// 成绩基础帧选择器涵盖特征态词（gentle-great/strict-poor）——unpaid 无 Pro 覆盖时回落基础帧
+.recite-mascot[data-pose="great"],
+.recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-shiba-great;
+    background-size: 48px 48px;
+}
+.recite-mascot[data-pose="medium"] {
+    background-image: $m-shiba-medium;
+    background-size: 48px 48px;
+}
+.recite-mascot[data-pose="poor"],
+.recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-shiba-poor;
+    background-size: 48px 48px;
+}
+// 豆豆 Pro 集：error 失败态 + 等级×成绩特征态（文判好评举爪打气 / 武判差评叉腰瞪眼）。
+// □26 起形象多维化：排除条件从「非 spirit」改「无形象属性」——挂了任何非默认形象属性
+// （含 unpaid 强挂）都交由各形象自己的段落接管，不再误吃豆豆特征帧
+body:not(.recite-unpaid):not([data-recite-mascot]) .recite-mascot[data-pose="error"] {
+    background-image: $m-shiba-error;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid):not([data-recite-mascot]) .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-shiba-gentle-great;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid):not([data-recite-mascot]) .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-shiba-strict-poor;
+    background-size: 48px 48px;
+}
+
+// ---- 小盼（Pro 形象整体门禁：paid 时覆盖豆豆帧；unpaid 强挂属性自然回落豆豆） ----
+// 常驻规则排除 --pat（2026-08-26 双影 bug）：与 spirit-pat 覆盖规则同特异性 (0,4,1) 但
+// 源码在前，pat 时 background-image 输给常驻 idle 帧（96 宽 sprite）+ pat 组 48px size
+// 压进盒 → 两只并排小精灵。排除法让常驻规则 pat 期间直接不命中（与 hover 让位同款）。
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot:not([data-pose]):not(.recite-mascot--pat) {
+    background-image: $m-spirit-idle;
+}
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="idle"] {
+    background-image: $m-spirit-idle;
+}
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="wait"] {
+    background-image: $m-spirit-wait;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="great"],
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-spirit-great;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="medium"] {
+    background-image: $m-spirit-medium;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="poor"],
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-spirit-poor;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="error"] {
+    background-image: $m-spirit-error;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-spirit-gentle-great;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="spirit"] .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-spirit-strict-poor;
+    background-size: 48px 48px;
+}
+
+// ---- 雪团（□26 白兔，免费形象：基础帧无门禁人人可用，Pro 特征帧照豆豆语义门禁；
+// unpaid 用户选雪团基础帧照常显示——免费形象不回落豆豆）----
+[data-recite-mascot="snow"] .recite-mascot:not([data-pose]):not(.recite-mascot--pat) {
+    background-image: $m-snow-idle;
+}
+[data-recite-mascot="snow"] .recite-mascot[data-pose="idle"] {
+    background-image: $m-snow-idle;
+}
+[data-recite-mascot="snow"] .recite-mascot[data-pose="wait"] {
+    background-image: $m-snow-wait;
+    background-size: 48px 48px;
+}
+[data-recite-mascot="snow"] .recite-mascot[data-pose="great"],
+[data-recite-mascot="snow"] .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-snow-great;
+    background-size: 48px 48px;
+}
+[data-recite-mascot="snow"] .recite-mascot[data-pose="medium"] {
+    background-image: $m-snow-medium;
+    background-size: 48px 48px;
+}
+[data-recite-mascot="snow"] .recite-mascot[data-pose="poor"],
+[data-recite-mascot="snow"] .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-snow-poor;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="snow"] .recite-mascot[data-pose="error"] {
+    background-image: $m-snow-error;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="snow"] .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-snow-gentle-great;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="snow"] .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-snow-strict-poor;
+    background-size: 48px 48px;
+}
+// pat 复用 great（豆豆模式：蹦跳+爱心动画继承默认 --pat 组，只换帧，免费无门禁）
+[data-recite-mascot="snow"] .recite-mascot.recite-mascot--pat {
+    background-image: $m-snow-great;
+    background-size: 48px 48px;
+}
+
+// ---- 博士（□26 灰林鸮，Pro 形象整体门禁照小盼；pat=学识爆发变身 1.6s）----
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot:not([data-pose]):not(.recite-mascot--pat) {
+    background-image: $m-owl-idle;
+}
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="idle"] {
+    background-image: $m-owl-idle;
+}
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="wait"] {
+    background-image: $m-owl-wait;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="great"],
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-owl-great;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="medium"] {
+    background-image: $m-owl-medium;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="poor"],
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-owl-poor;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="error"] {
+    background-image: $m-owl-error;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-owl-gentle-great;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-owl-strict-poor;
+    background-size: 48px 48px;
+}
+// 博士 pat = 学识爆发变身（书页飞舞+流苏甩起，照 spirit transform 组）
+body:not(.recite-unpaid)[data-recite-mascot="owl"] .recite-mascot.recite-mascot--pat {
+    animation: recite-mascot-transform 1.6s ease-in-out both;
+    background-image: $m-owl-pat;
+    background-size: 48px 48px;
+}
+
+// ---- 豆芽（□26 小恐龙，Pro 形象整体门禁照小盼；pat=喷小火苗变身 1.6s）----
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot:not([data-pose]):not(.recite-mascot--pat) {
+    background-image: $m-dino-idle;
+}
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="idle"] {
+    background-image: $m-dino-idle;
+}
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="wait"] {
+    background-image: $m-dino-wait;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="great"],
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-dino-great;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="medium"] {
+    background-image: $m-dino-medium;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="poor"],
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-dino-poor;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="error"] {
+    background-image: $m-dino-error;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="gentle-great"] {
+    background-image: $m-dino-gentle-great;
+    background-size: 48px 48px;
+}
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot[data-pose="strict-poor"] {
+    background-image: $m-dino-strict-poor;
+    background-size: 48px 48px;
+}
+// 豆芽 pat = 喷小火苗变身（照 spirit transform 组）
+body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot.recite-mascot--pat {
+    animation: recite-mascot-transform 1.6s ease-in-out both;
+    background-image: $m-dino-pat;
+    background-size: 48px 48px;
+}
+
+@keyframes recite-mascot-in {
+    from { opacity: 0; }
+}
+@keyframes recite-mascot-sway {
+    0%, 100% { transform: rotate(-4deg); }
+    50% { transform: rotate(4deg) translateY(-1.5px); }
+}
+// 常驻眨眼（96×48 sprite 双帧 background-position 硬切，与 sway transform 轴分离）
+@keyframes recite-mascot-blink {
+    0%, 91%, 100% { background-position: 0 0; }
+    93%, 97% { background-position: -48px 0; }
+}
+// hover 兴奋：快速小摆 + 微放大（「注意到你了」）
+@keyframes recite-mascot-wiggle {
+    0%, 100% { transform: rotate(-7deg) scale(1.12); }
+    50% { transform: rotate(7deg) scale(1.12) translateY(-2px); }
+}
+// 摸头蹦跳：跳两下渐小（带微放大，与出分 pop 的「开心=放大」同语言）+ 落地微倾
+@keyframes recite-mascot-pat {
+    0% { transform: translateY(0) scale(1); }
+    25% { transform: translateY(-16px) scale(1.12); }
+    50% { transform: translateY(0) scale(1.06); }
+    72% { transform: translateY(-8px) rotate(-6deg) scale(1.1); }
+    100% { transform: translateY(0) rotate(0) scale(1); }
+}
+// 小盼变身：蓄力缩小 → 弹开过冲 → 定格 ~1.8x 展翅（约占全程一半，看清翅膀）→ 收回。
+// transform-origin 50% 100% 同款脚底长出，与出分 pop 演出语言一致
+@keyframes recite-mascot-transform {
+    0% { transform: scale(1); }
+    12% { transform: scale(0.8); }
+    40% { transform: scale(2.05); }
+    56% { transform: scale(1.78); }
+    72% { transform: scale(1.88); }
+    86% { transform: scale(1.78); }
+    100% { transform: scale(1); }
+}
+// 爱心上浮：从头顶冒出漂起渐隐
+@keyframes recite-mascot-heart {
+    0% { opacity: 0; transform: translateY(4px) scale(0.5); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-22px) scale(1.15); }
+}
+// 浮条顶放大登场：从脚下 scale(0) 过冲弹出、回弹两次渐小定格 1.75（出分时刻 48→84px，
+// 弹性缓动 + 手编 bounce 尾；transform-origin 50% 100% 让放大从浮条顶长出来）
+@keyframes recite-mascot-pop {
+    0% { transform: scale(0); opacity: 0; }
+    52% { transform: scale(2.15); opacity: 1; }
+    72% { transform: scale(1.6); }
+    88% { transform: scale(1.85); }
+    100% { transform: scale(1.75); }
+}
+// 收场：从当前定格尺寸缩回脚下淡出（wait 组从 1、出分组从 1.75，与 pop 对称「缩回烟雾里」）
+@keyframes recite-mascot-vanish {
+    0% { transform: scale(var(--m-vanish-from, 1)); opacity: 1; }
+    100% { transform: scale(0); opacity: 0; }
+}
+// 烟雾绽开：从中心胀大漂移淡出（--dx/--dy 散开方向由 nth-child 变量差异化）
+@keyframes recite-mascot-puff {
+    0% { transform: translate(-50%, -50%) scale(0.25); opacity: 0.9; }
+    100% { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(2); opacity: 0; }
+}
+// 收场小烟雾：宠物缩小时贴身腾起一圈即散
+@keyframes recite-mascot-puff-out {
+    0% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.55; }
+    100% { transform: translate(-50%, -50%) scale(1.9); opacity: 0; }
+}
+
