@@ -16,7 +16,7 @@
     import { STORAGE_SETTINGS } from "../../sy-tomato-plugin/src/constants";
     // □14 激活互通：跨插件互问纯函数（渐进 src/neighbor.ts，纯函数无 bundle 复制陷阱）+
     // 一键解锁走 ActivationCard 同款激活链的依赖
-    import { progressiveCodeFromApp } from "../../sy-progressive-plugin/src/neighbor";
+    import { progressiveCodeFromApp } from "../../sy-tomato-plugin/src/libs/neighbor";
     import { userToken } from "../../sy-tomato-plugin/src/libs/stores";
     import { resetKey, verifyKeyRecite } from "../../sy-tomato-plugin/src/libs/user";
     import { backfillCloudOnce } from "../../sy-tomato-plugin/src/libs/redeem";
