@@ -4,16 +4,16 @@ A read-then-rewrite practice loop on any document: **mark → extract → rewrit
 
 Highlighting a good article isn't enough to make it stick. Mark the sentences you want to master, close the original, rewrite them from memory, then compare item by item to see the gap. This plugin brings that workflow into SiYuan: any document, no special formatting — every annotation becomes an exercise.
 
-![preview](preview.png)
-
 - 📖 **[Full User Guide](https://my.feishu.cn/docx/FgSpdE2PmoEfJmxGYCqcurmDnCf)** (Chinese, with complete walk-throughs for five scenarios — recitation / dictation / skeleton / English / association — plus full AI grading output and demo data download)
 - 🔓 **[Open-source repo](https://github.com/IAliceBobI/sy-recite-plugin)** — what you see is what's compiled: release packages are built remotely by GitHub Actions from source
-- 💬 [QQ Channel](https://pd.qq.com/s/2fh7nh7gz) (Chinese) — feedback and feature requests, shared with Tomato Toolbox
+- 💬 [QQ Channel](https://pd.qq.com/s/r3jz0g16) (Chinese) — feedback and feature requests, shared with Tomato Toolbox
+- 💬 [Feishu Group](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=f08gff0c-d6b0-4a0d-8323-c8a0553e4fff&qr_code=true) (Chinese) — feedback and feature requests, shared with Tomato Toolbox
+- 📱 Scan to join: ![Group QR codes (left: QQ Channel, right: Feishu)](group-qr.png)
 
 ## Features
 
 - **Mark & tint** — in practice mode, mark the sentences you want to practice with SiYuan's native mark highlight; annotated sentences tint automatically, distinguishable from unmarked ones at a glance
-- **AI Split** — no idea where to start? Let the AI read the whole piece and drop anchor notes at narrative beats, in three flavors: recite anchors (beat + noun keywords — cues without leaking the prose), imitation anchors (beat + technique walkthrough) and direction anchors (plot direction + emotional arc). Pick one from a three-way menu; re-running replaces old AI anchors while your handwritten notes always stay untouched, and beats you've already split are skipped automatically. Uses the AI you've configured in SiYuan (Settings → AI, same channel as AI grading); grading recognizes AI anchors too, reviewing "technique delivered" and "direction-level" accordingly
+- **AI Split** (Pro) — no idea where to start? Let the AI read the whole piece and drop anchor notes at narrative beats, in three flavors: recite anchors (beat + noun keywords — cues without leaking the prose), imitation anchors (beat + technique walkthrough) and direction anchors (plot direction + emotional arc). Pick one from a three-way menu; re-running replaces old AI anchors while your handwritten notes always stay untouched, and beats you've already split are skipped automatically. Uses the AI you've configured in SiYuan (Settings → AI, same channel as AI grading); grading recognizes AI anchors too, reviewing "technique delivered" and "direction-level" accordingly
 - **Extract & rewrite** — one click generates an "Extract" sub-document from your marks, with a rewrite slot under each annotation; close the original and start writing
 - **Compare document** — when you finish rewriting, one click generates a "Compare" sub-document: original on the left, your version on the right, one card per item — gaps at a glance
 - **Dictation check** — a dialog compares original and rewrite character by character for Chinese, word by word for English: mistakes get red strikethrough, omissions green underline, with a diff tally at the bottom (punctuation differences ignored). Read and go — nothing is written into your document
@@ -42,7 +42,7 @@ The table lists the **default** shortcuts — every one is remappable: click a k
 ## Getting Started
 
 1. Open any document and click the pen icon in the top bar to enter practice mode
-2. Mark the sentences you want to practice with mark highlights (annotated sentences tint automatically); not sure how to break the piece into beats? Click "AI Split" on the recite bar for a head start — splitting is itself practice, so write your own notes once you get the hang of it
+2. Mark the sentences you want to practice with mark highlights (annotated sentences tint automatically); not sure how to break the piece into beats? Click "AI Split" (Pro) on the recite bar for a head start — splitting is itself practice, so write your own notes once you get the hang of it
 3. Click "Extract" on the recite bar and rewrite from memory in the generated extract document
 4. Click "Compare" to see the gaps, run "Dictation check" for a character-level proofread, then "AI grading" for comments
 
@@ -50,9 +50,11 @@ Details — every recite-bar button explained, with full examples: plugin settin
 
 ## Free / Pro
 
-**The free version ships every feature — no second-class citizen**: marking, AI Split, extraction, comparison, dictation check, association practice, AI grading and the grading prompt all work, with no limits on runs or documents.
+**The free version covers the full practice loop — no second-class citizen**: marking, extraction, comparison, dictation check, association practice, AI grading and the grading prompt all work, with no limits on runs or documents.
 
-**Pro (¥10, one-time purchase) = decorating your practice room the way you like it**:
+**AI Split is the one Pro-gated feature; AI grading stays free**: when you don't know where to start, let it read the piece and drop anchor notes at narrative beats (see Features). The button stays visible before activation and prompts when clicked.
+
+**Pro (¥10, one-time purchase) = AI Split + decorating your practice room the way you like it**:
 
 - **Nine theme skins** to swap at will — the default Glazed Amber keeps a warm glow; the free Eye-Care Sage pairs a low-saturation green palette with the eye-care background for long writing sessions; Celadon Ink brings calm, Pine-Smoke Violet elegance, Cherry Dusk tenderness, Misty Snow clarity
 - **A separate background axis, freely combined with any theme** — a global background library with seven options: None / Parchment (cream aged paper, free default) / Eye Care (matte sage paper, free), plus Rough Kraft, Linen Texture, Grid Paper and Custom Image (Pro: any picture of yours tiles the whole window, panels get an automatic translucent veil to stay readable, and you can assign one image for light and one for dark mode). Paper backgrounds dye the entire window — top bar, side panels, status bar and editor all share the same sheet — instead of repainting a small patch. Light and dark modes each keep their own background: toggling SiYuan's appearance swaps to the one you picked for that mode. A texture-strength slider tunes the paper grain live (free); choose None to restore native SiYuan completely

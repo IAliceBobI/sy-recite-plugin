@@ -1,3 +1,20 @@
+<script module lang="ts">
+    // □1 tooltip 预告（2026-08-31）：渐进邻居检测的模块级缓存——只缓存正结果：
+    // 渐进启动 verify 在途（paid=null）时互问拿到空串，若把 false 也固化，渐进随后
+    // 验证完成并不 reload（只有激活流程才 reload），尾注整会话错文案（reasoning P1-1）。
+    // false 不写回、下次再问——互问是同步 plugins.find，便宜。整页 reload 自然重置。
+    // neighbor.ts 是无状态纯函数模块（type-only siyuan import），无 events 单例的
+    // bundle 模块序扰动坑（顶部 isMobile 注释那条针对有状态单例）
+    import { progressiveCodeFromApp } from "../../sy-tomato-plugin/src/libs/neighbor";
+    let progNeighborCached = false;
+    function neighborProgActive(app: unknown): boolean {
+        if (!progNeighborCached && progressiveCodeFromApp(app as any)) {
+            progNeighborCached = true;
+        }
+        return progNeighborCached;
+    }
+</script>
+
 <script lang="ts">
     import type { Plugin } from "siyuan";
     import { getFrontend } from "siyuan";
@@ -190,11 +207,14 @@
     // 走思源 b3-tooltips 自绘体系（aria-label + ::after）：原生 title 在桌面端约 1s 延迟且非思源惯例，用户感知为「不显示」
     const tip = (desc = "") => [$reciteDoc.docName, desc].filter(Boolean).join("\n");
 
-    // □30 未激活门禁可视化：AI 拆分钮（本浮条唯一 Pro 钮）灰档 + tooltip 尾注。读 body class
-    // 而非 store——激活流程（ActivationCard）成功后整页 reload，尾注/灰档随刷新消失；
-    // 平时 docID 换代触发 aria-label 重算也会重读。抽取/对比/删除/判卷全免费不受影响
+    // □30 未激活门禁可视化 + □1 邻居预告（2026-08-31）：AI 拆分钮（本浮条唯一 Pro 钮）
+    // 灰档 + tooltip 尾注。读 body class 而非 store——激活流程成功后整页 reload，尾注/
+    // 灰档随刷新消失；平时 docID 换代触发 aria-label 重算也会重读。未激活且检测到渐进
+    // 已激活时，尾注换「渐进用户免费解锁」（检测走模块级缓存，见顶部 module script）
     const proNote = () => document.body.classList.contains("recite-unpaid")
-        ? "\n" + (plugin.i18n["拆分Pro尾注"] || "Pro 功能，激活后可用")
+        ? "\n" + (neighborProgActive((plugin as any).app)
+            ? (plugin.i18n["拆分Pro尾注邻居"] || "渐进用户免费解锁")
+            : (plugin.i18n["拆分Pro尾注"] || "Pro 功能，激活后可用"))
         : "";
 
     // 五键文案 i18n 化（2026-08-27 图标化顺手补：原硬编码中文，en 用户一直看中文；与「默写查错」用法对齐）

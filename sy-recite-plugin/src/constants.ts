@@ -29,11 +29,13 @@ export const FLOATBAR_POS_KEY = "sy-recite-floatbar-pos";
 // key 与 addCommand langKey 一致（右键菜单 accelerator 按此直查用户自定义键），用户可改默认。
 // 2026-08-27 □33 可配置化：值升级为 winHotkey 对象（"alt+ctrl+x" 输入规范化后即上述 ⌥⌘X 默认，
 // m/langKey 单源供 addCommand 与 HotkeyCap 键帽共用；写回协议见 tomato libs/hotkeyCap.ts）；
-// 设置面板行名走 i18n（Settings hk_ 键），故不传 langText
+// 设置面板行名走 i18n（Settings hk_ 键），故不传 langText。
+// 第三参 icon = 面板行 sprite 图标 id（□4 emoji 退役；四命令复用浮条 iconReciteXxx，进入仿写
+// 用官方 iconEdit——本字段唯一消费方是 Settings 快捷键行的 <use xlink:href>）
 export const RECITE_HOTKEYS = {
-    reciteTogglePractice: winHotkey("alt+ctrl+k", "reciteTogglePractice", "✍"),
-    reciteExtract: winHotkey("alt+ctrl+q", "reciteExtract", "📄"),
-    reciteCompare: winHotkey("alt+ctrl+g", "reciteCompare", "⚖️"),
-    reciteCopyPrompt: winHotkey("alt+ctrl+p", "reciteCopyPrompt", "📋"),
-    reciteRewrite: winHotkey("alt+ctrl+c", "reciteRewrite", "♻️"),
+    reciteTogglePractice: winHotkey("alt+ctrl+k", "reciteTogglePractice", "iconEdit"),
+    reciteExtract: winHotkey("alt+ctrl+q", "reciteExtract", "iconReciteExtract"),
+    reciteCompare: winHotkey("alt+ctrl+g", "reciteCompare", "iconReciteCompare"),
+    reciteCopyPrompt: winHotkey("alt+ctrl+p", "reciteCopyPrompt", "iconReciteCopyPrompt"),
+    reciteRewrite: winHotkey("alt+ctrl+c", "reciteRewrite", "iconReciteRewrite"),
 };

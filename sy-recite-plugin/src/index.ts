@@ -10,6 +10,7 @@ import { licenseCloudSynced, userID, userToken } from "../../sy-tomato-plugin/sr
 import { resetKey, verifyKeyRecite } from "../../sy-tomato-plugin/src/libs/user";
 import { statusBtn, togglePractice, enterPractice, reciteDoc } from "./statusBtn";
 import { highlight } from "./highlight";
+import { writeZone } from "./writeZone";
 import { contextMenu } from "./contextMenu";
 import { RECITE_HOTKEYS } from "./constants";
 import { RECITE_FLOAT_ICONS } from "./reciteIcons";
@@ -73,6 +74,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
         this.addIcons(RECITE_FLOAT_ICONS); // 浮条按钮图标 sprite（2026-08-27 移动端顶栏改造）
         statusBtn.onload();
         highlight.onload();
+        writeZone.onload();
         contextMenu.onload(this);
 
         // 调试通道（照 tomato 的 window.tomato_zZmqus5PtYRi 惯例）：e2e/目视验证用
@@ -92,7 +94,9 @@ export default class ThePlugin extends BaseTomatoPlugin {
             },
         });
         this.setting.addItem({
-            title: this.i18n.激活与帮助,
+            // □5 打磨：原 title=i18n.帮助 与面板内自绘 header「仿写练习 · 设置」双标题叠层
+            // 且语义错位（这是设置面板非帮助页），改「设置」与 header 尾缀呼应
+            title: this.i18n.设置,
             // row 方向让 host 拿 fn__block（全宽）；默认 column 的 fn__size200 只有 200px 太窄
             direction: "row",
             createActionElement: () => {
@@ -196,7 +200,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
                 icon: "iconSettings",
                 title: this.i18n.顶栏设置提示,
                 position: "left",
-                callback: () => this.setting.open(this.i18n.激活与帮助),
+                callback: () => this.setting.open(this.i18n.帮助),
             });
             el.classList.add("recite-topbar-gear");
             return el;
@@ -291,6 +295,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
         this.settingsComp = null;
         contextMenu.onunload();
         highlight.onunload();
+        writeZone.onunload();
         statusBtn.onunload(); // 与 onload 注册顺序对称的逆序回收（清挂起的自检 timer，见 statusBtn.onunload 范式注释）
     }
 }

@@ -350,26 +350,30 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] {
     font-weight: 500;
 }
 
-// ---- 项3：抽取文档·复述位填空卡（付费态）----
-// 复述位 = 总结快照块之后的第一个段块（extract 播种空块，用户在此落笔）。
-// 待填态：虚线框 + 圆角 12px + 浅底；:not([custom-recite-note]) 排除旧版布局「总结连总结」
-// 把第二条总结误标成复述位的情况。
-body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] + div[data-node-id][data-type="NodeParagraph"]:not([custom-recite-note]) {
-    border: 1.5px dashed var(--recite-accent);
-    border-radius: 12px;
+// ---- 项3：抽取文档·复述写作区（付费态）----
+// 写区 = 每条总结块之后到下一条总结块之间的全部顶层块（writeZone.ts 挂 data-recite-write，
+// 内存 DOM 属性不落 IAL，回车分块/粘贴/拖拽由 MutationObserver 重算跟随）。视觉 = 左侧
+// accent 竖线贯穿整个写区（逐块绘制天然连续、无拼接缝）+ 空块浅底/✍ 提示、写过字的块底色
+// 退隐只剩竖线——「区域恒在、空位可填」，与原文档「你的句」竖线语言同构。根治旧版
+// `note + p` 相邻选择器只框第一个段块、回车新块出框的瑕疵（2026-08-31）。
+body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] {
+    border-inline-start: 3px solid var(--recite-accent);
+    padding-inline-start: 10px;
+    margin-block: 0;
+}
+// 写区组与总结块之间的呼吸：首块上方、末块下方（末块 = 后面跟的不是写区块，涵盖尾区）
+body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write]:not([data-recite-write] + [data-recite-write]) {
+    margin-top: 6px;
+}
+body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write]:not(:has(+ div[data-node-id][data-recite-write])) {
+    margin-bottom: 14px;
+}
+// 空块（还没落笔）：浅底提示可写；:has 判空沿用旧版实测结论（残留空文本节点按空计）
+body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write]:has(> div[contenteditable]:empty) {
     background-color: var(--recite-accent-soft);
-    margin: 4px 0 14px;
-    padding: 8px 12px;
 }
-// 完成态：有内容后虚线转实线、底色退隐。:has 判空 2026-08-25 实测可用（思源空段块的
-// contenteditable div 真为空；打字后清空残留空文本节点，Chromium :empty 仍匹配——
-// 空文本节点按 Selectors L4 计为空；wbr 仅光标驻留瞬间存在，可接受）。
-body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] + div[data-node-id][data-type="NodeParagraph"]:not([custom-recite-note]):not(:has(> div[contenteditable]:empty)) {
-    border-style: solid;
-    background-color: transparent;
-}
-// 落笔提示：伪元素不进块内容、不改 IAL，块一旦有字自然消失（:empty 失配）
-body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] + div[data-node-id][data-type="NodeParagraph"]:not([custom-recite-note]) > div[contenteditable]:empty::before {
+// ✍ 落笔提示：每个空块都出——回车分段后新空段也有引导，写位伪元素不进块内容、不改 IAL
+body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] > div[contenteditable]:empty::before {
     content: "✍ 在这里写下你的复述…";
     color: var(--recite-accent);
     opacity: 0.55;
@@ -1625,3 +1629,14 @@ body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot.recite-mascot
     100% { transform: translate(-50%, -50%) scale(1.9); opacity: 0; }
 }
 
+
+// ========== 设置面板·宠物形象卡 mock（□4 emoji 退役，2026-08-31）==========
+// 货架卡直接展示判卷出场的真帧（idle sprite 左帧=睁眼态），复用上方帧素材 Sass 变量单源；
+// 本段只供 background-image（96×48 sprite 双帧），盒模型/裁帧（48×48 取左帧）在
+// Settings.svelte 的 .rs-mascot-frame（scoped）——两处分工勿混。锁定卡半透明遮罩由
+// .rs-skin--locked .rs-skin-mock 的 opacity/filter 管，对背景图同样生效。
+.rs-mascot-frame--shiba { background-image: $m-shiba-idle; }
+.rs-mascot-frame--snow { background-image: $m-snow-idle; }
+.rs-mascot-frame--spirit { background-image: $m-spirit-idle; }
+.rs-mascot-frame--owl { background-image: $m-owl-idle; }
+.rs-mascot-frame--dino { background-image: $m-dino-idle; }

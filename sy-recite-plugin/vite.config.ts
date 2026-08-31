@@ -25,6 +25,8 @@ export default defineConfig({
         { src: "./README*.md", dest: "./" },
         { src: "./icon.png", dest: "./" },
         { src: "./preview.png", dest: "./" },
+        // 群组二维码（QQ 频道 + 飞书群合并压缩图，tools/gen-group-qr.mjs 生成）
+        { src: "./group-qr.png", dest: "./" },
         { src: "./plugin.json", dest: "./" },
         { src: "./src/i18n/**", dest: "./i18n/" },
       ],

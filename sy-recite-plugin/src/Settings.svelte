@@ -1,27 +1,30 @@
 <script lang="ts">
-    // recite 设置面板（2026-08 商业化，视觉批 2026-08-25 焕新）：hero 卡 + 顶栏图标开关 +
-    // 皮肤主题货架（真切换）+ ActivationCard + 使用说明/更新日志，挂思源标准 Setting 页签
-    // （index.ts mount 进 setting.element）。购买/激活共享文案走 tomatoI18n（六语种）；
+    // recite 设置面板（2026-08 商业化，视觉批 2026-08-25 焕新；□4 视觉收敛 2026-08-31）：统一
+    // header（□3，名+版本+Pro 徽标+帮助菜单单图标钮，名片/标语收进菜单「关于」）+ 顶栏图标开关
+    // + 皮肤主题货架（真切换）+ 付费状态条（□1，点击弹统一解锁框）+ 搜索框（□3 补齐，复用番茄
+    // searchSettings），挂思源标准 Setting 页签（index.ts mount 进 setting.element）。
+    // □4 色板收敛：面板 chrome 全走 b3 变量（用户拍板方案一零品牌色），不再引用 --recite-* 运行时
+    // token（旧引用会随 body[data-recite-theme] 皮肤漂移）；emoji 装饰全退役（宠物卡改真帧 mock、
+    // 快捷键行改 sprite 图标）。
+    // 购买/激活/邻居解锁共享文案走 tomatoI18n（六语种，UnlockDialog 内聚）；
     // recite 特有文案走 plugin.i18n（zh_CN/en_US 起步）。
-    import { Dialog, confirm } from "siyuan";
-    import { mount, onMount } from "svelte";
+    import { Dialog } from "siyuan";
+    import { mount } from "svelte";
+    import { onDestroy, onMount, tick } from "svelte";
     import { newID } from "stonev5-utils";
-    import ActivationCard from "../../sy-tomato-plugin/src/ActivationCard.svelte";
-    import DevDeactivate from "../../sy-tomato-plugin/src/DevDeactivate.svelte";
+    import UpgradeBar from "../../sy-tomato-plugin/src/UpgradeBar.svelte";
+    import { openUnlockDialog } from "../../sy-tomato-plugin/src/unlockDialog";
     import Help from "../../sy-tomato-plugin/src/libs/Help.svelte";
+    import { openHelpMenu } from "../../sy-tomato-plugin/src/libs/helpMenu";
+    import { searchSettings } from "../../sy-tomato-plugin/src/libs/ui";
     import { openChangelogDialog } from "../../sy-tomato-plugin/src/libs/changelogDialog";
     import { DestroyManager } from "../../sy-tomato-plugin/src/libs/destroyer";
     import { events } from "../../sy-tomato-plugin/src/libs/Events";
     import { siyuan } from "../../sy-tomato-plugin/src/libs/utils";
     import { STORAGE_SETTINGS } from "../../sy-tomato-plugin/src/constants";
-    // □14 激活互通：跨插件互问纯函数（渐进 src/neighbor.ts，纯函数无 bundle 复制陷阱）+
-    // 一键解锁走 ActivationCard 同款激活链的依赖
-    import { progressiveCodeFromApp } from "../../sy-tomato-plugin/src/libs/neighbor";
-    import { userToken } from "../../sy-tomato-plugin/src/libs/stores";
-    import { resetKey, verifyKeyRecite } from "../../sy-tomato-plugin/src/libs/user";
-    import { backfillCloudOnce } from "../../sy-tomato-plugin/src/libs/redeem";
     import changelog from "./changelog.json";
     import helpDoc from "./help.json";
+    import pluginPkg from "../plugin.json";
     import { RECITE_SKINS, DEFAULT_SKIN_SLUG, applyReciteTheme, RECITE_BGS,
         applyBgForMode, watchAppearance, isDarkAppearance, resolveBgPair,
         BG_LIGHT_KEY, BG_DARK_KEY, BG_STRENGTH_LIGHT_KEY, BG_STRENGTH_DARK_KEY,
@@ -43,59 +46,13 @@
     let { plugin }: Props = $props();
 
     // 激活态初值直接取 body 门禁 class（面板只可能在 onLayoutReady 刷新门禁之后被打开，class 已
-    // 就位）——已激活用户开面板不闪锁；随后 ActivationCard onMount 自动 verify（懒缓存
+    // 就位）——已激活用户开面板不闪锁；随后 UpgradeBar onMount 自动 verify（懒缓存
     // verifyKeyRecite，与 index.ts refreshGate 同一判定源）经 bind:codeValid 回写纠正，两处一致。
     let codeValid = $state(!document.body.classList.contains("recite-unpaid"));
 
-    // □14 激活互通一键解锁（2026-08-28 拍板：面板惰性检测 + 一键，不做启动时自动跟随）：
-    // 面板每次 open 重 mount，此处 onMount 才 find 渐进实例取码——打开时双方必然已就绪，
-    // 时序窗口自然消除；未装/旧版无方法/未激活/对方抛错全部静默降级（progressiveCodeFromApp
-    // 单测覆盖），只显示常规互通提示行。渐进已激活 ⇔ 其 token 过 progressive 验签（老 VIP
-    // 也落在这条链），故 recite 拿码自验无死角，不信任对方内存态。
-    let neighborCode = $state("");
-    onMount(() => {
-        neighborCode = progressiveCodeFromApp(plugin.app);
-    });
-    let unlocking = $state(false);
-    async function unlockFromNeighbor() {
-        if (unlocking || !neighborCode) return;
-        unlocking = true;
-        // ActivationCard 本地粘贴路径的字节级同路：set 码→清懒缓存→cross 通道验签→
-        // 落盘（userToken 挂 settingCfg 单文件两头一致）→云端回填→reload（会掐断在途
-        // 请求，故 backfill 必须 await 完）
-        userToken.set(neighborCode);
-        resetKey();
-        const v = await verifyKeyRecite();
-        if (v) {
-            codeValid = true;
-            await plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
-            await backfillCloudOnce("recite");
-            window.location.reload();
-        } else {
-            await siyuan.pushMsg(plugin.i18n.邻居解锁失败);
-            unlocking = false;
-        }
-    }
-
-    /**
-     * 购买闸门（□14 防误购，用户反馈「提示被忽略→误购→回头骂」）：已检测到渐进可
-     * 免费解锁时，点「购买」先弹确认拦截——确定=免费解锁（点击式惊喜，非自动激活）
-     * 且中止购买；取消=放行购买流程（给确有他意的用户留出口）。未检测到渐进不拦。
-     */
-    function buyGuardNeighbor(): Promise<boolean> {
-        if (!neighborCode) return Promise.resolve(true);
-        return new Promise(resolve => {
-            confirm(
-                plugin.i18n.邻居购买拦截标题,
-                plugin.i18n.邻居购买拦截文案,
-                () => {
-                    unlockFromNeighbor();
-                    resolve(false);
-                },
-                () => resolve(true),
-            );
-        });
-    }
+    // □14 激活互通（2026-08-28 拍板）＋□1 收敛（2026-08-31）：邻居检测与一键解锁整链
+    // 移进统一 UnlockDialog（UpgradeBar neighbor 传入开启，弹框打开时惰性互问渐进实例），
+    // 面板侧不再保留邻居行/购买拦截。
 
     // 完整帮助 = 飞书图文指南（2026-08-26 建，四场景示例 + 判卷全文）；私有期文档未开公开分享，
     // 未授权访问不可达——Help Dialog 本地渲染 help.json 速览兜底，链接仅作「看完整版」出口
@@ -162,11 +119,22 @@
     // svelte-ignore state_referenced_locally
     let selectedMascot = $state<string>(plugin.settingCfg?.reciteMascot || DEFAULT_MASCOT_SLUG);
 
+    // □1 灰档统一：锁卡点击一律弹统一解锁框（替代原 pushMsg 提示）；激活链内聚在
+    // UnlockDialog（成功后 saveData→reload），此处只管弹
+    function openUnlock() {
+        openUnlockDialog({
+            product: "recite",
+            neighbor: true,
+            getApp: () => plugin.app,
+            onActivated: () => plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg),
+        });
+    }
+
     function pickMascot(slug: string) {
         const m = mascots.find(x => x.slug === slug);
         if (!m) return;
         if (m.locked) {
-            siyuan.pushMsg(plugin.i18n.宠物Pro提示, 2500);
+            openUnlock();
             return;
         }
         selectedMascot = slug;
@@ -226,7 +194,7 @@
         const bg = bgs.find(x => x.slug === slug);
         if (!bg) return;
         if (bg.locked) {
-            siyuan.pushMsg(plugin.i18n.背景Pro提示, 2500);
+            openUnlock();
             return;
         }
         if (slug === "custom") {
@@ -308,7 +276,7 @@
         const skin = skins.find(s => s.slug === slug);
         if (!skin) return;
         if (skin.locked) {
-            siyuan.pushMsg(plugin.i18n.皮肤Pro提示, 2500);
+            openUnlock();
             return;
         }
         selectedSkin = slug;
@@ -332,7 +300,7 @@
         const skin = fbSkins.find(s => s.slug === slug);
         if (!skin) return;
         if (skin.locked) {
-            siyuan.pushMsg(plugin.i18n.浮条Pro提示, 2500);
+            openUnlock();
             return;
         }
         selectedFbSkin = slug;
@@ -374,16 +342,97 @@
         dm.add("svelte", () => d.destroy());
     }
 
+    // □4 关于弹窗：hero 名片区退役后的版本+标语承接位（择轻=纯 Dialog 零 Svelte mount）。
+    // 内容样式走内联（Dialog content 挂 body 外层，scoped 样式命不中），全 b3 变量
+    function openAbout() {
+        new Dialog({
+            title: plugin.i18n.关于仿写练习,
+            content: `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:28px 16px 20px;text-align:center">
+                <div style="font-size:16px;font-weight:600;color:var(--b3-theme-on-background)">${plugin.i18n.name}</div>
+                <div style="font-size:12px;color:var(--b3-theme-on-surface-light, var(--b3-theme-on-surface))">v${pluginPkg.version}</div>
+                <div style="font-size:13px;line-height:1.6;color:var(--b3-theme-on-surface)">${plugin.i18n.标语}</div>
+            </div>`,
+            width: "360px",
+        });
+    }
+
+    // □3 帮助菜单（header 单 iconHelp 入口）：使用说明/更新日志/开源仓库/关于（isMe，
+    // helpMenu 内聚）；原页脚三按钮与 dev-row 全部收编于此
+    function onHelpMenuBtn(e: MouseEvent) {
+        openHelpMenu(e, {
+            usage: openHelp,
+            changelog: () => openChangelogDialog(changelog),
+            repo: () => window.open("https://github.com/IAliceBobI/sy-recite-plugin", "_blank"),
+            about: openAbout,
+            labels: {
+                usage: plugin.i18n.使用说明,
+                changelog: plugin.i18n.更新日志,
+                repo: plugin.i18n.开源仓库,
+                about: plugin.i18n.关于仿写练习,
+            },
+        });
+    }
+
+    // □3 搜索框补齐：番茄/渐进同款（searchSettings + localStorage 记忆），过滤粒度=面板
+    // 直接子元素（rs-header 挂 data-search 豁免，不会被搜索隐藏）
+    let settingsDiv: HTMLElement = $state();
+    let searchKey = $state("");
+    const SearchKeyItemKey = "recite_settings_SearchKeyItemKey_RfrUm9VLS4GehTzg5ygRrNT";
+    onDestroy(() => {
+        localStorage.setItem(SearchKeyItemKey, searchKey);
+    });
+    onMount(async () => {
+        const savedSearchKey = localStorage.getItem(SearchKeyItemKey);
+        if (savedSearchKey) {
+            searchKey = savedSearchKey;
+            await tick();
+            if (settingsDiv) {
+                searchSettings(settingsDiv, searchKey);
+            }
+        }
+    });
+
 </script>
 
-<div class="recite-settings tomato-settings-dialog">
-    <!-- hero：插件名片 + 一句话标语（文案走 i18n），渐变浅底随明暗主题 -->
-    <div class="rs-hero">
-        <span class="rs-hero-logo" aria-hidden="true">✍</span>
-        <div class="rs-hero-text">
-            <div class="rs-hero-name">{plugin.i18n.name}</div>
-            <div class="rs-hero-tagline">{plugin.i18n.标语}</div>
+<div class="recite-settings tomato-settings-dialog" bind:this={settingsDiv}>
+    <!-- □3 统一 header（页签内自绘，同 tomato-header 类复用 IndexConf.css；无关闭钮——
+         页签由思源自身管理）。data-search：搜索过滤豁免，header 永不隐藏 -->
+    <div class="tomato-header rs-header" data-search>
+        <span class="tomato-header-title">{plugin.i18n.name} · {plugin.i18n.设置}</span>
+        <span class="tomato-header-version">v{pluginPkg.version}</span>
+        {#if codeValid}<span class="tomato-pro-badge">Pro</span>{/if}
+        <div class="tomato-header-btns">
+            <button
+                class="tomato-header-btn b3-tooltips b3-tooltips__n"
+                aria-label={plugin.i18n.帮助}
+                onclick={onHelpMenuBtn}
+            >
+                <svg aria-hidden="true"><use xlink:href="#iconHelp"></use></svg>
+            </button>
         </div>
+    </div>
+
+    <!-- 付费状态条（□1）：未激活一行入口，点击弹统一解锁框（neighbor 开启渐进一键解锁格）；
+         已激活整条不渲染。□4 hero 退役后自然成为内容流最顶 -->
+    <UpgradeBar
+        product="recite"
+        bind:codeValid
+        neighbor={true}
+        getApp={() => plugin.app}
+        onActivated={() => plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg)}
+    ></UpgradeBar>
+
+    <!-- search（□3 补齐）：番茄/渐进同款搜索配置，localStorage 记忆 -->
+    <div class="settingBox search-bar" data-search>
+        <input
+            class="b3-text-field"
+            placeholder={plugin.i18n.搜索配置}
+            bind:value={searchKey}
+            oninput={() => {
+                localStorage.setItem(SearchKeyItemKey, searchKey);
+                searchSettings(settingsDiv, searchKey);
+            }}
+        />
     </div>
 
     <!-- 顶栏按钮开关（笔图标默认开，齿轮设置按钮默认关）：切换即时生效（动态 addTopBar / 元素 remove） -->
@@ -409,12 +458,16 @@
     </div>
 
     <!-- 快捷键（□33）：五命令键帽，点击进入监听态按下新组合即免 reload 写回内核 keymap；
-         Esc 取消 / Backspace 删除 / 🎲 随机 / ↩ 恢复默认由共享组件自带 -->
+         Esc 取消 / Backspace 删除 / 🎲 随机 / ↩ 恢复默认由共享组件自带（键帽内字符是功能输入
+         符号非装饰，保留）；行首图标走 sprite（□4 emoji 退役，icon id 单源 RECITE_HOTKEYS） -->
     <div class="rs-hks">
         <div class="rs-skins-title">{plugin.i18n.快捷键}</div>
         {#each hkRows as row}
             <div class="rs-hk-row">
-                <span class="rs-hk-label">{row.hk.icon} {row.label}</span>
+                <span class="rs-hk-label">
+                    <svg class="rs-hk-ic" aria-hidden="true"><use xlink:href="#{row.hk.icon}"></use></svg>
+                    {row.label}
+                </span>
                 <HotkeyCap hk={row.hk} pluginName="sy-recite-plugin"></HotkeyCap>
             </div>
         {/each}
@@ -448,7 +501,10 @@
         />
     </div>
 
-    <!-- 宠物形象两选：豆豆免费默认 / 小盼 Pro（未激活锁死盖角标，点击弹激活引导） -->
+    <!-- 宠物形象两选：豆豆/雪团免费默认 / 其余 Pro（未激活锁死盖角标，点击弹激活引导）。
+         卡面直接展示判卷出场的真帧（idle 睁眼帧，index.scss .rs-mascot-frame--* 单源）。
+         --skin 借 primary 而非各形象主题色（vision P1-1：无 --skin 时选中✓ 白勾裸奔+边框
+         回退黑色；且与其他货架「皮肤色=商品色」不同，宠物无商品主色，统一走 b3） -->
     <div class="rs-skins">
         <div class="rs-skins-title">{plugin.i18n.宠物形象}</div>
         <div class="rs-skin-shelf" role="radiogroup" aria-label={plugin.i18n.宠物形象}>
@@ -457,13 +513,16 @@
                     class="rs-skin b3-tooltips b3-tooltips__n"
                     class:rs-skin--selected={selectedMascot === m.slug}
                     class:rs-skin--locked={m.locked}
+                    style="--skin: var(--b3-theme-primary)"
                     role="radio"
                     aria-checked={selectedMascot === m.slug}
                     aria-disabled={m.locked}
                     aria-label={m.locked ? plugin.i18n.宠物Pro提示 : m.name}
                     onclick={() => pickMascot(m.slug)}
                 >
-                    <span class="rs-mascot-mock" aria-hidden="true">{m.emoji}</span>
+                    <span class="rs-mascot-mock" aria-hidden="true">
+                        <span class="rs-mascot-frame rs-mascot-frame--{m.slug}"></span>
+                    </span>
                     <span class="rs-skin-name">{m.name}</span>
                     {#if m.locked}
                         <span class="rs-skin-pro">Pro</span>
@@ -536,7 +595,9 @@
                     aria-label={bg.locked ? plugin.i18n.背景Pro提示 : bg.name}
                     onclick={() => pickBg(bg.slug)}
                 >
-                    <span class="rs-skin-mock rs-bg-mock rs-bg-{bg.slug}" aria-hidden="true">{bg.slug === "custom" ? "🖼" : ""}</span>
+                    <span class="rs-skin-mock rs-bg-mock rs-bg-{bg.slug}" aria-hidden="true">
+                        {#if bg.slug === "custom"}<svg class="rs-bg-custom-ic" aria-hidden="true"><use xlink:href="#iconImage"></use></svg>{/if}
+                    </span>
                     <span class="rs-skin-name">{bg.name}</span>
                     {#if bg.locked}
                         <span class="rs-skin-pro">Pro</span>
@@ -622,47 +683,9 @@
         </div>
     </div>
 
-    <!-- 激活/购买共享卡：未激活显示价格+购买+激活码框+找回，已激活整卡不渲染。
-         □14 激活互通双形态：检测到渐进已激活（面板打开时惰性互问）→ 一键解锁按钮行；
-         否则保留手动互通提示（2026-08-26 拍板单向送码：粘贴渐进码也能激活） -->
-    {#if !codeValid}
-        {#if neighborCode}
-            <div class="rs-neighbor-unlock">
-                <span class="rs-neighbor-tip">{plugin.i18n.邻居解锁提示}</span>
-                <button class="b3-button b3-button--primary rs-neighbor-btn" disabled={unlocking} onclick={unlockFromNeighbor}>
-                    {unlocking ? "…" : plugin.i18n.邻居解锁按钮}
-                </button>
-            </div>
-        {:else}
-            <div class="rs-cross-code-hint">{plugin.i18n.渐进码互通提示}</div>
-        {/if}
-    {/if}
-    <ActivationCard
-        product="recite"
-        bind:codeValid
-        showBuy={true}
-        buyGuard={buyGuardNeighbor}
-        onActivated={() => plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg)}
-    ></ActivationCard>
-
-    <!-- 开发者（isMe）专属取消激活入口：已激活后激活卡整卡隐藏，此处是唯一退出通道 -->
-    {#if codeValid}
-        <div class="rs-dev-row">
-            <DevDeactivate />
-        </div>
-    {/if}
-
-    <div class="rs-row">
-        <button class="b3-button b3-button--outline" onclick={openHelp}>
-            {plugin.i18n.使用说明}
-        </button>
-        <button class="b3-button b3-button--outline" onclick={() => openChangelogDialog(changelog)}>
-            {plugin.i18n.更新日志}
-        </button>
-        <button class="b3-button b3-button--outline" onclick={() => window.open("https://github.com/IAliceBobI/sy-recite-plugin", "_blank")}>
-            {plugin.i18n.开源仓库}
-        </button>
-    </div>
+    <!-- □3：页脚三按钮（使用说明/更新日志/开源仓库）与 dev-row 取消激活收编进 header
+         帮助菜单；仿写保存语义=即时生效，无 footer，仅留一行说明收底 -->
+    <div class="rs-instant-note">{plugin.i18n.改动即时生效}</div>
 </div>
 
 <style>
@@ -671,40 +694,6 @@
         flex-direction: column;
         gap: 10px;
         padding: 8px 16px 16px;
-    }
-
-    /* hero：渐变浅底 + 圆角 14px，底色/主色全部走 token（index.scss --recite-*，随明暗主题） */
-    .rs-hero {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 14px 16px;
-        border: 1px solid var(--recite-card-border);
-        border-radius: 14px;
-        background: linear-gradient(135deg, var(--recite-accent-soft), transparent 65%),
-            var(--recite-card-bg);
-    }
-    .rs-hero-logo {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 38px;
-        height: 38px;
-        flex: 0 0 auto;
-        border-radius: 10px;
-        background: var(--recite-accent-strong);
-        color: #fff;
-        font-size: 19px;
-    }
-    .rs-hero-name {
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--b3-theme-on-background);
-    }
-    .rs-hero-tagline {
-        margin-top: 2px;
-        font-size: 12px;
-        color: var(--recite-accent);
     }
 
     /* 顶栏图标开关行：label 左 + b3-switch 右（思源原生开关样式），与货架同宽呼吸 */
@@ -736,11 +725,22 @@
         padding: 2px 2px;
     }
     .rs-hk-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         font-size: 13px;
         color: var(--b3-theme-on-surface);
     }
+    /* 行首 sprite 图标（□4 emoji 退役）：id 单源 RECITE_HOTKEYS，色随文字 */
+    .rs-hk-ic {
+        width: 14px;
+        height: 14px;
+        flex: none;
+        opacity: 0.78;
+    }
 
-    /* 判官语气分段三选：贴 b3 按钮语汇的 segmented control，选中档 accent 淡底加粗 */
+    /* 判官语气分段三选：贴 b3 按钮语汇的 segmented control，选中档 primary 实心（□4 色板
+       收敛方案一——原 --recite-accent 系会随运行时皮肤漂移，字重 500 对齐 tomato-chip 先例） */
     .rs-tone-seg {
         display: flex;
         border: 1px solid var(--b3-border-color);
@@ -759,10 +759,13 @@
     .rs-tone-btn:last-child {
         border-right: none;
     }
+    .rs-tone-btn:hover:not(.rs-tone-btn--on) {
+        color: var(--b3-theme-primary);
+    }
     .rs-tone-btn--on {
-        background: var(--recite-accent-soft);
-        color: var(--recite-accent-strong);
-        font-weight: 600;
+        background: var(--b3-theme-primary);
+        color: var(--b3-theme-on-primary);
+        font-weight: 500;
     }
 
     /* 皮肤货架：5 张 96×64 mini 样机卡，窄面板自动换行 */
@@ -773,6 +776,10 @@
     }
     .rs-skins-title {
         font-size: 13px;
+        /* □5 打磨（vision P1-1）：补 600 字重对齐战役拍板的分区标题层级
+           （header 15px/600 > 分区 13px/600 > 组小标题 12px/600），否则与
+           13px/400 的行标签塌平拉不开 */
+        font-weight: 600;
         color: var(--b3-theme-on-surface);
     }
     .rs-skin-shelf {
@@ -823,12 +830,17 @@
     }
 
     /* 背景库样机：底色=各款 body 色 (--skin)，纹样用 CSS 渐变示意各自材质（斜杠=无、
-       横线=纤维、方格=网格、对角斑=牛皮；custom 灰蓝底+🖼 占位） */
+       横线=纤维、方格=网格、对角斑=牛皮；custom 灰蓝底+iconImage 小图示意自定义图片） */
     .rs-bg-mock {
         align-items: center;
         justify-content: center;
-        font-size: 22px;
         background: var(--skin);
+    }
+    .rs-bg-custom-ic {
+        width: 18px;
+        height: 18px;
+        color: var(--b3-theme-on-surface);
+        opacity: 0.55;
     }
     .rs-bg-none {
         background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(130, 130, 130, 0.3) 8px 10px);
@@ -849,16 +861,16 @@
     }
 
     /* ---- □19 背景库二波：提示条 / 明暗分库 chip / 纹理浓淡滑块 / 护眼样机 ---- */
-    /* 第三方主题提示条：小字弱行 + accent 细左边，不打断主流程 */
+    /* 第三方主题提示条：小字弱行 + primary 细左边，不打断主流程（□4 次级文字统一
+       on-surface-light 单档，不再用 opacity 分档） */
     .rs-bg-note {
         padding: 6px 9px;
-        border-inline-start: 2px solid var(--recite-accent);
+        border-inline-start: 2px solid var(--b3-theme-primary);
         border-radius: 4px;
-        background: color-mix(in srgb, var(--recite-accent) 8%, transparent);
+        background: color-mix(in srgb, var(--b3-theme-primary) 8%, transparent);
         font-size: 12px;
         line-height: 1.5;
-        color: var(--b3-theme-on-surface);
-        opacity: 0.72;
+        color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
     }
 
     /* 亮/暗分库 chip：克隆判官语气分段控件语汇，宽自适应、窄面板不撑破 */
@@ -881,10 +893,13 @@
     .rs-bg-mode-btn:last-child {
         border-right: none;
     }
+    .rs-bg-mode-btn:hover:not(.rs-bg-mode-btn--on) {
+        color: var(--b3-theme-primary);
+    }
     .rs-bg-mode-btn--on {
-        background: var(--recite-accent-soft);
-        color: var(--recite-accent-strong);
-        font-weight: 600;
+        background: var(--b3-theme-primary);
+        color: var(--b3-theme-on-primary);
+        font-weight: 500;
     }
 
     /* 纹理浓淡行：label + native range（accent-color 一发命中主题色）+ 读数 */
@@ -899,15 +914,14 @@
         min-width: 0;
         height: 16px;
         margin: 0;
-        accent-color: var(--recite-accent);
+        accent-color: var(--b3-theme-primary);
         cursor: pointer;
     }
     .rs-bg-strength-val {
         flex: 0 0 36px;
         font-size: 11px;
         text-align: right;
-        color: var(--b3-theme-on-surface);
-        opacity: 0.7;
+        color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
         font-variant-numeric: tabular-nums;
     }
 
@@ -950,7 +964,8 @@
         text-overflow: ellipsis;
     }
 
-    /* 宠物形象样机：emoji 大字居中示意（真实帧在判卷流程出场时渲染，货架不重复内嵌 SVG） */
+    /* 宠物形象样机（□4 真帧化）：卡面居中 48×48 真帧——图片来自 index.scss 的
+       .rs-mascot-frame--<slug>（单源 Sass 帧），96×48 双帧 sprite 取左帧（睁眼态） */
     .rs-mascot-mock {
         display: flex;
         align-items: center;
@@ -959,7 +974,13 @@
         box-sizing: border-box;
         border-radius: 6px;
         background: var(--b3-theme-surface);
-        font-size: 34px;
+    }
+    .rs-mascot-frame {
+        width: 48px;
+        height: 48px;
+        background-repeat: no-repeat;
+        background-size: 96px 48px;
+        background-position: left top;
     }
 
     /* 浮条样机：迷你浮条——标题细线 + 主按钮（--skin）/ghost 按钮（描边），底色 --fb-mock-bg
@@ -1053,7 +1074,11 @@
         left: 6px;
         padding: 0 4px;
         border-radius: 4px;
-        background: var(--recite-accent-strong);
+        /* □5 打磨（vision P2-2）：原 var(--recite-accent-strong) 跟皮肤色漂移，
+           违反 □4「面板 chrome 不引用 --recite-*」拍板；换渐进 locked 角标
+           同款中性色（.prog-skin-card.locked .skin-tag 对齐） */
+        background: var(--b3-theme-on-surface);
+        opacity: 0.75;
         color: #fff;
         font-size: 9px;
         line-height: 14px;
@@ -1061,45 +1086,23 @@
         letter-spacing: 0.4px;
     }
 
-    .rs-row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: center;
-        margin-top: 4px;
+    /* □3 统一 header：主体样式走 IndexConf.css 的 tomato-header* 类（recite 根挂
+       tomato-settings-dialog 已引入），此处仅页签语境微调 */
+    .rs-header {
+        margin-top: 2px;
     }
-    .rs-dev-row {
-        display: flex;
-        justify-content: center;
+
+    /* 搜索框横距：根容器自带 padding 8px 16px，抵消 IndexConf.css 共享规则给
+       Dialog 型面板的 12px 横距（vision P1-1 节奏统一——仿写侧 16px 由根 padding 提供） */
+    .recite-settings :global(.settingBox.search-bar) {
+        margin: 10px 0 0;
     }
-    /* 渐进码互通提示：弱样式一行，不打断激活主流程 */
-    .rs-cross-code-hint {
-        margin: 4px 2px 0;
+
+    /* 即时生效说明行（□3 footer 替代）：仿写无保存钮，一行弱字收底（□4 次级文字统一档） */
+    .rs-instant-note {
+        margin-top: 6px;
         font-size: 12px;
-        color: var(--b3-theme-on-surface);
-        opacity: 0.65;
-    }
-    /* □14 一键解锁行：防误购的关键提示（用户反馈金底灰字对比度太低易忽略→误购回头骂），
-       视觉必须压过常规提示行一档：accent tint 底 + 左 4px 实心边条 + 半粗深字 + primary 按钮 */
-    .rs-neighbor-unlock {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 8px 2px 4px;
-        padding: 8px 10px;
-        border-radius: 6px;
-        border-left: 4px solid var(--recite-accent, var(--b3-theme-primary));
-        /* 旧内核（Chromium<111）不识别 color-mix 整条失效，先给兜底再上 tint */
-        background: var(--b3-theme-primary-lighter);
-        background: color-mix(in srgb, var(--recite-accent, var(--b3-theme-primary)) 16%, var(--b3-theme-background));
-    }
-    .rs-neighbor-tip {
-        flex: 1;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--b3-theme-on-background);
-    }
-    .rs-neighbor-btn {
-        flex-shrink: 0;
+        text-align: center;
+        color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
     }
 </style>

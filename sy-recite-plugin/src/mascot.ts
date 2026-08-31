@@ -12,16 +12,15 @@
 export interface ReciteMascotDef {
     slug: string;
     i18nKey: string;
-    emoji: string;
     pro: boolean;
 }
 
 export const RECITE_MASCOTS: ReciteMascotDef[] = [
-    { slug: "shiba", i18nKey: "宠物·柴犬豆豆", emoji: "🐶", pro: false },
-    { slug: "snow", i18nKey: "宠物·白兔雪团", emoji: "🐰", pro: false },
-    { slug: "spirit", i18nKey: "宠物·精灵小盼", emoji: "🧚", pro: true },
-    { slug: "owl", i18nKey: "宠物·雪鸮博士", emoji: "🦉", pro: true },
-    { slug: "dino", i18nKey: "宠物·恐龙豆芽", emoji: "🦖", pro: true },
+    { slug: "shiba", i18nKey: "宠物·柴犬豆豆", pro: false },
+    { slug: "snow", i18nKey: "宠物·白兔雪团", pro: false },
+    { slug: "spirit", i18nKey: "宠物·精灵小盼", pro: true },
+    { slug: "owl", i18nKey: "宠物·雪鸮博士", pro: true },
+    { slug: "dino", i18nKey: "宠物·恐龙豆芽", pro: true },
 ];
 
 export const DEFAULT_MASCOT_SLUG = "shiba";
