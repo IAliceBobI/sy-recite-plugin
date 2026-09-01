@@ -71,6 +71,23 @@ export function groupNotes(stream: ReciteBlock[]): NoteGroup[] {
 }
 
 /**
+ * 每组 refs（原文溯源块）切片：上一组末到本组首的非空正文=本组 refs（批注锚定其前
+ * 文本，既有语义不动）；最后批注组兜底并到流尾——其后无人认领的尾部正文并入最后一组
+ * （AI 拆分的收尾锚点未必插在文末——2026-09-01 主实例实锤：10 号锚点后甩两段尾声被
+ * 对比/判卷静默漏掉；手写批注不插到底同理）。空块一律滤除。
+ */
+export function originBlocksForGroups(stream: ReciteBlock[], groups: NoteGroup[]): ReciteBlock[][] {
+    let cursor = 0;
+    return groups.map((g, gi) => {
+        const origin = stream.slice(cursor, g.start).filter(b => b.markdown.trim());
+        cursor = g.end + 1;
+        return gi === groups.length - 1
+            ? origin.concat(stream.slice(cursor).filter(b => b.markdown.trim()))
+            : origin;
+    });
+}
+
+/**
  * 衍生文档标题：类型前缀·原文标题后缀（文档树/搜索里一眼可辨归属）；取不到原文标题退回裸前缀。
  * 标题里的 / 替换为全角——它是 hpath 分隔符，裸用会把标题拆成多层路径。
  */
@@ -176,18 +193,32 @@ export function noteFitsHeading(markdown: string): boolean {
 }
 
 /**
- * 题目块 heading 化：md2Divs 产出的总结块原地改写为 h2 标题块——data-type/subtype/class
- * 三处就位，内容不动（段落与 heading 的 DOM 结构同构：外 div + 内 contenteditable div），
- * 批注行内格式原样保留，note/refs IAL 照旧。改写后自动接通思源官方大纲跳转与
- * 折叠收纳（视觉完全交给思源标题默认样式）；下游（readExtractDoc/writeZone/compare/判卷）
- * 只认 custom-recite-note 属性 + 平铺块流，heading 容器化不影响。
+ * 题目块 heading 化：md2Divs 产出的总结块原地改写为 hN 标题块（级别可配默认 6=出厂，
+ * 2026-09-01 用户「二级还是很巨大」）——data-type/subtype/class 三处就位，内容不动
+ * （段落与 heading 的 DOM 结构同构：外 div + 内 contenteditable div），批注行内格式
+ * 原样保留，note/refs IAL 照旧。改写后自动接通思源官方大纲跳转与折叠收纳（视觉完全
+ * 交给思源标题默认样式）；下游（readExtractDoc/writeZone/compare/判卷）只认
+ * custom-recite-note 属性 + 平铺块流，heading 容器化与级别均不影响。
  */
-export function noteBlockAsHeading(div: HTMLElement): HTMLElement {
+export function noteBlockAsHeading(div: HTMLElement, level: number = 6): HTMLElement {
+    const sub = `h${noteHeadingLevel({ noteHeadingLevel: level })}`;
     div.setAttribute("data-type", "NodeHeading");
-    div.setAttribute("data-subtype", "h2");
+    div.setAttribute("data-subtype", sub);
+    for (let i = 1; i <= 6; i++) div.classList.remove(`h${i}`); // 改级别不残留旧 class
     div.classList.remove("p");
-    div.classList.add("h2");
+    div.classList.add(sub);
     return div;
+}
+
+/**
+ * 题目标题级别设置读取（settingCfg.noteHeadingLevel）：收敛到 1~6 整数，缺省/越界/
+ * 非法回落默认 6（2026-09-01 用户拍板出厂即小号标题——H2 巨大折行伤折叠收纳体验，
+ * H6 贴近正文行高仍享大纲/折叠；本设置项随 v1.2.3 首发，无 H2 出厂存量，直接定 6）；
+ * 数字串（select 表单值）同样认。抽取/对比两条生成链与设置面板三处共用。
+ */
+export function noteHeadingLevel(cfg: any): number {
+    const n = Math.round(Number(cfg?.noteHeadingLevel));
+    return Number.isFinite(n) && n >= 1 && n <= 6 ? n : 6;
 }
 
 /**
@@ -212,19 +243,18 @@ export async function doExtract(plugin: Plugin, originID: string) {
         await siyuan.pushMsg("未发现批注：仿写模式点亮后新插入的块才算批注", 3000);
         return;
     }
-    // 垂直练习单元：总结块（软换行 \n 连接为一块，改写 h2 标题块，挂 note/refs 属性）+ 其下一个
-    // 空段块写位——点开即可落笔，无需手动回车。refs 留给对比/判卷实时回查，抽取文档里看不到原文。
-    let cursor = 0;
-    const units = groups.flatMap(g => {
-        const origin = stream.slice(cursor, g.start).filter(b => b.markdown.trim());
-        cursor = g.end + 1;
+    // 垂直练习单元：总结块（软换行 \n 连接为一块，改写 hN 标题块——级别跟设置项，挂 note/refs
+    // 属性）+ 其下一个空段块写位——点开即可落笔，无需手动回车。refs 留给对比/判卷实时回查，抽取文档里看不到原文。
+    const noteLevel = noteHeadingLevel((plugin as any).settingCfg);
+    const origins = originBlocksForGroups(stream, groups);
+    const units = groups.flatMap((g, gi) => {
         const md = g.blocks.map(b => b.markdown).join("\n");
         const note = md2Divs(md, {
             [RECITE_NOTE]: "1",
-            [RECITE_REFS]: origin.map(b => b.id).join(","),
+            [RECITE_REFS]: origins[gi].map(b => b.id).join(","),
         } as AttrType);
-        // 单行题目块 → h2（接通官方大纲跳转/折叠）；多行题保持段落，防内核 heading 单行序列化剥换行
-        if (note[0] && noteFitsHeading(md)) noteBlockAsHeading(note[0]);
+        // 单行题目块 → hN（接通官方大纲跳转/折叠，级别跟设置项默认 H6）；多行题保持段落，防内核 heading 单行序列化剥换行
+        if (note[0] && noteFitsHeading(md)) noteBlockAsHeading(note[0], noteLevel);
         return [...note.map(n => n.outerHTML), new DomParaBuilder().html()];
     });
     // box/路径/标题全走按 id 直查通道（getBlockInfo/getHPathByID 直读文件树）——SQL 有索引延迟，

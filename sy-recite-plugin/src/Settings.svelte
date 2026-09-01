@@ -33,6 +33,7 @@
         WZ_GLOW_DEFAULT, applyWzVisuals, clampWzGlow } from "./theme";
     import { GRADER_TONES, DEFAULT_TONE_SLUG } from "./promptCopy";
     import { RECITE_MASCOTS, DEFAULT_MASCOT_SLUG, applyReciteMascot, applyMascotEnabled } from "./mascot";
+    import { noteHeadingLevel } from "./extract";
     import { RECITE_HOTKEYS } from "./constants";
     // 快捷键键帽共享组件（□33 三插件同源：tomato 自用 / progressive / recite 相对导入同款）。
     // 键帽样式（.kbd/.hotkey-cap/.hk-chip 等）在 IndexConf.css 且按 .tomato-settings-dialog
@@ -81,6 +82,18 @@
         plugin.settingCfg.reciteTopBarGear = gearOn;
         plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
         plugin.setTopBarGear(gearOn);
+    }
+
+    // 题目标题级别（2026-09-01 用户需求「二级标题还是很巨大」）：抽取/对比文档每题标题块
+    // 用第几级标题渲染，H1~H6 可选，出厂默认 H6（小号贴近正文行高，仍享大纲/折叠）；即选即存
+    // （select 表单值是字符串，noteHeadingLevel 统一收敛），改后点「重新写」/「对比」重建文档
+    // 生效——两文档都是单例删建语义，点一次即按新级别重建，存量文档不动。
+    // svelte-ignore state_referenced_locally
+    let noteLevel = $state<number>(noteHeadingLevel(plugin.settingCfg));
+    function onNoteLevel(e: Event) {
+        noteLevel = noteHeadingLevel({ noteHeadingLevel: (e.currentTarget as HTMLSelectElement).value });
+        plugin.settingCfg.noteHeadingLevel = noteLevel;
+        plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
     }
 
     // 判官语气三档（2026-08-26）：三选一存 settingCfg.graderTone，即选即存——判卷时（aiGrade/
@@ -563,6 +576,23 @@
             <span class="rs-bg-strength-val">{wzGlow}%</span>
             <button class="rs-reset-btn" onclick={resetWzGlow}>{plugin.i18n.恢复默认}</button>
         </div>
+    </div>
+
+    <!-- 题目标题级别（2026-09-01 用户需求「二级还是很巨大」）：抽取/对比文档每题标题块的渲染
+         级别 H1~H6（出厂默认 H6 小号），改后重新抽取/点对比刷新生效（单例删建语义） -->
+    <div class="rs-setting-row">
+        <label class="rs-setting-label b3-tooltips b3-tooltips__n" for="recite-note-level" aria-label={plugin.i18n.题目标题级别说明}>{plugin.i18n.题目标题级别}</label>
+        <select
+            id="recite-note-level"
+            class="b3-select"
+            style="width:auto; min-width:72px"
+            value={noteLevel}
+            onchange={onNoteLevel}
+        >
+            {#each [1, 2, 3, 4, 5, 6] as lv}
+                <option value={lv}>H{lv}</option>
+            {/each}
+        </select>
     </div>
 
     <!-- 判官语气三选（分段控件）：AI 判卷的点评口吻，云端判卷与复制提示词两通道同步生效 -->

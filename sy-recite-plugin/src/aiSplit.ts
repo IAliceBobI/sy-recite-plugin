@@ -29,7 +29,6 @@ export const AI_SPLIT_MODES: { slug: AISplitMode; mark: string; i18nKey: string 
     { slug: "direction", mark: "☰", i18nKey: "方向锚点" },
 ];
 
-const GUIDE_KEY = "sy-recite-aisplit-guide";
 let running = false; // 双保险防重入（FloatBar 按钮 disabled 之外）
 
 /**
@@ -58,6 +57,8 @@ function splitPrompt(mode: AISplitMode, numbered: string): string {
         "为它生成写作练习锚点：每个锚点插在所属节拍收尾的那个块之后。",
         ...modeLines[mode],
         "锚点数量按叙事节拍自定（一般 5~15 个，视篇幅），宁缺毋滥。",
+        "最后一个锚点必须收住全文结尾：把它插在全文最后一个非空块之后——锚点之后的正文若无人",
+        "认领会从练习覆盖中漏掉。",
         "文中可能已有用户手写批注（以 ▶︎/✍︎/☰ 开头的行或其它短备注）——这些节拍用户已自己拆过，",
         "跳过它们覆盖的节拍，不要重复插锚点。",
         "输出要求：只输出一个 JSON 数组，不要任何其他文字或 markdown 代码块围栏。每项形如",
@@ -83,9 +84,9 @@ function parsePlan(raw: string): { after: number; text: string }[] {
     }
 }
 
-/** 浮条入口：Pro 门禁（□14，装饰同款：入口可见不藏、unpaid 点击 pushMsg 引导）→ 首次点击
- * 引导 dialog（localStorage 免复发，弹出即记——引导是信息性的，取消也算读过）→ 三选菜单
- * （贴按钮弹出照 openSiteMenu 先例） */
+/** 浮条入口：Pro 门禁（□14，装饰同款：入口可见不藏、unpaid 点击 pushMsg 引导）→ 三选菜单
+ * （贴按钮弹出照 openSiteMenu 先例）。首次使用引导 dialog 已按用户要求退役（2026-09-01：
+ * 每次都弹一下太吵，说明性内容帮助文档里已有）。 */
 export function startAISplit(plugin: Plugin, originID: string, runner: (mode: AISplitMode) => void, anchor?: HTMLElement) {
     if (!originID || running) return;
     if (document.body.classList.contains("recite-unpaid")) {
@@ -94,37 +95,18 @@ export function startAISplit(plugin: Plugin, originID: string, runner: (mode: AI
     }
     const t: any = plugin?.i18n ?? {};
     const say = (k: string, fb: string) => t[k] || fb;
-    const openMenu = () => {
-        // independent 第三参（2026-08-26 □7 踩坑）：confirm 确定的同步 click 栈内 open 单例菜单，
-        // 会被同次冒泡到 window 的全局监听 remove 清空弹不出；independent 自管生命周期免疫
-        const menu = new (Menu as any)("recite-ai-split", undefined, true) as Menu;
-        AI_SPLIT_MODES.forEach(m => menu.addItem({
-            label: `${m.mark} ${say(m.i18nKey, m.i18nKey)}`,
-            click: () => runner(m.slug),
-        }));
-        setTimeout(() => {
-            const r = anchor?.getBoundingClientRect();
-            if (r) menu.open({ x: r.left, y: r.bottom }); // 左缘对齐按钮左缘自然右展（内核自带屏界翻转）
-            else menu.open({ x: window.innerWidth - 16, y: window.innerHeight - 160, isLeft: true });
-        }, 0);
-    };
-    if (localStorage.getItem(GUIDE_KEY)) {
-        openMenu();
-        return;
-    }
-    localStorage.setItem(GUIDE_KEY, "1");
-    confirm(
-        say("AI拆分引导标题", "AI 拆分 · 新手起步"),
-        say("AI拆分引导内容", "AI 拆分帮你起步：它通读全文，按叙事节拍自动插入锚点批注（复述/仿写/方向三种文风），消耗你在「思源设置 → AI」配置的 AI 额度。拆分本身也是练习——熟练后建议自己写批注，自己拆的节拍才最贴自己的理解。"),
-        openMenu,
-    );
-    // 弹层提层盖浮条（2026-08-28 vision-glm 终审 P1）：引导 dialog 常是会话首个弹窗，内核
-    // zIndex 计数器自 10 起，头几个弹窗层级低于浮条根（12）会被盖。z-index 在内核 inline 挂
-    // .b3-dialog 上，且 --open 类是 setTimeout 异步加的——同步选择器定位不到，走官方
-    // window.siyuan.dialogs 尾元素（构造里同步 push + append）拿 .b3-dialog 改 1000 根治
-    const dialogs = (window.siyuan as any)?.dialogs as any[] | undefined;
-    const dlgEl = dialogs?.[dialogs.length - 1]?.element?.querySelector(".b3-dialog") as HTMLElement | undefined;
-    dlgEl?.style.setProperty("z-index", "1000");
+    // independent 第三参（2026-08-26 □7 踩坑）：confirm 确定的同步 click 栈内 open 单例菜单，
+    // 会被同次冒泡到 window 的全局监听 remove 清空弹不出；independent 自管生命周期免疫
+    const menu = new (Menu as any)("recite-ai-split", undefined, true) as Menu;
+    AI_SPLIT_MODES.forEach(m => menu.addItem({
+        label: `${m.mark} ${say(m.i18nKey, m.i18nKey)}`,
+        click: () => runner(m.slug),
+    }));
+    setTimeout(() => {
+        const r = anchor?.getBoundingClientRect();
+        if (r) menu.open({ x: r.left, y: r.bottom }); // 左缘对齐按钮左缘自然右展（内核自带屏界翻转）
+        else menu.open({ x: window.innerWidth - 16, y: window.innerHeight - 160, isLeft: true });
+    }, 0);
 }
 
 export async function aiSplit(plugin: Plugin, originID: string, mode: AISplitMode) {
