@@ -1,6 +1,6 @@
 <script lang="ts">
-    // 块配对功能优先浮条（R3 □2 V4 换代）：funcs 态=六功能钮面板（门禁灰+VIP 徽标）；
-    // slots 态按功能框数渲染（两框=[源可多,目标]、三框=搬运[起始,结束,目标]）+搬运移动/复制
+    // 块配对功能优先浮条（R3 □2 V4 换代）：funcs 态=六功能钮面板（门禁灰+VIP 徽标，
+    // 上次功能主色高亮 R4）；slots 态按功能框数渲染（两框=[源可多,目标]、三框=搬运[起始,结束,目标]）+搬运移动/复制
     // 切换+✓ 主色确认（框齐才亮，带影响面预览「移动 N 块」）；当前功能图标常驻框区左侧
     // 可点击回 funcs 换功能。⋯菜单/拖动记忆/帮助入口/✕ 收条保留（第一轮落地勿破坏）。
     // 纯 UI——状态与副作用全在 PairBarBox 控制器（pairState 是控制器传入的 store）。
@@ -21,6 +21,7 @@
         pairState,
         api,
         hotkeyText,
+        lastFunc,
     }: {
         pairState: import("svelte/store").Writable<import("./libs/pairBarState").PairState>;
         api: {
@@ -34,6 +35,8 @@
             barResetPos(): void;
         };
         hotkeyText: string;
+        /** 上次成功执行的功能（R4：直跳退役后的面板高亮；出场快照，控制器 mount 时传） */
+        lastFunc: string;
     } = $props();
 
     // 门禁上下文：图标亮灰跟随各功能总开关（开关正交）+ VIP（嵌入互链）。
@@ -158,16 +161,19 @@
         ondblclick={onBgDblClick}
     >
         {#if $pairState.phase === "funcs"}
-            <!-- 功能面板（V4）：先选功能，浮条再按功能变框数；出场选区已暂存待自动填 -->
-            <span class="pairbar-hint">{tomatoI18n.选择功能(($pairState.stash?.ids?.length ?? 0) > 0)}</span>
+            <!-- 功能面板（V4）：先选功能，浮条再按功能变框数；出场选区/最近源块已暂存待自动填；
+                 上次功能高亮（R4）：直跳退役后 lastFunc 的残留价值，只高亮不抢焦点 -->
+            <span class="pairbar-hint">{tomatoI18n.选择功能($pairState.stash)}</span>
             <div class="pairbar-funcs">
                 {#each PAIR_FUNCS as f (f.id)}
                     {@const err = fnErr(f)}
+                    {@const isLast = f.id === lastFunc && !err}
                     <button
                         class="pairbar-fn b3-tooltips b3-tooltips__s"
                         class:off={!!err}
+                        class:last={isLast}
                         aria-disabled={!!err ? "true" : undefined}
-                        aria-label={errText(err, f)}
+                        aria-label={isLast ? `${label(f.labelKey)} · ${tomatoI18n.上次使用}` : errText(err, f)}
                         onclick={() => { if (!err) api.pickFunc(f.id); }}
                     >
                         <svg><use xlink:href={"#" + f.icon}></use></svg>
@@ -280,11 +286,11 @@
             {/if}
             {#if $pairState.func === "transport"}
                 <!-- 搬运移动/复制切换：分段控件两档（vision P1：单字按钮无供应性易读成
-                     说明文字）——当前项主色高亮，点已在项=no-op 不翻转 -->
-                <span class="pairbar-toggle" role="group">
-                    <button class:cur={!$pairState.copyMode}
+                     说明文字）——当前项主色高亮，点已在项=no-op 不翻转；aria-pressed 表达当前档 -->
+                <span class="pairbar-toggle" role="group" aria-label="{tomatoI18n.移动}/{tomatoI18n.复制}">
+                    <button class:cur={!$pairState.copyMode} aria-pressed={!$pairState.copyMode ? "true" : "false"}
                         onclick={() => { if ($pairState.copyMode) api.toggleCopy(); }}>{tomatoI18n.移动}</button>
-                    <button class:cur={$pairState.copyMode}
+                    <button class:cur={$pairState.copyMode} aria-pressed={$pairState.copyMode ? "true" : "false"}
                         onclick={() => { if (!$pairState.copyMode) api.toggleCopy(); }}>{tomatoI18n.复制}</button>
                 </span>
             {/if}
@@ -453,6 +459,18 @@
         margin: -5px -4px 0 0;
         padding: 9px 10px 4px 6px;
     }
+    /* 上次功能高亮（R4 轻量版）：主色淡底+主色文字，视觉语言对齐分段控件 .cur 档；
+       写在 :hover 之前让 hover 背景（b3-list-hover）可覆盖（color 主色保持），灰态不加
+       （off 已表不可用）——评审 P1：写在 :hover 之后会同特异性压死 hover 反馈 */
+    .pairbar-fn.last {
+        background: color-mix(in srgb, var(--b3-theme-primary) 10%, transparent);
+        color: var(--b3-theme-primary);
+    }
+    /* 高亮态 11px 主色字对暗底实测 2.66:1，低于常态灰字的 4.84:1（暗色 vision P1）：
+       加粗笔画提可读，不动色不与分段控件 .cur 分叉 */
+    .pairbar-fn.last .pairbar-fn-name {
+        font-weight: 500;
+    }
     .pairbar-fn:hover {
         background: var(--b3-list-hover);
     }
@@ -539,6 +557,7 @@
         background: color-mix(in srgb, var(--b3-theme-primary) 14%, transparent);
         color: var(--b3-theme-primary);
         opacity: 1;
+        cursor: default; /* 当前项点击是 no-op，可点指针是假承诺（review P2-4） */
     }
     /* ✓ 确认主钮（V4）：主色实底=框齐待发；disabled=去饱和灰（主色只降半透仍读作
      *  可点的亮主色，加 grayscale 才可辨框未齐——2026-09-01 vision P0-1） */

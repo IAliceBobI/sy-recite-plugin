@@ -297,6 +297,9 @@ const settingFactory = <T>(key: TSK, defaultValue: T, file: string, _void: TSK) 
             }
         },
         set(value: T) {
+            // 注意：set 写内存 store + settingCfg[key]，不落盘≠会话级——之后任何整文件
+            // saveData（其他键的 write()/设置面板保存）都会搭车把它持久化；要确定不落盘
+            // 得用会话级裸 store，要确定落盘紧跟 write()（渐进 digSubrankOpen P1-1 教训）
             save(value);
         },
         // 返回落盘 Promise：调用方紧跟 reload/跳转时必须 await，否则 saveData 的
@@ -431,8 +434,11 @@ export const linkBoxUseLnkOrRef = settingFactory("linkBoxUseLnkOrRef", false, ST
 // 块配对接力浮条（□2 V1）：入口非功能，开关正交（图标亮灰跟随各功能总开关）
 export const pairBarEnabled = settingFactory("pairBarEnabled", true, STORAGE_SETTINGS, null as TSK);
 export const pairBarDefaultFunc = settingFactory("pairBarDefaultFunc", "", STORAGE_SETTINGS, null as TSK);
-// 「上次功能」记忆（V4 拍板 7 零配置兜底）：没设默认功能时出场直跳的预选源；执行成功即写
+// 「上次功能」记忆（R4 起直跳退役）：执行成功即写；funcs 面板高亮上次功能用（只高亮不抢焦点）
 export const pairBarLastFunc = settingFactory("pairBarLastFunc", "", STORAGE_SETTINGS, null as TSK);
+// 「最近用过的块」（R4 预填增强）：执行成功写首源块 id；出场无选区无光标时合成伪 stash
+// 预填第一框的兜底源（优先级 stash > 最近块 > 空；跨文档/已删块消费时校验存在性）
+export const pairBarLastSrcID = settingFactory("pairBarLastSrcID", "", STORAGE_SETTINGS, null as TSK);
 export const pairBarEntryHotkey = settingFactory("pairBarEntryHotkey", true, STORAGE_SETTINGS, null as TSK);
 export const pairBarEntryStatus = settingFactory("pairBarEntryStatus", true, STORAGE_SETTINGS, null as TSK);
 export const pairBarEntryMenu = settingFactory("pairBarEntryMenu", true, STORAGE_SETTINGS, null as TSK);
@@ -585,6 +591,10 @@ export const digestGlobalSigle = settingFactory("digestGlobalSigle", "0", STORAG
 // （双击摘抄浮钮与锁图标旁两钮退役——摘抄入口统一收进浮条/⌥Z/⇧⌥Z）。
 export const digestAddReadingpoint = settingFactory("digestAddReadingpoint", false, STORAGE_Prog_SETTINGS, null as TSK);
 export const digest2dailycard = settingFactory("digest2dailycard", false, STORAGE_Prog_SETTINGS, null as TSK);
+// □3 制卡统一归置（2026-09-01 拍板方案 A）：默认制卡（⌥E/浮条制卡钮）并入当日 daily card
+// 文档；存量用户无此 key 读默认 true 即集中（发版 notes 说明），关掉回落 cards 夹旧路线
+// （cardUnderPiece 分叉保持原语义）
+export const card2dailycard = settingFactory("card2dailycard", true, STORAGE_Prog_SETTINGS, null as TSK);
 // v5 火苗档位：每日目标片数（"1"/"3"/"5"，默认 3）——滚筒欠债=Σ max(0, 当日q−当日已读)
 export const dailyQuota = settingFactory("dailyQuota", "3", STORAGE_Prog_SETTINGS, null as TSK);
 // □3 右键退役默认关（2026-09-01 用户拍板：浮条已覆盖同款能力，右键默认清爽；设置项

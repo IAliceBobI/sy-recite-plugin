@@ -1,8 +1,9 @@
 // PairBar —— 块配对功能优先浮条 V4 状态机纯逻辑（R3 □2，设计共识=memory pairbar-r3-func-first-design）。
 // 模型：idle →(触发)→ funcs（六功能钮面板）→(点功能)→ slots（按功能框数渲染：
-// 两框=[源可多块,目标]、三框=搬运[起始,结束,目标]）。配默认/上次功能出场直跳 slots；
-// funcs 态再触发=收面板；slots 态触发器=填下一空框、框齐立即执行（拍板 A 三步合一，
-// ✓ 是鼠标流专属确认通道）；Esc/✕ 任意态取消。选区暂存 stash：出场记、点功能后消费。
+// 两框=[源可多块,目标]、三框=搬运[起始,结束,目标]）。配默认功能出场直跳 slots（R4 起
+// 「上次功能」直跳退役，lastFunc 只存面板高亮）；funcs 态再触发=收面板；slots 态触发器=
+// 填下一空框、框齐立即执行（拍板 A 三步合一，✓ 是鼠标流专属确认通道）；Esc/✕ 任意态取消。
+// 选区暂存 stash：出场记、点功能后消费（R4 起无选区时控制器可合成「最近用过的块」伪 stash）。
 // 三框区间解析是控制器职责（wysiwyg 顶层平铺序闭区间、起止跨文档拦截），纯函数层
 // 只收已解析 ids；resolveRangeIDs 以注入 flat 的方式可单测。本层只做纯转移与门禁
 // 判定（可单测）；DOM/思源 API 副作用在 PairBarBox 控制器。
@@ -115,6 +116,9 @@ export interface PairEvent {
     summary?: string;
     summaryLast?: string;
     cursorOnly?: boolean;
+    /** R4 伪预填标记：控制器把「最近用过的块」合成单块 cursorOnly 事件（无选区无光标时
+     *  的第一框预填兜底）；纯函数层行为同 cursorOnly，仅面板 hint 据此分显文案 */
+    lastSrc?: boolean;
 }
 
 /** 门禁上下文：gates=三功能总开关快照，vip=lastVerifyResult() */
@@ -179,11 +183,12 @@ function prefilledFromStash(func: PairFuncID, stash: PairEvent | null): Pick<Pai
  * - slots → 填下一空框（两框源框多块整组入/其余取首块）；这一填正好框齐则立即
  *   执行（拍板 A 三步合一，✓ 是鼠标流通道）；框本已齐（无框可填）=直接执行。
  */
-export function pairTrigger(s: PairState, ev: PairEvent, opts: { defaultFunc?: PairFuncID | ""; lastFunc?: PairFuncID | ""; gates?: Record<string, boolean>; vip?: boolean }): PairResult & { runFunc?: PairFuncID } {
+export function pairTrigger(s: PairState, ev: PairEvent, opts: { defaultFunc?: PairFuncID | ""; gates?: Record<string, boolean>; vip?: boolean }): PairResult & { runFunc?: PairFuncID } {
     const ctx = { gates: opts.gates, vip: opts.vip };
     if (s.phase === "idle") {
-        // 预选功能解析：设置默认功能（显式配置）优先，空了才轮到上次功能（兜底）
-        const want = opts.defaultFunc || opts.lastFunc || "";
+        // 预选功能只认设置里的默认功能（显式配置，R4 2026-09-01 起「上次功能」直跳退役：
+        // 老用户被上次恰好用的功能直跳框态咬过——出场一律先面板自己选；lastFunc 只存面板高亮）
+        const want = opts.defaultFunc || "";
         const spec = PAIR_FUNCS.find(f => f.id === want);
         if (spec && !pairGateErr(spec, ctx)) {
             const pre = prefilledFromStash(spec.id, ev);
@@ -240,7 +245,9 @@ export function pairPickFunc(s: PairState, func: PairFuncID, ctx?: Partial<PairG
         next = { srcIDs: [...s.srcIDs], srcSummary: s.srcSummary, endID: s.endID, endSummary: s.endSummary };
     } else if (pairBoxCount(func) === 3) {
         // 2→3：源组首/末块映射进起止框（无源=空框起步）；状态里只存首块摘要，
-        // 末块文本由控制器 pickFunc 后 syncEndSummary 现查补正（多源时首块文本张冠李戴）
+        // 末块文本由控制器 pickFunc 后 syncEndSummary 现查补正（多源时首块文本张冠李戴）。
+        // 注：此路径不区分光标/选区来源（srcIDs 无从溯源，单源起=止=「搬运这一个块」
+        // 语义完整可执行）——与「光标直跳三框只填起始」的有意取舍（review P2-1）
         const ids = s.srcIDs;
         next = {
             srcIDs: ids.length > 0 ? [ids[0]] : [],
@@ -302,10 +309,12 @@ export function pairClearBox(s: PairState, slot: 1 | 2 | 3): PairState {
     return { ...s, tgtID: null, tgtSummary: "", focusSlot: pairBoxCount(s.func) };
 }
 
-/** slots 态点当前功能图标 → 回 funcs 面板换功能（数据保留：重选同功能=恢复、换功能=映射） */
+/** slots 态点当前功能图标 → 回 funcs 面板换功能（数据保留：重选同功能=恢复、换功能=映射）。
+ *  stash 清空：选区暂存只服务出场初选（pairPickFunc 的 !s.func 分支），回面板后
+ *  funcs 提示「已记住选区」是虚报——用户清框回面板重点功能=空框起步（review P2-3） */
 export function pairBackToFuncs(s: PairState): PairState {
     if (s.phase !== "slots") return s;
-    return { ...s, phase: "funcs", focusSlot: 1, rangeCount: null };
+    return { ...s, phase: "funcs", focusSlot: 1, rangeCount: null, stash: null };
 }
 
 /**

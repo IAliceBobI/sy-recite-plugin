@@ -32,11 +32,11 @@ export class TomatoI18n extends TomatoI18nABC {
     }
     public get 无默认() {
         switch (this.lang) {
-            case "zh_CN": return "无默认（自动用上次功能）";
-            case "zh_CHT": return "無默認（自動用上次功能）";
-            case "ja_JP": return "なし（前回の機能を自動使用）";
+            case "zh_CN": return "无默认（出场先选功能）";
+            case "zh_CHT": return "無默認（出場先選功能）";
+            case "ja_JP": return "なし（起動時に機能を選択）";
             case "en_US":
-            default: return "None (use last action)";
+            default: return "None (pick an action on open)";
         }
     }
     public get 快捷键入口() {
@@ -234,13 +234,25 @@ export class TomatoI18n extends TomatoI18nABC {
     }
 
     // 功能优先浮条 V4（R3 □2）：功能面板/三框标签/换功能/✓ 影响面/跨文档拦截
-    public 选择功能(hasSel = false) {
+    /** 面板 hint 三态（R4）：无暂存 / 真选区暂存 / 「最近用过的块」伪预填（lastSrc 标记） */
+    public 选择功能(stash?: { ids: string[]; lastSrc?: boolean } | null) {
+        const has = (stash?.ids?.length ?? 0) > 0;
         switch (this.lang) {
-            case "zh_CN": return hasSel ? "选择功能（当前选区将自动填入）" : "选择功能";
-            case "zh_CHT": return hasSel ? "選擇功能（當前選區將自動填入）" : "選擇功能";
-            case "ja_JP": return hasSel ? "機能を選択（現在の選択範囲を自動挿入）" : "機能を選択";
+            case "zh_CN": return !has ? "选择功能" : stash?.lastSrc ? "选择功能（上次源块将自动填入）" : "选择功能（当前选区将自动填入）";
+            case "zh_CHT": return !has ? "選擇功能" : stash?.lastSrc ? "選擇功能（上次源塊將自動填入）" : "選擇功能（當前選區將自動填入）";
+            case "ja_JP": return !has ? "機能を選択" : stash?.lastSrc ? "機能を選択（前回のソースを自動挿入）" : "機能を選択（現在の選択範囲を自動挿入）";
             case "en_US":
-            default: return hasSel ? "Pick an action (selection will auto-fill)" : "Pick an action";
+            default: return !has ? "Pick an action" : stash?.lastSrc ? "Pick an action (last source will auto-fill)" : "Pick an action (selection will auto-fill)";
+        }
+    }
+    /** funcs 面板高亮上次功能的 tooltip 后缀（R4：直跳退役后 lastFunc 的残留价值） */
+    public get 上次使用() {
+        switch (this.lang) {
+            case "zh_CN": return "上次使用";
+            case "zh_CHT": return "上次使用";
+            case "ja_JP": return "前回使用";
+            case "en_US":
+            default: return "Last used";
         }
     }
     public 换功能(name: string) {
@@ -4335,10 +4347,10 @@ export class TomatoI18n extends TomatoI18nABC {
 
     public get tip制日卡() {
         switch (this.lang) {
-            case "zh_CN": return "选中/光标块制卡，存入 Daily Card 文件夹";
-            case "zh_CHT": return "選中/游標塊製卡，存入 Daily Card 資料夾";
+            case "zh_CN": return "选中/光标块制卡，并入当天 dailycard 文档";
+            case "zh_CHT": return "選中/游標塊製卡，併入當天 dailycard 文檔";
             case "en_US":
-            default: return "Card selected/cursor blocks and file them in the Daily Card folder";
+            default: return "Card selected/cursor blocks and merge them into today's dailycard document";
         }
     }
 
@@ -4347,7 +4359,7 @@ export class TomatoI18n extends TomatoI18nABC {
             case "zh_CN": return "同制日卡，但卡面不带原文引用";
             case "zh_CHT": return "同製日卡，但卡面不帶原文引用";
             case "en_US":
-            default: return "Like Daily card, but the card omits the source reference";
+            default: return "Like 制日卡 (daily card), but the card omits the source reference";
         }
     }
 
@@ -5621,6 +5633,14 @@ export class TomatoI18n extends TomatoI18nABC {
             default: return "Digest docs go into today's dailycard folder under the daily note; by default they go to the book's digest folder in prog-data";
         }
     }
+    public get tip设置制卡daily() {
+        switch (this.lang) {
+            case "zh_CN": return "默认制卡（⌥E/浮条制卡钮）并入当天 dailycard 文档集中放；关闭后回落 cards 夹（此时「分片内制卡」开关决定书下还是片下）";
+            case "zh_CHT": return "默認製卡（⌥E/浮條製卡鈕）併入當天 dailycard 文檔集中放；關閉後回落 cards 夾（此時「分片內製卡」開關決定書下還是片下）";
+            case "en_US":
+            default: return "Cards made by the default Make-Card entry (⌥E / floatbar button) go into today's dailycard document; turn off to fall back to the cards folder (where the under-piece switch then decides book vs piece)";
+        }
+    }
     public get tip设置摘抄背景() {
         switch (this.lang) {
             case "zh_CN": return "原书里已摘抄过的块显示背景色作痕迹，只改显示不写正文";
@@ -5655,18 +5675,18 @@ export class TomatoI18n extends TomatoI18nABC {
     }
     public get tip设置同步开卡() {
         switch (this.lang) {
-            case "zh_CN": return "附属卡=汇集本书全部卡片的文档；开启后打开分片时同步打开它";
-            case "zh_CHT": return "附屬卡=匯集本書全部卡片的文檔；開啟後打開分片時同步打開它";
+            case "zh_CN": return "附属卡=汇集本书全部卡片的文档；开启后打开分片时同步打开它——「制卡并入 dailycard」开启时改为打开当天 dailycard 文档（新卡的汇合处）";
+            case "zh_CHT": return "附屬卡=匯集本書全部卡片的文檔；開啟後打開分片時同步打開它——「製卡併入 dailycard」開啟時改為打開當天 dailycard 文檔（新卡的匯合處）";
             case "en_US":
-            default: return "\"Attached cards\" is the doc collecting all cards of the book; turn on to open it together with the piece";
+            default: return "\"Attached cards\" is the doc collecting all cards of the book; turn on to open it together with the piece — when merging into dailycard is on, today's dailycard doc opens instead (where new cards land)";
         }
     }
     public get tip设置卡位置() {
         switch (this.lang) {
-            case "zh_CN": return "开启后分片内制的卡收进分片的子文档；关闭则收进本书附属卡文档";
-            case "zh_CHT": return "開啟後分片內製的卡收進分片的子文檔；關閉則收進本書附屬卡文檔";
+            case "zh_CN": return "开启后分片内制的卡收进分片的子文档；关闭则收进本书附属卡文档（仅在关闭「制卡并入 dailycard 当天文档」时生效）";
+            case "zh_CHT": return "開啟後分片內製的卡收進分片的子文檔；關閉則收進本書附屬卡文檔（僅在關閉「製卡併入 dailycard 當天文檔」時生效）";
             case "en_US":
-            default: return "Cards made inside a piece go to a child doc of the piece; turn off to send them to the book's attached-cards doc";
+            default: return "Cards made inside a piece go to a child doc of the piece; turn off to send them to the book's attached-cards doc (only takes effect when merging cards into the dailycard doc is off)";
         }
     }
     public get tip设置复习隐藏() {

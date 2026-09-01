@@ -1,11 +1,12 @@
 // PairBarBox —— 块配对功能优先浮条控制器（□2 V1 + □3 V2 + 二轮 □3 双槽 + R3 □2 V4 功能优先）。
 // 职责：四入口（快捷键/状态栏/内容右键/块 icon 菜单）→ 同一触发器推进一步；
-// V4 模型：出场=六功能面板（配默认/上次功能直跳框态）→ 点功能按框数进框态
-// （两框=[源可多,目标]、三框=搬运[起始,结束,目标]）→ ✓ 确认或快捷键框齐即执行。
+// V4 模型：出场=六功能面板（配默认功能直跳框态；R4 起「上次功能」直跳退役、只存面板高亮）
+// → 点功能按框数进框态（两框=[源可多,目标]、三框=搬运[起始,结束,目标]）→ ✓ 确认或快捷键
+// 框齐即执行。无选区无光标时「最近用过的块」伪预填第一框（R4，stash>最近块>空）。
 // 填框通道：点编辑器块回填焦点框（click_editorcontent）、gutter 拖块进指定框、
 // 拖源 chip 到编辑器块=填目标框；选区暂存出场记、点功能后消费。三框区间解析
 // （wysiwyg 顶层平铺闭区间+跨文档拦截）与区间预览数在本层（纯函数层收已解析 ids）。
-// 执行链统一 execConfirm→execChain（含源=目标祖先/子孙拦截）；「上次功能」petal 持久。
+// 执行链统一 execConfirm→execChain（含源=目标祖先/子孙拦截）；「上次功能/最近源块」petal 持久。
 // 浮条挂 body（命令式组件，三层防线清理）。设计定稿：memory pairbar-r3-func-first-design。
 import { IProtyle, Menu, getAllEditor } from "siyuan";
 import { mount, unmount } from "svelte";
@@ -54,6 +55,7 @@ import {
     pairBarEntryMenu,
     pairBarEntryStatus,
     pairBarLastFunc,
+    pairBarLastSrcID,
 } from "./libs/stores";
 import { BaseTomatoPlugin } from "./libs/BaseTomatoPlugin";
 import { lastVerifyResult } from "./libs/user";
@@ -225,10 +227,9 @@ class PairBarBox {
      *  直跳框态）/ funcs 收面板 / slots 填下一空框（框齐即执行=拍板 A 三步合一） */
     async trigger() {
         if (!pairBarEnabled.get()) return;
-        const cur = get(this.state);
+        let cur = get(this.state);
         const opts = {
             defaultFunc: (pairBarDefaultFunc.get() || "") as PairFuncID | "",
-            lastFunc: (pairBarLastFunc.get() || "") as PairFuncID | "",
             gates: this.gates(),
             vip: lastVerifyResult() === true,
         };
@@ -238,11 +239,18 @@ class PairBarBox {
                 await siyuan.pushMsg(tomatoI18n.请先打开文档);
                 return;
             }
-            const ev = await this.readEv(protyle);
+            let ev: PairEvent = await this.readEv(protyle);
+            // R4 预填兜底：无选区无光标时用「最近用过的块」合成伪事件（优先级 stash >
+            // 最近块 > 空；cursorOnly 语义=两框/三框都只填第一框），供直跳预填/funcs 点功能消费
+            if (ev.ids.length === 0) ev = await this.lastSrcEvent() ?? ev;
+            // await 后复查（R4 评审 P1-2）：lastSrcEvent 可走内核网络拉长 await 窗口，双触发
+            // （长按 key-repeat/快捷键+状态栏并发）第二发携 idle 旧快照返回会把第一发已直跳的
+            // slots 打回 funcs / Esc 收条后浮条复活——idle 分支不再幂等，同 slots 分支防线
+            if (get(this.state).phase !== "idle") return;
             const r = pairTrigger(cur, ev, opts);
             this.state.set(r.state);
             this.showBar();
-            // 直跳框态的三框（默认/上次=搬运）：预填起止后解析区间预览
+            // 默认功能直跳框态的三框（搬运）：预填起止后解析区间预览
             if (r.state.phase === "slots") void this.syncRangeCount();
             return;
         }
@@ -251,7 +259,7 @@ class PairBarBox {
             return;
         }
         // slots：填下一空框（须读选区）；框齐裸按=直接执行（不需要选区，ev 传空）
-        const k = pairFirstEmpty(cur);
+        let k = pairFirstEmpty(cur);
         let ev: PairEvent = { ids: [] };
         if (k) {
             const protyle = this.curProtyle();
@@ -260,6 +268,13 @@ class PairBarBox {
                 return;
             }
             ev = await this.readEv(protyle);
+            // readEv 可走内核网络（title 缺失/块 detached 时百 ms 级窗口）：await 后重读
+            // 复查——间隙 Esc/关总开关已回 idle 时，旧快照 set 回去=「浮条已收 state 残留
+            // slots」幽灵态（监听已摘无 UI 通道再取消）；idle 分支同款防线（R4 起 lastSrcEvent
+            // 拉长窗口、直跳场景不幂等，见上）
+            cur = get(this.state);
+            if (cur.phase !== "slots") return;
+            k = pairFirstEmpty(cur);
         }
         const r = pairTrigger(cur, ev, opts);
         if (r.err) {
@@ -279,9 +294,11 @@ class PairBarBox {
 
     /** 点编辑器块回填进焦点框（两框源框多块整组入；焦点框有内容=直接覆盖） */
     private async fillFromEditor(slot: 1 | 2 | 3, protyle: IProtyle) {
+        if (get(this.state).phase !== "slots") return;
+        const ev = await this.readEv(protyle);
+        // await 后重读复查（Esc/关总开关已回 idle 时旧快照写回=幽灵 slots 态，slotDrop 同款范式）
         const cur = get(this.state);
         if (cur.phase !== "slots") return;
-        const ev = await this.readEv(protyle);
         const r = pairFillBox(cur, slot, ev);
         if (r.err) {
             await this.toastErr(r.err, cur.func);
@@ -330,13 +347,17 @@ class PairBarBox {
 
     /** funcs 面板点功能钮 → 进框态（3→2 换功能带区间解析结果整段进源框） */
     async pickFunc(funcID: PairFuncID) {
-        const cur = get(this.state);
+        let cur = get(this.state);
         if (cur.phase !== "funcs") return;
         const opts: { rangeIDs?: string[] } = {};
         if (cur.func === "transport" && cur.srcIDs[0] && cur.endID && funcID !== "transport") {
             const range = await this.resolveRange(cur.srcIDs[0], cur.endID);
             if (range) opts.rangeIDs = range;
         }
+        // resolveRange 可走内核 DOM 解析：await 后重读复查（回 funcs 后再 Esc=收浮条，
+        // 旧快照写回=幽灵 funcs/slots 态，fillFromEditor 同款防线）
+        cur = get(this.state);
+        if (cur.phase !== "funcs") return;
         const r = pairPickFunc(cur, funcID, { gates: this.gates(), vip: lastVerifyResult() === true }, opts);
         if (r.err) {
             await this.toastErr(r.err, funcID);
@@ -348,7 +369,8 @@ class PairBarBox {
     }
 
     /** 2→3 换功能映射后补正结束框摘要：状态只存首块摘要（srcSummary），多源映射时
-     *  结束块 chip 会张冠李戴显首块文本（2026-09-01 vision P0-2），末块文本须现查 */
+     *  结束块 chip 会张冠李戴显首块文本（2026-09-01 vision P0-2），末块文本须现查。
+     *  末块 detached 时 summaryOfID 返空串不写（残留首块文本属可接受降级——块已不可解析） */
     private async syncEndSummary() {
         const cur = get(this.state);
         if (cur.phase !== "slots" || pairBoxCount(cur.func) !== 3 || !cur.endID || cur.endID === cur.srcIDs[0]) return;
@@ -773,9 +795,15 @@ class PairBarBox {
                 const ok = await this.executeWith({ ...st, func }, srcDivs as HTMLElement[], target, protyle);
                 if (ok) {
                     await siyuan.pushMsg(tomatoI18n.配对完成);
-                    // 「上次功能」记忆（拍板 7：没设默认功能时出场直跳的预选源）
+                    // 「上次功能」记忆：funcs 面板高亮用（R4 起直跳退役）
                     pairBarLastFunc.set(func);
                     void pairBarLastFunc.write();
+                    // 「最近用过的块」预填记忆（R4）：首源块（搬运=起始块）——下次出场
+                    // 无选区无光标时的伪 stash 预填源
+                    if (st.srcIDs[0]) {
+                        pairBarLastSrcID.set(st.srcIDs[0]);
+                        void pairBarLastSrcID.write();
+                    }
                 } else await siyuan.pushMsg(tomatoI18n.源块不可用);
             } catch (e) {
                 console.error("[pairBar] execute failed:", e);
@@ -832,6 +860,22 @@ class PairBarBox {
         // cursorOnly/summaryLast 透传纯函数层：光标预填判据（光标只进起始）+ 末块摘要（结束框 chip 分显）
         const summaryLast = ids.length > 1 ? this.summaryOf(selected[ids.length - 1]) : summary;
         return { ids, summary, summaryLast, cursorOnly };
+    }
+
+    /** R4 预填兜底：「最近用过的块」→ 单块 cursorOnly 伪事件（无选区无光标时的第一框预填源，
+     *  lastSrc 标记供面板 hint 分显文案）。块已删/解析不到返回 null 并顺手清 store（跨文档
+     *  块经活页/内核 getBlockDiv 兜底仍可用，仅真删块才失效——防每次出场白发内核请求） */
+    private async lastSrcEvent(): Promise<PairEvent | null> {
+        const id = pairBarLastSrcID.get();
+        if (!id) return null;
+        const div = await this.resolveDivByID(id);
+        if (!div) {
+            pairBarLastSrcID.set("");
+            void pairBarLastSrcID.write();
+            return null;
+        }
+        const summary = this.summaryOf(div);
+        return { ids: [id], summary, summaryLast: summary, cursorOnly: true, lastSrc: true };
     }
 
     /** 源摘要：剥锚点链接 span（互链执行后块内会带 [->*] 标记，混进 chip 是噪音） */
@@ -942,6 +986,9 @@ class PairBarBox {
                 pairState: this.state,
                 api,
                 hotkeyText: PairBar触发.w(),
+                // funcs 面板高亮上次功能（R4 轻量版：只高亮不抢焦点；出场快照够——
+                // 执行成功即收浮条，下次出场重 mount 读新值）
+                lastFunc: (pairBarLastFunc.get() || "") as PairFuncID | "",
             },
         });
         // 有记忆=JS 设 left/top（出场钳制进视口）；无记忆保持 CSS 默认 76px 居中

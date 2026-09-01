@@ -167,8 +167,33 @@ export async function insertUnitsDoc(box: string, hpath: string, units: string[]
 }
 
 /**
+ * heading 落库单行判据：批注 markdown 含软换行（\n）时保持段落形态——内核 heading 的
+ * kramdown 序列化是单行文本语义，\n 与 <br> 落库时一律剥掉（2026-09-01 dev 实测三对照：
+ * 段落 \n 存活、heading \n 剥、heading <br> 剥）。内容保真优先于大纲条目，多行题不进大纲。
+ */
+export function noteFitsHeading(markdown: string): boolean {
+    return !markdown.includes("\n");
+}
+
+/**
+ * 题目块 heading 化：md2Divs 产出的总结块原地改写为 h2 标题块——data-type/subtype/class
+ * 三处就位，内容不动（段落与 heading 的 DOM 结构同构：外 div + 内 contenteditable div），
+ * 批注行内格式原样保留，note/refs IAL 照旧。改写后自动接通思源官方大纲跳转与
+ * 折叠收纳（视觉完全交给思源标题默认样式）；下游（readExtractDoc/writeZone/compare/判卷）
+ * 只认 custom-recite-note 属性 + 平铺块流，heading 容器化不影响。
+ */
+export function noteBlockAsHeading(div: HTMLElement): HTMLElement {
+    div.setAttribute("data-type", "NodeHeading");
+    div.setAttribute("data-subtype", "h2");
+    div.classList.remove("p");
+    div.classList.add("h2");
+    return div;
+}
+
+/**
  * 抽取：识别批注 → 删旧抽取子文档（连子树，对比文档随之消失）→ 建新抽取文档
- * （垂直练习单元：总结块 + 其下写位空块，无原文——照着原文写复述等于抄答案，DOM 事务直构）→ 打开。
+ * （垂直练习单元：总结块 h2 标题块 + 其下写位空块，无原文——照着原文写复述等于抄答案，
+ * DOM 事务直构）→ 打开。
  * 原文不进抽取文档，refs 溯源属性挂总结块上留给对比/判卷实时回查。
  * 不走 kramdown 整文解析（createDocWithMd 黑盒）：custom 属性直挂块、空块所见即所得、结构零魔法。
  */
@@ -187,16 +212,19 @@ export async function doExtract(plugin: Plugin, originID: string) {
         await siyuan.pushMsg("未发现批注：仿写模式点亮后新插入的块才算批注", 3000);
         return;
     }
-    // 垂直练习单元：总结块（软换行 \n 连接为一块，挂 note/refs 属性）+ 其下一个空段块写位——
-    // 点开即可落笔，无需手动回车。refs 留给对比/判卷实时回查，抽取文档里看不到原文。
+    // 垂直练习单元：总结块（软换行 \n 连接为一块，改写 h2 标题块，挂 note/refs 属性）+ 其下一个
+    // 空段块写位——点开即可落笔，无需手动回车。refs 留给对比/判卷实时回查，抽取文档里看不到原文。
     let cursor = 0;
     const units = groups.flatMap(g => {
         const origin = stream.slice(cursor, g.start).filter(b => b.markdown.trim());
         cursor = g.end + 1;
-        const note = md2Divs(g.blocks.map(b => b.markdown).join("\n"), {
+        const md = g.blocks.map(b => b.markdown).join("\n");
+        const note = md2Divs(md, {
             [RECITE_NOTE]: "1",
             [RECITE_REFS]: origin.map(b => b.id).join(","),
         } as AttrType);
+        // 单行题目块 → h2（接通官方大纲跳转/折叠）；多行题保持段落，防内核 heading 单行序列化剥换行
+        if (note[0] && noteFitsHeading(md)) noteBlockAsHeading(note[0]);
         return [...note.map(n => n.outerHTML), new DomParaBuilder().html()];
     });
     // box/路径/标题全走按 id 直查通道（getBlockInfo/getHPathByID 直读文件树）——SQL 有索引延迟，
