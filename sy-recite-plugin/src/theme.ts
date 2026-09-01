@@ -222,6 +222,37 @@ export function applyReciteBg(slug: string | undefined, customFile?: string) {
     }
 }
 
+// ---------- 写作现场（竖线/写位底色，2026-09-01 用户需求「竖线像中括号可选不要 + 浓度滑块」） ----------
+
+/** 竖线开关 / 写位底色浓度（settingCfg 键，与 reciteTheme 等同落 STORAGE_SETTINGS 单文件） */
+export const WZ_RULE_KEY = "wzRuleOn";
+export const WZ_GLOW_KEY = "wzGlow";
+
+/** 写位底色浓度出厂基准（百分刻度；100=出厂=v1.2.0 恒显浅底原值，0=无底色） */
+export const WZ_GLOW_DEFAULT = 100;
+
+export function clampWzGlow(v: unknown): number {
+    // null/空串先回默认（Number(null)/Number("") 均为 0 会静默变「无底色」，与
+    // resolveBgPair 的 != null 判空口径对齐）
+    if (v == null || v === "") return WZ_GLOW_DEFAULT;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : WZ_GLOW_DEFAULT;
+}
+
+/**
+ * 幂等铺写作现场两参数（onLayoutReady 与设置面板共用）：竖线关 = body 挂
+ * data-recite-wz-norule（index.scss 让写区竖线与「你的句」竖线一起退场）；底色浓度 =
+ * body inline 变量 --recite-glow-k（0~1，写位底色规则里乘基准 alpha 0.12/0.14）。
+ */
+export function applyWzVisuals(cfg: any) {
+    if (cfg?.[WZ_RULE_KEY] === false) {
+        document.body.setAttribute("data-recite-wz-norule", "");
+    } else {
+        document.body.removeAttribute("data-recite-wz-norule");
+    }
+    document.body.style.setProperty("--recite-glow-k", String(clampWzGlow(cfg?.[WZ_GLOW_KEY]) / 100));
+}
+
 /**
  * 背景全退（2026-08-27 bug 修复：背景跟仿写上下文走，切到无关文档时退场）：显式挂
  * data-recite-bg="none"（零规则命中=思源原生完整还原），**不能摘属性**——摘掉会被

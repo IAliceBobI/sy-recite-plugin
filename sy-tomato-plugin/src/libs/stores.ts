@@ -431,12 +431,12 @@ export const linkBoxUseLnkOrRef = settingFactory("linkBoxUseLnkOrRef", false, ST
 // 块配对接力浮条（□2 V1）：入口非功能，开关正交（图标亮灰跟随各功能总开关）
 export const pairBarEnabled = settingFactory("pairBarEnabled", true, STORAGE_SETTINGS, null as TSK);
 export const pairBarDefaultFunc = settingFactory("pairBarDefaultFunc", "", STORAGE_SETTINGS, null as TSK);
+// 「上次功能」记忆（V4 拍板 7 零配置兜底）：没设默认功能时出场直跳的预选源；执行成功即写
+export const pairBarLastFunc = settingFactory("pairBarLastFunc", "", STORAGE_SETTINGS, null as TSK);
 export const pairBarEntryHotkey = settingFactory("pairBarEntryHotkey", true, STORAGE_SETTINGS, null as TSK);
 export const pairBarEntryStatus = settingFactory("pairBarEntryStatus", true, STORAGE_SETTINGS, null as TSK);
 export const pairBarEntryMenu = settingFactory("pairBarEntryMenu", true, STORAGE_SETTINGS, null as TSK);
 export const pairBarEntryIconMenu = settingFactory("pairBarEntryIconMenu", true, STORAGE_SETTINGS, null as TSK);
-// □3 V2：引导模式（默认关）——pick 态点块锁源、target 态点目标块即确认的纯鼠标流
-export const pairBarGuideMode = settingFactory("pairBarGuideMode", false, STORAGE_SETTINGS, null as TSK);
 export const dailyNoteBoxCheckbox = settingFactory("dailyNoteBoxCheckbox", false, STORAGE_SETTINGS, null as TSK);
 export const dailyNoteGoToBottom = settingFactory("dailyNoteGoToBottom", false, STORAGE_SETTINGS, null as TSK);
 export const dailyNoteGoToBottomMenu = settingFactory("dailyNoteGoToBottomMenu", true, STORAGE_SETTINGS, null as TSK);
@@ -559,8 +559,9 @@ export const commentBoxAnnoBg = settingFactory("commentBoxAnnoBg", true, STORAGE
 export const commentBoxForwardRef = settingFactory("commentBoxForwardRef", true, STORAGE_SETTINGS, null as TSK);
 export const commentBoxBackwardRef = settingFactory("commentBoxBackwardRef", true, STORAGE_SETTINGS, null as TSK);
 export const commentBoxVirtualRef = settingFactory("commentBoxVirtualRef", true, STORAGE_SETTINGS, null as TSK);
-// □7 面板批注分区开关（默认关：新分区不打断文档正引主读流）
-export const commentBoxAnnotations = settingFactory("commentBoxAnnotations", false, STORAGE_SETTINGS, null as TSK);
+// □7 面板批注分区开关；□5（2026-09-01）默认值改开——用户推翻 □7「默认关」旧拍板
+// （存量已持久化过该键的环境不受影响，settingFactory.load 存储值优先）
+export const commentBoxAnnotations = settingFactory("commentBoxAnnotations", true, STORAGE_SETTINGS, null as TSK);
 export const commentBoxAddFlashCard = settingFactory("commentBoxAddFlashCard", false, STORAGE_SETTINGS, null as TSK);
 // □5 旧批注链设置退役（2026-08-31）：commentBoxAddTime/AddKeepText/AddUnderline/SaveUnderDoc、
 // dailyNoteCopyComment 随产物链删除；存量值留在 tomato-settings.json 不迁移不清理
@@ -569,6 +570,12 @@ export const commentBoxStaticOutlink = settingFactory("commentBoxStaticOutlink",
 // □2 面板皮肤四档：classic 经典（v1 现状，默认零回归）/ candy 糖霜 / paper 纸墨 / airy 疏朗，
 // spec §10（docs/tomato-commentbox-visual-spec.md）——面板根 data-skin 分档，多皮肤 CSS 共存
 export const commentBoxPanelSkin = settingFactory("commentBoxPanelSkin", "classic", STORAGE_SETTINGS, null as TSK);
+// 批注弹窗编辑器形态（2026-09-01）：rich=内嵌 Protyle（默认，现状语义）；plain=纯文本 textarea
+// 秒开（跳过草稿块+SQL 索引等待+protyle 挂载整条链）。弹窗内切换钮切换即 write=记住选择。
+export const commentBoxAnnoEditorMode = settingFactory("commentBoxAnnoEditorMode", "rich", STORAGE_SETTINGS, null as TSK);
+// 批注编辑器字号（px，两模式统一；2026-09-01 用户反馈字体小→可调+记忆）。默认 16=思源正文档，
+// 比 Dialog 基准 14 大一档；范围 12~22 由 AnnoEdit 内 clamp。
+export const commentBoxAnnoEditorFontSize = settingFactory("commentBoxAnnoEditorFontSize", 16, STORAGE_SETTINGS, null as TSK);
 
 // ---------------
 
@@ -580,8 +587,15 @@ export const digestAddReadingpoint = settingFactory("digestAddReadingpoint", fal
 export const digest2dailycard = settingFactory("digest2dailycard", false, STORAGE_Prog_SETTINGS, null as TSK);
 // v5 火苗档位：每日目标片数（"1"/"3"/"5"，默认 3）——滚筒欠债=Σ max(0, 当日q−当日已读)
 export const dailyQuota = settingFactory("dailyQuota", "3", STORAGE_Prog_SETTINGS, null as TSK);
-export const digestmenu = settingFactory("digestmenu", true, STORAGE_Prog_SETTINGS, null as TSK);
-export const piecesmenu = settingFactory("piecesmenu", true, STORAGE_Prog_SETTINGS, null as TSK);
+// □3 右键退役默认关（2026-09-01 用户拍板：浮条已覆盖同款能力，右键默认清爽；设置项
+// 保留可开回，旧持久化值留着无害——存过 true 的存量用户不受影响）。涉及三开关：
+// digestmenu/piecesmenu/ProgressiveJumpMenu；重访调度族无开关恒显示，不在退役面。
+export const digestmenu = settingFactory("digestmenu", false, STORAGE_Prog_SETTINGS, null as TSK);
+export const piecesmenu = settingFactory("piecesmenu", false, STORAGE_Prog_SETTINGS, null as TSK);
+// □7 块图标菜单独立开关（2026-09-01）：□3 三开关原一拖二连带块图标菜单（点块前小圆点
+// 弹的菜单）默认关，超出「右键清爽」拍板字面口径；拆独立门默认开（意图型入口不构成
+// 右键不清爽），管块图标菜单的渐进两项：跳到分片或回到原文 / 渐进阅读摘抄模式。
+export const blockIconMenu = settingFactory("blockIconMenu", true, STORAGE_Prog_SETTINGS, null as TSK);
 // v5 □7 设置砍半：words2dailycard/finishPieceCreateAt/PieceSummaryBoxmenu/merg2newBookEnable/
 // getAllPieceNotesEnable/multilineMarkEnable/send2* 六件/makeCard* 两件/summary2dailynote/
 // PieceMoving*/ProgressiveViewAllMenu 共 18 个显隐与计划流 store 退役（旧持久化值留着无害）。
@@ -594,7 +608,7 @@ export const flashcardUseLink = settingFactory("flashcardUseLink", true, STORAGE
 export const digestNoBacktraceLink = settingFactory("digestNoBacktraceLink", true, STORAGE_Prog_SETTINGS, null as TSK);
 export const pieceNoBacktraceLink = settingFactory("pieceNoBacktraceLink", true, STORAGE_Prog_SETTINGS, null as TSK);
 export const ProgressiveStart2learn = settingFactory("ProgressiveStart2learn", true, STORAGE_Prog_SETTINGS, null as TSK);
-export const ProgressiveJumpMenu = settingFactory("ProgressiveJumpMenu", true, STORAGE_Prog_SETTINGS, null as TSK);
+export const ProgressiveJumpMenu = settingFactory("ProgressiveJumpMenu", false, STORAGE_Prog_SETTINGS, null as TSK);
 // □12 退役（2026-08-30，旧持久化值留着无害）：markOriginText（制卡/摘抄在原文写 + 链接、
 // & 链接与 style 背景落盘）——摘抄标记零触碰统一，原文痕迹唯一机制=digestMarker span 渲染态。
 // v5 □12 语义更新：markOriginTextBG 从「写 style 到 .sy」改为「CSS div:has(> .prog-digest-mark)
@@ -615,6 +629,10 @@ export const floatbarMainBtns = settingFactory(
 // □10 已发布行为兼容
 export const floatbarFlatCollapsed = settingFactory(
     "floatbarFlatCollapsed", false, STORAGE_Prog_SETTINGS, null as TSK);
+// □2 ✂ 摘抄子排开合持久记忆（2026-09-01 用户反馈推翻 2026-08-31「每次出场重新展开」拍板）：
+// 收起/展开跨分片、跨会话记住用户选择；未存过值=开（与已发布的默认展开兼容）
+export const digSubrankOpen = settingFactory(
+    "digSubrankOpen", true, STORAGE_Prog_SETTINGS, null as TSK);
 
 // ---------------
 export const navSourceBlock = settingFactory("navSourceBlock", true, STORAGE_SETTINGS, null as TSK);

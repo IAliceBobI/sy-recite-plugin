@@ -17,7 +17,7 @@ import { RECITE_FLOAT_ICONS } from "./reciteIcons";
 import { doExtract, rewriteExtract } from "./extract";
 import { doCompare } from "./compare";
 import { copyPrompt } from "./promptCopy";
-import { applyReciteTheme, applyReciteFloatbarSkin, seedFloatbarSkin, applyBgForMode, clearReciteBg, watchAppearance } from "./theme";
+import { applyReciteTheme, applyReciteFloatbarSkin, seedFloatbarSkin, applyBgForMode, clearReciteBg, watchAppearance, applyWzVisuals } from "./theme";
 import { applyReciteMascot, applyMascotEnabled, mountReciteMascot, unmountReciteMascot } from "./mascot";
 import FloatBar from "./FloatBar.svelte";
 import Settings from "./Settings.svelte";
@@ -200,7 +200,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
                 icon: "iconSettings",
                 title: this.i18n.顶栏设置提示,
                 position: "left",
-                callback: () => this.setting.open(this.i18n.帮助),
+                callback: () => this.setting.open(this.i18n.设置页标题),
             });
             el.classList.add("recite-topbar-gear");
             return el;
@@ -219,6 +219,9 @@ export default class ThePlugin extends BaseTomatoPlugin {
         // Pro 形象（精灵小盼）另有 unpaid CSS 门禁
         applyReciteMascot((this.settingCfg as any).reciteMascot);
         applyMascotEnabled((this.settingCfg as any).reciteMascotOn !== false);
+        // 写作现场恢复（2026-09-01 用户需求）：竖线开关（body 属性）+ 写位底色浓度
+        // （body inline 变量 --recite-glow-k），设置面板改值即时重铺同一函数
+        applyWzVisuals(this.settingCfg);
         // 全局背景库恢复（2026-08-27 □18/□19 + 同日 bug 修复「背景跟仿写上下文走」）：
         // 订阅 reciteDoc 角色驱动显隐（订阅即刻回调一次，角色缓存进 bgRole）——当前文档
         // 是仿写三角色铺 applyBgForMode（按外观取 bgLight/bgDark 挂属性 + 注入 --recite-bg-k
@@ -285,6 +288,8 @@ export default class ThePlugin extends BaseTomatoPlugin {
         document.body.removeAttribute("data-recite-bg"); // 全局背景库属性同理（含 none/custom 档）
         document.body.style.removeProperty("--recite-bg-custom"); // custom 图片 URL 变量一并清
         document.body.style.removeProperty("--recite-bg-k"); // 纹理浓淡纱系数同理
+        document.body.removeAttribute("data-recite-wz-norule"); // 写作竖线开关属性同理
+        document.body.style.removeProperty("--recite-glow-k"); // 写位底色浓度系数同理
         this.appearanceUnwatch?.(); // 外观切换观察者停表（□19 明暗分库）
         unmountReciteMascot();
         if (this.floatComp) unmount(this.floatComp);

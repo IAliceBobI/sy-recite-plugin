@@ -28,8 +28,9 @@
     import { RECITE_SKINS, DEFAULT_SKIN_SLUG, applyReciteTheme, RECITE_BGS,
         applyBgForMode, watchAppearance, isDarkAppearance, resolveBgPair,
         BG_LIGHT_KEY, BG_DARK_KEY, BG_STRENGTH_LIGHT_KEY, BG_STRENGTH_DARK_KEY,
-        BG_CUSTOM_FILE_LIGHT_KEY, BG_CUSTOM_FILE_DARK_KEY,
-        RECITE_FLOATBAR_SKINS, DEFAULT_FLOATBAR_SKIN_SLUG, applyReciteFloatbarSkin } from "./theme";
+        BG_CUSTOM_FILE_LIGHT_KEY, BG_CUSTOM_FILE_DARK_KEY, BG_STRENGTH_DEFAULT,
+        RECITE_FLOATBAR_SKINS, DEFAULT_FLOATBAR_SKIN_SLUG, applyReciteFloatbarSkin,
+        WZ_GLOW_DEFAULT, applyWzVisuals, clampWzGlow } from "./theme";
     import { GRADER_TONES, DEFAULT_TONE_SLUG } from "./promptCopy";
     import { RECITE_MASCOTS, DEFAULT_MASCOT_SLUG, applyReciteMascot, applyMascotEnabled } from "./mascot";
     import { RECITE_HOTKEYS } from "./constants";
@@ -97,8 +98,42 @@
         plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
     }
 
+    // 写作现场（2026-09-01 用户需求「竖线像中括号可选不要 + 浓度给滑块带恢复默认」）：
+    // 竖线开关默认开（缺省判 `!== false` 同顶栏笔图标），关 = applyWzVisuals 挂
+    // data-recite-wz-norule（写区/你的句竖线一起退场）；写位底色浓度默认 100=出厂
+    // （=v1.2.0 恒显浅底原值），oninput 实时预览（body inline 变量）onchange 落盘，
+    // 行尾「恢复默认」回 100。
+    // svelte-ignore state_referenced_locally
+    let wzRuleOn = $state(plugin.settingCfg?.wzRuleOn !== false);
+    // svelte-ignore state_referenced_locally
+    let wzGlow = $state<number>(clampWzGlow(plugin.settingCfg?.wzGlow));
+    function onToggleWzRule(e: Event) {
+        wzRuleOn = (e.currentTarget as HTMLInputElement).checked;
+        plugin.settingCfg.wzRuleOn = wzRuleOn;
+        plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
+        applyWzVisuals(plugin.settingCfg);
+    }
+    function onWzGlow(e: Event, persist: boolean) {
+        wzGlow = clampWzGlow((e.currentTarget as HTMLInputElement).value);
+        // 预览只写变量（settingCfg 可能还没这个键，applyWzVisuals 会读回旧值）
+        document.body.style.setProperty("--recite-glow-k", String(wzGlow / 100));
+        if (persist) {
+            plugin.settingCfg.wzGlow = wzGlow;
+            plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
+            applyWzVisuals(plugin.settingCfg); // 权威值覆盖预览（与 onBgStrength 收口模式对齐）
+        }
+    }
+    function resetWzGlow() {
+        wzGlow = WZ_GLOW_DEFAULT;
+        plugin.settingCfg.wzGlow = WZ_GLOW_DEFAULT;
+        plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
+        applyWzVisuals(plugin.settingCfg);
+    }
+
     // 判卷小宠物出场开关（2026-08-26 □12，默认开）：关 = body 挂 off 属性 CSS 关显示，
     // 判卷流程的 setRecitePose 照常跑只是不渲染，重开即时生效。缺省判 `!== false` 同顶栏笔图标。
+    // □5「无」档联动：开关与货架「无」卡是同一状态（reciteMascotOn）两入口——关=货架选中
+    // 落「无」卡，开=回 settingCfg.reciteMascot 记忆形象（形象键从不动，见 pickMascot）
     // svelte-ignore state_referenced_locally
     let mascotOn = $state(plugin.settingCfg?.reciteMascotOn !== false);
     function onToggleMascot(e: Event) {
@@ -106,18 +141,24 @@
         plugin.settingCfg.reciteMascotOn = mascotOn;
         plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
         applyMascotEnabled(mascotOn);
+        selectedMascot = mascotOn
+            ? (plugin.settingCfg.reciteMascot || DEFAULT_MASCOT_SLUG)
+            : "none";
     }
 
     // 宠物形象货架（与皮肤货架同款机制）：豆豆免费默认 / 精灵小盼 Pro（未激活锁死盖角标）。
     // 选择落 settingCfg.reciteMascot + 立即挂 body[data-recite-mascot]（Pro 形象另有 unpaid
-    // CSS 门禁——此处只管属性，锁是双保险的功能层）
+    // CSS 门禁——此处只管属性，锁是双保险的功能层）。初值：出场开关关=「无」卡选中（off 态
+    // 的货架表达），形象键不因关而被改写
     const mascots = $derived(RECITE_MASCOTS.map(m => ({
         ...m,
         name: (plugin.i18n as any)[m.i18nKey] ?? m.i18nKey.split("·")[1],
         locked: !codeValid && m.pro,
     })));
     // svelte-ignore state_referenced_locally
-    let selectedMascot = $state<string>(plugin.settingCfg?.reciteMascot || DEFAULT_MASCOT_SLUG);
+    let selectedMascot = $state<string>(mascotOn
+        ? (plugin.settingCfg?.reciteMascot || DEFAULT_MASCOT_SLUG)
+        : "none");
 
     // □1 灰档统一：锁卡点击一律弹统一解锁框（替代原 pushMsg 提示）；激活链内聚在
     // UnlockDialog（成功后 saveData→reload），此处只管弹
@@ -131,6 +172,14 @@
     }
 
     function pickMascot(slug: string) {
+        if (slug === "none") { // 「无」档：只落出场开关键（形象键留着=记忆，重开即回）
+            selectedMascot = "none";
+            mascotOn = false;
+            plugin.settingCfg.reciteMascotOn = false;
+            plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
+            applyMascotEnabled(false);
+            return;
+        }
         const m = mascots.find(x => x.slug === slug);
         if (!m) return;
         if (m.locked) {
@@ -138,9 +187,12 @@
             return;
         }
         selectedMascot = slug;
+        mascotOn = true; // 重选形象=出场开关自动回开（曾选无/开关关过则 off 在挂，需摘）
         plugin.settingCfg.reciteMascot = slug;
+        plugin.settingCfg.reciteMascotOn = true;
         plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
         applyReciteMascot(slug);
+        applyMascotEnabled(true);
     }
 
     // 全局背景库货架（□18 重做 + □19 明暗分库/滑块/护眼档）：与皮肤两轴正交，七档可选——
@@ -222,6 +274,15 @@
             plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
             applyBgForMode(plugin.settingCfg); // 权威值覆盖预览（另库键不受扰）
         }
+    }
+    // 纹理浓淡「恢复默认」（2026-09-01）：回出厂基准 35，当前外观即时生效（另一库不动）
+    function resetBgStrength() {
+        const t = BG_STRENGTH_DEFAULT;
+        if (bgMode === "light") bgStrengthLight = t;
+        else bgStrengthDark = t;
+        plugin.settingCfg[bgMode === "light" ? BG_STRENGTH_LIGHT_KEY : BG_STRENGTH_DARK_KEY] = t;
+        plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
+        applyBgForMode(plugin.settingCfg);
     }
 
     async function onPickBgFile(e: Event) {
@@ -473,6 +534,37 @@
         {/each}
     </div>
 
+    <!-- 写作现场（2026-09-01 用户需求）：仿写练习时写字现场的视觉参数——竖线开关（默认开，
+         关=写区/你的句竖线退场）+ 写位底色浓度滑块（100=出厂，0=无底色，行尾恢复默认） -->
+    <div class="rs-skins">
+        <div class="rs-skins-title">{plugin.i18n.写作现场}</div>
+        <div class="rs-setting-row">
+            <label class="rs-setting-label b3-tooltips b3-tooltips__n" for="recite-wz-rule-switch" aria-label={plugin.i18n.写作竖线说明}>{plugin.i18n.写作竖线}</label>
+            <input
+                id="recite-wz-rule-switch"
+                type="checkbox"
+                class="b3-switch"
+                checked={wzRuleOn}
+                onchange={onToggleWzRule}
+            />
+        </div>
+        <div class="rs-bg-strength">
+            <span class="rs-setting-label b3-tooltips b3-tooltips__n" aria-label={plugin.i18n.写位底色浓度说明}>{plugin.i18n.写位底色浓度}</span>
+            <input
+                class="rs-bg-strength-range"
+                type="range"
+                min="0" max="100" step="1"
+                value={wzGlow}
+                oninput={(e) => onWzGlow(e, false)}
+                onchange={(e) => onWzGlow(e, true)}
+                aria-label={plugin.i18n.写位底色浓度}
+                aria-valuetext={`${wzGlow}%`}
+            />
+            <span class="rs-bg-strength-val">{wzGlow}%</span>
+            <button class="rs-reset-btn" onclick={resetWzGlow}>{plugin.i18n.恢复默认}</button>
+        </div>
+    </div>
+
     <!-- 判官语气三选（分段控件）：AI 判卷的点评口吻，云端判卷与复制提示词两通道同步生效 -->
     <div class="rs-setting-row">
         <span class="rs-setting-label">{plugin.i18n.判官语气}</span>
@@ -501,8 +593,10 @@
         />
     </div>
 
-    <!-- 宠物形象两选：豆豆/雪团免费默认 / 其余 Pro（未激活锁死盖角标，点击弹激活引导）。
-         卡面直接展示判卷出场的真帧（idle 睁眼帧，index.scss .rs-mascot-frame--* 单源）。
+    <!-- 宠物形象货架（□5 加「无」档排头）：无/豆豆/雪团免费默认 / 其余 Pro（未激活锁死盖角标，
+         点击弹激活引导）。「无」=出场开关同一状态的货架入口（选中即挂 off 不渲染宠物，与
+         「判卷小宠物」开关联动）。形象卡面直接展示判卷出场的真帧（idle 睁眼帧，index.scss
+         .rs-mascot-frame--* 单源）；「无」卡斜杠纹占位（.rs-bg-none 同款斜杠语言）。
          --skin 借 primary 而非各形象主题色（vision P1-1：无 --skin 时选中✓ 白勾裸奔+边框
          回退黑色；且与其他货架「皮肤色=商品色」不同，宠物无商品主色，统一走 b3） -->
     <div class="rs-skins">
@@ -521,7 +615,11 @@
                     onclick={() => pickMascot(m.slug)}
                 >
                     <span class="rs-mascot-mock" aria-hidden="true">
-                        <span class="rs-mascot-frame rs-mascot-frame--{m.slug}"></span>
+                        {#if m.slug === "none"}
+                            <span class="rs-mascot-none"></span>
+                        {:else}
+                            <span class="rs-mascot-frame rs-mascot-frame--{m.slug}"></span>
+                        {/if}
                     </span>
                     <span class="rs-skin-name">{m.name}</span>
                     {#if m.locked}
@@ -578,6 +676,7 @@
                     aria-valuetext={`${modeStrength}%`}
                 />
                 <span class="rs-bg-strength-val">{modeStrength}%</span>
+                <button class="rs-reset-btn" onclick={resetBgStrength}>{plugin.i18n.恢复默认}</button>
             </div>
         {/if}
 
@@ -924,6 +1023,23 @@
         color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
         font-variant-numeric: tabular-nums;
     }
+    /* 恢复默认小钮（浓度类滑块行尾通用）：弱化文字钮，chrome 走 b3 变量（□4 收敛口径） */
+    .rs-reset-btn {
+        flex: none;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--b3-border-color);
+        border-radius: 4px;
+        background: transparent;
+        color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+        font-size: 11px;
+        line-height: 20px;
+        cursor: pointer;
+    }
+    .rs-reset-btn:hover {
+        border-color: var(--b3-theme-primary);
+        color: var(--b3-theme-primary);
+    }
 
     /* 护眼/羊皮纸样机（□25 对齐实际渲染）：数值锚 index.scss $recite-bg-turb eye-care/parchment 行
        （颗粒引擎 feTurbulence bf 0.45/0.35，默认 k₀=0.5 位实测 σ 0.45/0.59，bg-library §9.2/§9.4）。
@@ -981,6 +1097,16 @@
         background-repeat: no-repeat;
         background-size: 96px 48px;
         background-position: left top;
+    }
+
+    /* 「无」档样机（□5）：斜杠纹占位块——与背景库 .rs-bg-none 同款斜杠语言（135° 灰纹），
+       尺寸对齐真帧 48×48；圆角 4px 走 mock 内层块惯例（.rs-skin-blocks i / .rs-fb-btns i） */
+    .rs-mascot-none {
+        width: 48px;
+        height: 48px;
+        box-sizing: border-box;
+        border-radius: 4px;
+        background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(130, 130, 130, 0.3) 8px 10px);
     }
 
     /* 浮条样机：迷你浮条——标题细线 + 主按钮（--skin）/ghost 按钮（描边），底色 --fb-mock-bg

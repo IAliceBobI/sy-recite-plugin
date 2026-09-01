@@ -1,6 +1,6 @@
 {
   "name": "sy-recite-plugin",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "任意文档的读后仿写练习",
   "private": true,
   "type": "module",

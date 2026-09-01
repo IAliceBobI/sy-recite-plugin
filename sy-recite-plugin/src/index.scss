@@ -15,6 +15,9 @@
     --recite-card-border: color-mix(in srgb, var(--recite-accent) 24%, var(--b3-border-color));
     --recite-shadow: 0 2px 8px rgba(122, 76, 21, 0.10);
     --recite-yours: #2f7d6e;         // 「你的句」专属色（青绿，本批预留，后续批次用）
+    // 写位底色基准 alpha（2026-09-01 写作现场组）：亮 0.12 暗 0.14（= v1.2.0 恒显浅底原值），
+    // 实际浓度=基准×--recite-glow-k（theme.ts applyWzVisuals 注入 body inline，默认 1=出厂）
+    --recite-glow-a: 0.12;
 }
 html[data-theme-mode="dark"] {
     --recite-accent: #d4a960;
@@ -24,6 +27,7 @@ html[data-theme-mode="dark"] {
     --recite-card-border: color-mix(in srgb, var(--recite-accent) 28%, var(--b3-border-color));
     --recite-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
     --recite-yours: #5c9c8f;
+    --recite-glow-a: 0.14;
 }
 
 // ========== 皮肤主题（2026-08-25 真切换）：四套 Pro 皮肤整组 token 覆盖 ==========
@@ -368,9 +372,14 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write]:n
 body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write]:not(:has(+ div[data-node-id][data-recite-write])) {
     margin-bottom: 14px;
 }
-// 空块（还没落笔）：浅底提示可写；:has 判空沿用旧版实测结论（残留空文本节点按空计）
+// 空块（还没落笔）：浅底提示可写；:has 判空沿用旧版实测结论（残留空文本节点按空计）。
+// 底色吃浓度系数（2026-09-01 写作现场组「写位底色浓度」滑块）：rgb(from) 从 accent token
+// 现取 RGB 分量×--recite-glow-k——皮肤切换自动跟随，滑到 0 即无底色，默认 1=v1.2.0 原值。
+// fallback 行先落：相对色语法需 Chromium 119+（全仓首例，老内核第二行整条无效），老内核
+// 吃固定基准底（滑块无效但不炸），新内核第二行覆盖
 body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write]:has(> div[contenteditable]:empty) {
     background-color: var(--recite-accent-soft);
+    background-color: rgb(from var(--recite-accent) r g b / calc(var(--recite-glow-a) * var(--recite-glow-k, 1)));
 }
 // ✍ 落笔提示：每个空块都出——回车分段后新空段也有引导，写位伪元素不进块内容、不改 IAL
 body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] > div[contenteditable]:empty::before {
@@ -378,6 +387,19 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] >
     color: var(--recite-accent);
     opacity: 0.55;
     pointer-events: none;
+}
+
+// 写作竖线开关（2026-09-01 用户：「左边像中括号一样的东西，应该可以选择不要」）：关 =
+// body 挂 data-recite-wz-norule（theme.ts applyWzVisuals），写区竖线与原文档「你的句」
+// 竖线一起退场（同构语言一处开关）；竖线让出的 padding 一并收回，左缘不悬空。开关组
+// 比常驻组多一个属性选择器，特异性天然压过上面的常驻规则。
+body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] {
+    border-inline-start: none;
+    padding-inline-start: 0;
+}
+body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]) {
+    border-inline-start: none;
+    padding-inline-start: 0;
 }
 
 // ---- 项4：对比文档·卡片升级（付费态）----
@@ -1253,7 +1275,8 @@ body > .recite-mascot {
 html[data-theme-mode="dark"] .recite-mascot {
     filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.28));
 }
-// 出场开关（mascot.ts applyMascotEnabled）：!important 压过 [data-pose] 的 display:block
+// 出场开关（mascot.ts applyMascotEnabled）：!important 压过 [data-pose] 的 display:block。
+// □5 货架「无」档同源：pickMascot('none') 与本开关落同一键 reciteMascotOn（挂同一 off 属性）
 body[data-recite-mascot-off] .recite-mascot {
     display: none !important;
 }

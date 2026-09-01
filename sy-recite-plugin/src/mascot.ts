@@ -7,6 +7,7 @@
 // 帧渲染全在 index.scss（SVG data URI；形象维度 body[data-recite-mascot]，默认无属性 =
 // 柴犬豆豆；□26 扩容后五形象：豆豆/雪团免费、小盼/博士/豆芽 Pro——Pro 形象整体 unpaid
 // 门禁，强挂属性也回落豆豆帧；免费形象雪团基础帧无门禁，仅特征帧照豆豆语义走 Pro）。
+// □5 货架「无」档（slug=none）非渲染形象：与出场开关 reciteMascotOn 同一键的货架入口。
 // 本模块只管注册表 / body 属性 / 容器 / pose 状态机 / 协议行解析剥离。
 
 export interface ReciteMascotDef {
@@ -16,6 +17,10 @@ export interface ReciteMascotDef {
 }
 
 export const RECITE_MASCOTS: ReciteMascotDef[] = [
+    // 「无」档（2026-09-01 □5 用户拍板 B 案）：与出场开关 reciteMascotOn 同一状态的货架
+    // 入口——选无只落 reciteMascotOn=false 不动形象键（记忆保留，重开开关即回原形象）；
+    // 排头对齐背景库 RECITE_BGS「无」先例。非可渲染形象，applyReciteMascot 特判分流不走帧属性
+    { slug: "none", i18nKey: "宠物·无", pro: false },
     { slug: "shiba", i18nKey: "宠物·柴犬豆豆", pro: false },
     { slug: "snow", i18nKey: "宠物·白兔雪团", pro: false },
     { slug: "spirit", i18nKey: "宠物·精灵小盼", pro: true },
@@ -29,8 +34,15 @@ export const DEFAULT_MASCOT_SLUG = "shiba";
 export const MASCOT_SETTING_KEY = "reciteMascot";
 export const MASCOT_ENABLED_SETTING_KEY = "reciteMascotOn";
 
-/** 给 body 挂/摘 data-recite-mascot：非默认且已注册才挂（= 精灵小盼），否则摘掉（= 豆豆） */
+/** 给 body 挂/摘 data-recite-mascot：非默认且已注册才挂（= 精灵小盼），否则摘掉（= 豆豆）。
+ * 「无」档特判分流 applyMascotEnabled(false)（挂 off 而非形象属性）——UI 正常路径选无只调
+ * applyMascotEnabled（形象属性留着，重开开关即回原形象），此处兜底手改存储等防御路径 */
 export function applyReciteMascot(slug: string | undefined) {
+    if (slug === "none") {
+        applyMascotEnabled(false);
+        document.body.removeAttribute("data-recite-mascot");
+        return;
+    }
     const hit = RECITE_MASCOTS.find(m => m.slug === slug);
     if (hit && hit.slug !== DEFAULT_MASCOT_SLUG) {
         document.body.setAttribute("data-recite-mascot", hit.slug);
