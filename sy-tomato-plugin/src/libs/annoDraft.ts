@@ -1,19 +1,25 @@
 // □4 批注草稿链：草稿文档懒查找/懒创建 + 每弹窗独立草稿块（即用即删）+ 启动清扫。
 // 拍板（handoff □4 mini-spec 倾向落地）：**关闭即删**——重开编辑弹窗从属性 text 回填草稿块，
 // 等价「续写上条内容」且无残留态可管理；崩溃/中断残留由启动清扫兜底。
-// - 草稿文档 = 全局单文档 ".tomato-批注草稿"，落在 storeNoteBox 选定笔记本（getOr 兜底链：设置→当前笔记本）；
-//   查找走 lsNotebooks × getIDsByHPath 文件树直查（无 SQL 索引延迟，AGENTS 踩坑表口径），命中任意笔记本即复用
+// - 草稿文档 = 全局单文档 ".tomato-批注草稿"。落点（2026-09-02 二轮拍板「藏上个月」）：
+//   选定笔记本（用户设置 commentBoxAnnoDraftNotebook > 官方日记本判定 local-dailynoteid/单本 > 当前笔记本）
+//   > 本内最近一篇日记的「上一个月目录」（当月在用易被翻见，上月是过去式无感；月段名非 YYYY-MM 时
+//   退化到日记的祖父层；无日记结构则落本根）。上月目录不存在=自动造空月份文档（与真实月份同构）。
+//   首次创建定终身：之后按标题全库扫描复用，跨月不搬家；设置面板默认显示日记本
+//   （initAnnoDraftNotebookDefault 启动注入内存，不落盘=未配置语义不丢）
 // - 每次开编辑弹窗预置 id 建独立超级块草稿（多窗口天然隔离）；保存/关闭即删，删除失败静默（清扫兜底）
 // - 清扫只清不建：启动时若找到草稿文档则清空子块（注：多窗口同工作区极端场景会误伤他窗在编辑的草稿，
 //   单窗口为主流用法，接受该边界——属性是 source of truth，草稿丢了重开编辑即恢复）
 import { siyuan } from "./utils";
-import { storeNoteBox_selectedNotebook } from "./stores";
+import { commentBoxAnnoDraftNotebook, DRAFT_NOTEBOOK_KEY } from "./stores";
+import { events } from "./Events";
 import { stripDraftShell } from "./annoKramdown";
 
 export const DRAFT_DOC_TITLE = ".tomato-批注草稿";
-const DRAFT_HPATH = `/${DRAFT_DOC_TITLE}`;
 /** 模块级缓存：同会话重复开弹窗免查；reload=新代模块自然失效（window.eval 无模块缓存，AGENTS 踩坑表） */
 let cachedDocID = "";
+/** 缓存已解析的草稿落点 hpath（含 box 前缀），壳被删重建时免 conf+SQL 两查；home 缺失时清空重解析 */
+let cachedDraftPath = "";
 
 /** 活跃草稿登记簿（globalThis 跨模块代共享）：deploy 钩子的插件 reload 是惰性的——下次 UI 动作才真正换模块，
  *  新代 onload 的清扫会与「同一次点击刚打开的编辑弹窗草稿」赛跑误删（e2e 实锤两次）；
@@ -29,18 +35,20 @@ function activeDrafts(): DraftsMap {
 
 const DRAFT_ACTIVE_GRACE_MS = 10 * 60 * 1000;
 
+/** 按标题全库找草稿壳（hpath 随落点可变，不能按路径直查）。
+ *  SQL 按标题取文档行有索引延迟（AGENTS 踩坑表）——场景过筛：旧壳索引自早已就绪；
+ *  新壳走 cachedDocID；用户手删壳后 SQL 残留 ~6s 由 checkBlockExist 校验识破（不赌索引） */
 async function findDraftDocID(): Promise<string> {
     if (cachedDocID) {
         if (await siyuan.checkBlockExist(cachedDocID)) return cachedDocID;
         cachedDocID = ""; // 用户手删草稿文档 → 懒重建（mini-spec）
     }
     try {
-        for (const book of await siyuan.lsNotebooks(false)) {
-            const ids = await siyuan.getIDsByHPath(DRAFT_HPATH, book.id);
-            const hit = Array.isArray(ids) ? ids[0] ?? "" : "";
-            if (hit) {
-                cachedDocID = hit;
-                return hit;
+        const rows = (await siyuan.sql(`select id from blocks where type='d' and content='${DRAFT_DOC_TITLE}'`)) ?? [];
+        for (const r of rows) {
+            if (r?.id && (await siyuan.checkBlockExist(r.id))) {
+                cachedDocID = r.id;
+                return r.id;
             }
         }
     } catch (e) {
@@ -49,10 +57,46 @@ async function findDraftDocID(): Promise<string> {
     return "";
 }
 
+/** 官方「日记本」判定（纯函数，单测覆盖；与前端 openDailyNote 同源语义，app/src/util/mount.ts）：
+ *  local-dailynoteid（官方 key 历史拼写）= 上次建日记用的笔记本，须 open 有效；
+ *  仅一个 open 笔记本时直选它（官方同款）；其余情况无确定日记本返回 ""（落点链滑到当前笔记本）。
+ *  注：内核没有「日记本」配置项——DailyNoteSavePath 是 box 级且出厂人人有默认值，不可作判定（2026-09-02 查内核源码定案） */
+export function dailyNotebookFromStorage(
+    storage: Record<string, unknown> | undefined | null,
+    openBooks: { id?: string }[]
+): string {
+    const last = storage?.["local-dailynoteid"];
+    if (typeof last === "string" && last && openBooks.some((b) => b.id === last)) return last;
+    if (openBooks.length === 1) return openBooks[0].id ?? "";
+    return "";
+}
+
+/** 解析「用户点日记会去哪」：storage 镜像 + open 笔记本快照。失败返回 ""（落点链滑到下一档） */
+export async function resolveDailyNotebookID(): Promise<string> {
+    try {
+        const storage = (window.siyuan as any)?.storage as Record<string, unknown> | undefined;
+        return dailyNotebookFromStorage(storage, (await siyuan.lsNotebooks(false)) ?? []);
+    } catch (e) {
+        console.warn("[tomato anno] resolve daily notebook failed:", e);
+        return "";
+    }
+}
+
+/** 启动注入默认值（不落盘）：仅当用户从未配置过该键（undefined，非显式空串）且解析到日记本时写内存——
+ *  目的一是设置面板默认显示日记本（知情透明），二是创建链直接取到值；显式选空=每次真解析跟随 */
+export async function initAnnoDraftNotebookDefault(plugin: { settingCfg?: Record<string, unknown> }): Promise<void> {
+    if (plugin.settingCfg && plugin.settingCfg[DRAFT_NOTEBOOK_KEY] !== undefined) return;
+    const id = await resolveDailyNotebookID();
+    if (id) commentBoxAnnoDraftNotebook.set(id);
+}
+
 export async function ensureDraftDocID(): Promise<string> {
     const found = await findDraftDocID();
     if (found) return found;
-    const box = storeNoteBox_selectedNotebook.getOr();
+    // 落点链：用户设置 > 系统日记本（注入未完成的竞态兜底）> 当前笔记本
+    let box = commentBoxAnnoDraftNotebook.get();
+    if (!box) box = await resolveDailyNotebookID();
+    if (!box) box = events.boxID;
     if (!box) return "";
     try {
         const id = await siyuan.createDocWithMd(box, DRAFT_HPATH, "");

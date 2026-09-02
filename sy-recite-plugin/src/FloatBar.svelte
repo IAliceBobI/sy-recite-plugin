@@ -246,12 +246,12 @@
         {#if $reciteDoc.role === "origin"}
             <div class="recite-floatbar-btns">
                 <button class="b3-tooltips b3-tooltips__n recite-btn-pro" class:recite-btn-busy={splitting} disabled={splitting} aria-label={tip(splitting ? (plugin.i18n["拆分中提示"] || "AI 拆分进行中…") : (plugin.i18n["AI拆分提示"] || "AI 通读全文按叙事节拍自动插入锚点批注（走思源 AI 配置，消耗自己的额度）；重跑删旧 AI 锚点，手写批注不动")) + (splitting ? "" : proNote())} onclick={onSplitClick}>{@html reciteIcon(splitting ? "iconReciteSpin" : "iconReciteSplit")}<span class="recite-btn-text">{splitting ? (plugin.i18n["拆分中"] || "拆分中…") : t("AI 拆分")}</span></button>
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip()} onclick={() => doExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteExtract")}<span class="recite-btn-text">{t("抽取")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" aria-label={tip("生成练习文档：原文批注逐题拆出，每题留空写位")} onclick={() => doExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteExtract")}<span class="recite-btn-text">{t("抽取")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删批注块+抽取/对比子文档+原文标记，彻底抹掉练习痕迹（回收站可找回）")} onclick={() => cleanPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteDelete")}<span class="recite-btn-text">{t("删除")}</span></button>
             </div>
         {:else if $reciteDoc.role === "extract"}
             <div class="recite-floatbar-btns">
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip()} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" aria-label={tip("生成对比文档：每题左右两列，原文与复述逐题对照")} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["默写查错提示"] || "逐字比对原文与复述：错/多字红删除线、漏字绿下划线，弹窗即看即走，不写入文档")} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["加闪卡提示"] || "把本篇练习文档整体加入快速闪卡卡组，与摘抄卡同组复习")} onclick={addToCards}>{@html reciteIcon("iconReciteCard")}<span class="recite-btn-text">{t("加闪卡")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删当前抽取文档（连对比，复述可从回收站找回）并按原文当前批注重建空抽取，重新练习")} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>

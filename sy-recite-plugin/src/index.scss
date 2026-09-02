@@ -640,15 +640,17 @@ html[data-theme-mode="dark"] .recite-floatbar {
 }
 .recite-floatbar--square .recite-floatbar-btns button {
     flex: 1 1 auto;
+    justify-content: center; // icon-only：flex:1 拉宽的钮内图标居中，防右空白（文字时代文字自然占位无此问题）
 }
 // 主按钮：accent 底 + 明暗分档字色（token 见上），hover 上浮 1px。
-// inline-flex + gap 5：图标（2026-08-27 图标化，iconReciteXxx sprite）与文字并排；
-// padding 左右 10→9：图标挤占视觉重心后各收 1px 保总宽近似
+// inline-flex + gap 5：图标与文字并排（iconReciteXxx sprite；2026-09-02 起文字 CSS 收掉
+// 只剩图标，见下方 .recite-btn-text 规则）；padding 5px 10px：无文字行高撑高后靠 padding
+// 补点击热区 ~36×26（vision P1-1）
 .recite-floatbar button {
     cursor: pointer;
     border: none;
     border-radius: 6px;
-    padding: 4px 9px;
+    padding: 5px 10px;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -661,7 +663,13 @@ html[data-theme-mode="dark"] .recite-floatbar {
 }
 .recite-floatbar button > svg {
     flex: none; // 防 nowrap 下 svg 被压
+    width: 16px; // icon-only 主尺寸：渲染参数 14 是图文时代值，CSS 放大（topbar 18px 同款先例）
+    height: 16px;
 }
+// icon-only（2026-09-02 拍板「像渐进那样只放图标，tooltip 说明」）：文字 span 保留 DOM
+// （busy 文案等结构不动）由 CSS 全形态收掉，hover 气泡是唯一说明书——文案缺口同日补齐
+// （origin 抽取 / extract 对比）。--topbar 自 2026-08-27 已隐藏，本规则把它提升为桌面常态
+.recite-floatbar .recite-btn-text { display: none; }
 .recite-floatbar button:hover {
     transform: translateY(-1px);
 }
@@ -953,8 +961,8 @@ html[data-theme-mode="dark"] .recite-floatbar.recite-floatbar--topbar {
     touch-action: pan-x;
 }
 .recite-floatbar--topbar .recite-floatbar-btns::-webkit-scrollbar { display: none; }
-// 纯图标键：触摸目标 36×36（渐进实测下限）；文字 span 靠形态类隐藏（标记里永远渲染，桌面共用
-// 同一按钮结构）；图标 CSS 放大 18px（渲染参数 14 是桌面图文钮尺寸）
+// 纯图标键：触摸目标 36×36（渐进实测下限）；文字 span 由基础规则隐藏
+// （标记里永远渲染，桌面共用同一按钮结构）；图标 CSS 放大 18px（渲染参数 14 是桌面图文钮尺寸）
 .recite-floatbar--topbar .recite-floatbar-btns button {
     flex: none;
     min-width: 36px;
@@ -963,7 +971,6 @@ html[data-theme-mode="dark"] .recite-floatbar.recite-floatbar--topbar {
 }
 .recite-floatbar--topbar .recite-floatbar-btns button svg,
 .recite-floatbar--topbar .recite-topbar-close svg { width: 18px; height: 18px; }
-.recite-floatbar--topbar .recite-btn-text { display: none; }
 // compare 五键分组分隔线（判分行 | 操作行——桌面两行分组认知的横滑版）；
 // α 28% 与 ghost 描边同档（视觉终审：14% 在真机不可见等于白做）
 .recite-floatbar--topbar .recite-topbar-sep {
