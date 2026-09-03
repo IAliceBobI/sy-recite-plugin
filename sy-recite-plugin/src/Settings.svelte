@@ -30,7 +30,7 @@
         BG_LIGHT_KEY, BG_DARK_KEY, BG_STRENGTH_LIGHT_KEY, BG_STRENGTH_DARK_KEY,
         BG_CUSTOM_FILE_LIGHT_KEY, BG_CUSTOM_FILE_DARK_KEY, BG_STRENGTH_DEFAULT,
         RECITE_FLOATBAR_SKINS, DEFAULT_FLOATBAR_SKIN_SLUG, applyReciteFloatbarSkin,
-        WZ_GLOW_DEFAULT, applyWzVisuals, clampWzGlow } from "./theme";
+        WZ_GLOW_DEFAULT, applyWzVisuals, clampWzGlow, LACE_MENU_KEY } from "./theme";
     import { GRADER_TONES, DEFAULT_TONE_SLUG } from "./promptCopy";
     import { RECITE_MASCOTS, DEFAULT_MASCOT_SLUG, applyReciteMascot, applyMascotEnabled } from "./mascot";
     import { noteHeadingLevel } from "./extract";
@@ -141,6 +141,17 @@
         plugin.settingCfg.wzGlow = WZ_GLOW_DEFAULT;
         plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
         applyWzVisuals(plugin.settingCfg);
+    }
+
+    // 本块花边入口开关（2026-09-02 五款化配套）：关=右键菜单不出「本块花边」项（contextMenu
+    // 构建时读 settingCfg 判），已挂花边的块照常渲染——花边都是自己加的，无全局渲染开关需求。
+    // 缺省判 `!== false` 同 wzRuleOn（默认开）。
+    // svelte-ignore state_referenced_locally
+    let laceMenuOn = $state(plugin.settingCfg?.[LACE_MENU_KEY] !== false);
+    function onToggleLaceMenu(e: Event) {
+        laceMenuOn = (e.currentTarget as HTMLInputElement).checked;
+        plugin.settingCfg[LACE_MENU_KEY] = laceMenuOn;
+        plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
     }
 
     // 判卷小宠物出场开关（2026-08-26 □12，默认开）：关 = body 挂 off 属性 CSS 关显示，
@@ -776,6 +787,17 @@
                     {/if}
                 </button>
             {/each}
+        </div>
+        <!-- 本块花边入口开关：藏右键菜单项（默认开）；花边款式五款在右键子菜单选，不进面板 -->
+        <div class="rs-setting-row">
+            <label class="rs-setting-label b3-tooltips b3-tooltips__n" for="recite-lace-menu-switch" aria-label={plugin.i18n.花边入口说明}>{plugin.i18n.花边入口}</label>
+            <input
+                id="recite-lace-menu-switch"
+                type="checkbox"
+                class="b3-switch"
+                checked={laceMenuOn}
+                onchange={onToggleLaceMenu}
+            />
         </div>
     </div>
 

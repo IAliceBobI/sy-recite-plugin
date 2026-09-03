@@ -72,6 +72,8 @@
     "皮肤·晨光橘猫": "Sunny Kitty",
     "皮肤·青瓷墨兔": "Celadon Rabbit",
     "皮肤·暗夜轻奢": "Nocturne",
+    "花边入口": "Block Frill Entry",
+    "花边入口说明": "The \"Block Frill\" entry in the Plugins submenu when you right-click a block (five decorative frill styles, Pro visual). Turning it off only hides the entry; blocks that already have a frill keep rendering.",
     "浮条样式": "Float Bar Style",
     "浮条Pro提示": "Float bar skins are Pro visuals. Activate to unlock all styles",
     "浮条·晨光便签": "Morning Note",

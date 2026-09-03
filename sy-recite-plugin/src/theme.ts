@@ -288,3 +288,24 @@ export function watchAppearance(onChange: () => void): () => void {
     mo.observe(document.documentElement, { attributeFilter: ["data-theme-mode"] });
     return () => mo.disconnect();
 }
+
+// ========== 块级花边款式注册表（2026-09-02 右键子菜单升级，视觉 spec=docs/recite-block-lace-styles-spec.md）==========
+// 与 SKINS 系注册表不同：花边是块级 IAL 属性（custom-recite-lace 值=slug）非 body 级属性，
+// 无应用器；消费方只有 contextMenu 子菜单（name=菜单 label，本菜单历史现状硬编码中文不走 i18n）。
+// scallop/fret/gilded/vermilion 四 slug 与浮条皮肤同名同语言（浮条横条画法的块级重适配，
+// 唯一事实源见上 spec）；CSS 侧 line 款是「其余一切值」的兜底（:not 排除链）， laceSlugOf 同语义。
+export interface ReciteLace {
+    slug: string;
+    name: string;
+}
+
+export const RECITE_LACES: ReciteLace[] = [
+    { slug: "line", name: "竖线轻染" },
+    { slug: "scallop", name: "扇贝花边" },
+    { slug: "fret", name: "回纹滚边" },
+    { slug: "gilded", name: "鎏金嵌边" },
+    { slug: "vermilion", name: "朱丝栏" },
+];
+
+/** 右键「本块花边」入口开关的 settingCfg 键（默认开；关=菜单不出该项，已挂花边照常渲染） */
+export const LACE_MENU_KEY = "laceMenuOn";

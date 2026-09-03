@@ -371,12 +371,13 @@ export abstract class TomatoI18nABC11 extends TomatoI18nABC12 {
     public get 思维导线帮助() {
         switch (this.lang) {
             // □5 改文案（spec §6）：旧「引用渲染为连线」说明退役，改为划词连线操作说明；
+            // 二期 D 帮助收口补「先在目标文档启用」前提句（用户「没法操作」的根因是缺此前提）
             // 其余语种 default(en) 兜底（旧多语种译文语义已过时，不再逐语种维护）
-            case "zh_CN": return "划词建线：划选第一个词点「关联起点」，再划选第二个词点「连到」即成线；悬停线可改关系色/删除，点击残端跳到另一端";
-            case "zh_CHT": return "劃詞建線：劃選第一個詞點「關聯起點」，再劃選第二個詞點「連到」即成線；懸停線可改關係色/刪除，點擊殘端跳到另一端";
-            case "ja_JP": return "語を選んで「関連起点」をクリックし、別の語を選んで「連接先」をクリックすると線が引かれます。線にホバーすると関係色の変更・削除ができ、残端をクリックすると反対側へジャンプします";
+            case "zh_CN": return "需先在目标文档启用思维导线（⌘⇧Z 或右键菜单）并开启「划词连线」；划选第一个词点「关联起点」，再划选第二个词点「连到」即成线；悬停线可改关系色/删除，点击残端跳到另一端";
+            case "zh_CHT": return "需先在目標文檔啟用思維導線（⌘⇧Z 或右鍵選單）並開啟「劃詞連線」；劃選第一個詞點「關聯起點」，再劃選第二個詞點「連到」即成線；懸停線可改關係色/刪除，點擊殘端跳到另一端";
+            case "ja_JP": return "先にドキュメントで思考ガイドを有効化し（⌘⇧Z または右クリックメニュー）「語を選んで線を引く」をオンに。語を選んで「関連起点」をクリックし、別の語を選んで「連接先」をクリックすると線が引かれます。線にホバーすると関係色の変更・削除ができ、残端をクリックすると反対側へジャンプします";
             case "en_US":
-            default: return "Select a word and pick \"Link start\", then select another and pick \"Connect to\". Hover a wire to recolor or delete; tap a stub to jump to the other end";
+            default: return "Enable mindwire for the target document first (⌘⇧Z or context menu) and turn on word wires. Select a word and pick \"Link start\", then select another and pick \"Connect to\". Hover a wire to recolor or delete; tap a stub to jump to the other end";
         }
     }
 

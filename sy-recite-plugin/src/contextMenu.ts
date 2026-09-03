@@ -8,6 +8,7 @@ import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { RECITE_START, RECITE_EXTRACT, RECITE_COMPARE, RECITE_HOTKEYS, RECITE_LACE } from "./constants";
 import { enterPractice, cleanPractice, reciteDoc } from "./statusBtn";
 import type { ReciteRole } from "./statusBtn";
+import { RECITE_LACES, LACE_MENU_KEY } from "./theme";
 import { doExtract } from "./extract";
 import { doCompare } from "./compare";
 import { copyPrompt } from "./promptCopy";
@@ -71,25 +72,44 @@ class ContextMenu {
             item("进入仿写模式", "iconEdit", "reciteTogglePractice", () => { void enterPractice(docID); });
         }
 
-        // ---- 手动级装饰一项（□13 右键入口；单文档背景 custom-recite-bg 已随全局纸纹退役）：
-        // 任何文档/角色右键都可用。门禁哲学与 Settings 皮肤货架一致：unpaid 项可见、点击 pushMsg
-        // 引导激活（不藏——保留 QQ 秀可见性；CSS 另有 body:not(.recite-unpaid) 双保险，unpaid
-        // 挂了也不渲染）。addItem 同步约束（见类注释）：toggle 态零请求直读右键现场 DOM——
-        // detail.element 即右键命中的块元素（app/src/menus/protyle.ts hasClosestBlock 产物）。
-        // setBlockAttrs 走 API 通道内核即刷 DOM 属性镜像（renderCustom）→ CSS 实时渲染；
-        // 事务 setAttrs 只落盘 IAL 不刷已开编辑器（须重开才见），CSS 渲染场景必须走 API。
+        // ---- 手动级装饰（□13 右键入口；2026-09-02 五款子菜单化，spec=docs/recite-block-lace-styles-spec.md）：
+        // 任何文档/角色右键都可用，LACE_MENU_KEY 开关可藏入口（默认开，已挂花边照常渲染）。
+        // 门禁哲学与 Settings 皮肤货架一致：unpaid 项可见、款式点击 pushMsg 引导激活（不藏——
+        // 保留 QQ 秀可见性；CSS 另有 body:not(.recite-unpaid) 双保险）。addItem 同步约束（见类
+        // 注释）：有无花边零请求直读右键现场 DOM——detail.element 即右键命中的块元素（app/src/
+        // menus/protyle.ts hasClosestBlock 产物）。交互（用户拍板）：无花边=「本块花边 ▸」子菜单
+        // 选款（submenu 纯数据一次构建，tomato PairBox 快捷键速查先例）；有花边=「本块去花边」
+        // 单键移除（沿旧 toggle 语义，不展开子菜单；换款=去掉再加）。去花边不设门禁——清残留
+        // 不该被付费拦（旧版统一拦的行为变更）。setBlockAttrs 走 API 通道内核即刷 DOM 属性镜像
+        // （renderCustom）→ CSS 实时渲染；事务 setAttrs 只落盘 IAL 不刷已开编辑器，CSS 场景必须走 API。
         const blockEl = detail.element as HTMLElement | undefined;
         const blockID = blockEl?.getAttribute("data-node-id");
-        if (blockID) {
-            const laced = blockEl.hasAttribute(RECITE_LACE);
-            detail.menu.addItem({
-                label: laced ? "本块去花边" : "本块加花边",
-                icon: "iconMark",
-                click: () => {
-                    if (!this.decorGate()) return;
-                    void siyuan.setBlockAttrs(blockID, { [RECITE_LACE]: laced ? "" : "1" } as AttrType);
-                },
-            });
+        // settingCfg 是本插件主类扩展属性（siyuan Plugin 无此类型），启动早期 loadData 未回时
+        // undefined——`?.[key] !== false` 缺省即显示，与 Settings 侧同判据
+        const laceCfg = (this.plugin as any).settingCfg;
+        if (blockID && laceCfg?.[LACE_MENU_KEY] !== false) {
+            const laced = blockEl.getAttribute(RECITE_LACE);
+            if (laced) {
+                detail.menu.addItem({
+                    label: "本块去花边",
+                    icon: "iconMark",
+                    click: () => {
+                        void siyuan.setBlockAttrs(blockID, { [RECITE_LACE]: "" } as AttrType);
+                    },
+                });
+            } else {
+                detail.menu.addItem({
+                    label: "本块花边",
+                    icon: "iconMark",
+                    submenu: RECITE_LACES.map(l => ({
+                        label: l.name,
+                        click: () => {
+                            if (!this.decorGate()) return;
+                            void siyuan.setBlockAttrs(blockID, { [RECITE_LACE]: l.slug } as AttrType);
+                        },
+                    })),
+                });
+            }
         }
     }
 

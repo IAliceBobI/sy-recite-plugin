@@ -12,6 +12,7 @@
         commentBoxAnnoUnderlineThickness,
         commentBoxCheckbox,
         commentBoxMenu,
+        commentBoxAnnoToolbar,
         hiddenMenuItems,
         commentBoxPanelSkin,
         commentBoxShowID,
@@ -49,6 +50,7 @@
     import { tomatoI18n } from "./tomatoI18n";
     import { applyAnnoVisual } from "./Annotations";
     import HotkeyCap from "./HotkeyCap.svelte";
+    import ConfHelpIcon from "./ConfHelpIcon.svelte";
     import { PRESET_CLOCKS, MAX_CLOCKS, parseClocks, clocksToStore } from "./libs/TomatoClockList";
     import {
         AUDIO_PRESETS,
@@ -287,6 +289,7 @@
         <div class="section-title">
             <input type="checkbox" class="b3-switch" bind:checked={$tomatoClockCheckbox} />
             {tomatoI18n.状态栏番茄钟}
+            <ConfHelpIcon token="KmCRdj1s7okXZOxkwsTcbPFXnNh" />
         </div>
         {#if $tomatoClockCheckbox}
             <div>
@@ -529,6 +532,7 @@
         <div class="section-title">
             <input type="checkbox" class="b3-switch" bind:checked={$noteBoxCheckbox} />
             {tomatoI18n.拍照闪念收集图片闪念到}
+            <ConfHelpIcon token="N3LkdvKGhowkTUx1r6OcxCjInec" />
         </div>
         {#if $noteBoxCheckbox}
             <div>
@@ -576,6 +580,7 @@
         <div class="section-title">
             <input type="checkbox" class="b3-switch" bind:checked={$commentBoxCheckbox} />
             {tomatoI18n.批注}
+            <ConfHelpIcon token="Svq2dIQpaob0kKx0l38ciftRnXl" />
         </div>
         {#if $commentBoxCheckbox}
             <div>
@@ -586,6 +591,11 @@
             <div>
                 <input type="checkbox" class="b3-switch" bind:checked={$commentBoxMenu} />
                 {tomatoI18n.menu添加右键菜单}
+                <HotkeyCap hk={CommentBox添加批注到日记} pluginName="sy-tomato-plugin"></HotkeyCap>
+            </div>
+            <div>
+                <input type="checkbox" class="b3-switch" bind:checked={$commentBoxAnnoToolbar} />
+                {tomatoI18n.划词工具条批注入口}
                 <HotkeyCap hk={CommentBox添加批注到日记} pluginName="sy-tomato-plugin"></HotkeyCap>
             </div>
             <div>
@@ -702,6 +712,7 @@
         <div class="section-title">
             <input type="checkbox" class="b3-switch" bind:checked={$graphBoxCheckbox} />
             {tomatoI18n.块关系图}
+            <ConfHelpIcon token="UIRudM9EQoyri2x4okkcjbGZnug" />
         </div>
         {#if $graphBoxCheckbox}
             <div>{tomatoI18n.menu不显示菜单不影响快捷键的使用}</div>

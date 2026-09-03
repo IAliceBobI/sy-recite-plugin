@@ -10,7 +10,8 @@ export const RECITE_NOTE = "custom-recite-note";
 export const RECITE_REFS = "custom-recite-refs";
 // 对比视图外层 sb（每题一张卡）：仅样式定位用（index.scss 画题框+中缝），非身份识别
 export const RECITE_CMP_CARD = "custom-recite-cmp-card";
-// 手动级装饰（□13 右键菜单入口）：RECITE_LACE 挂任意 div 块（统一款蕾丝，accent 驱动）。
+// 手动级装饰（□13 右键菜单入口，2026-09-02 五款化）：RECITE_LACE 挂任意 div 块，值=款式 slug
+// （注册表 theme.ts RECITE_LACES；存量 "1"/未知值由 CSS :not 排除链兜底成 line 款渲染）。
 // （单文档背景 custom-recite-bg 已随全局纸纹退役 2026-08-26：决策记录见
 // docs/research/recite-global-bg/proposals.md；存量文档 IAL 残留旧属性 = 无害孤儿）
 export const RECITE_LACE = "custom-recite-lace";

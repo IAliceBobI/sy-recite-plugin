@@ -417,11 +417,11 @@ export class TomatoI18n extends TomatoI18nABC {
     }
     public get 草稿笔记本自动说明() {
         switch (this.lang) {
-            case "zh_CN": return "未选择时跟随日记功能使用的笔记本，没有则用当前笔记本";
-            case "zh_CHT": return "未選擇時跟隨日記功能使用的筆記本，沒有則用目前筆記本";
-            case "ja_JP": return "未選択の場合は日記機能のノートブックに従い、なければ現在のノートブック";
+            case "zh_CN": return "未选择时跟随日记本；草稿文件为最小干扰默认藏入日记的上一个月份目录，无害、可随时删除";
+            case "zh_CHT": return "未選擇時跟隨日記本；草稿文件為最小干擾預設藏入日記的上一個月份目錄，無害、可隨時刪除";
+            case "ja_JP": return "未選択の場合は日記ノートブックに従う。下書きファイルは干渉を最小にするため日記の前月ディレクトリに配置される（無害・いつでも削除可能）";
             case "en_US":
-            default: return "Follows the daily-note notebook when unset; falls back to the current notebook";
+            default: return "Follows the daily-note notebook when unset; the harmless draft doc is tucked into the previous month's daily-note folder (minimal intrusion) and safe to delete anytime";
         }
     }
 
@@ -644,6 +644,197 @@ export class TomatoI18n extends TomatoI18nABC {
             case "ja_JP": return "注釈はありません";
             case "en_US":
             default: return "No annotations";
+        }
+    }
+    // 划词工具条批注入口（□4 2026-09-03）设置开关文案
+    public get 划词工具条批注入口() {
+        switch (this.lang) {
+            case "zh_CN": return "划词工具条入口";
+            case "zh_CHT": return "劃詞工具條入口";
+            case "ja_JP": return "選択ツールバー入口";
+            case "en_US":
+            default: return "Text-selection toolbar entry";
+        }
+    }
+    // 批注收集（2026-09-02）新增键：小窗/右键级联/命令/回执
+    public get 收集批注() {
+        switch (this.lang) {
+            case "zh_CN": return "收集批注";
+            case "zh_CHT": return "收集批註";
+            case "ja_JP": return "注釈を収集";
+            case "en_US":
+            default: return "Collect annotations";
+        }
+    }
+    public get 打开收集窗口() {
+        switch (this.lang) {
+            case "zh_CN": return "打开收集窗口…";
+            case "zh_CHT": return "打開收集窗口…";
+            case "ja_JP": return "収集ウィンドウを開く…";
+            case "en_US":
+            default: return "Open collect dialog…";
+        }
+    }
+    public get 复制到剪贴板() {
+        switch (this.lang) {
+            case "zh_CN": return "复制到剪贴板";
+            case "zh_CHT": return "複製到剪貼板";
+            case "ja_JP": return "クリップボードにコピー";
+            case "en_US":
+            default: return "Copy to clipboard";
+        }
+    }
+    public get 收集到当天日记() {
+        switch (this.lang) {
+            case "zh_CN": return "收集到当天日记";
+            case "zh_CHT": return "收集到當天日記";
+            case "ja_JP": return "今日の日記に収集";
+            case "en_US":
+            default: return "Collect to today's diary";
+        }
+    }
+    public get 收集到文件() {
+        switch (this.lang) {
+            case "zh_CN": return "收集到文件";
+            case "zh_CHT": return "收集到文件";
+            case "ja_JP": return "ファイルに収集";
+            case "en_US":
+            default: return "Collect to file";
+        }
+    }
+    public get 收集范围() {
+        switch (this.lang) {
+            case "zh_CN": return "收集范围";
+            case "zh_CHT": return "收集範圍";
+            case "ja_JP": return "収集範囲";
+            case "en_US":
+            default: return "Scope";
+        }
+    }
+    public get 当前文档() {
+        switch (this.lang) {
+            case "zh_CN": return "当前文档";
+            case "zh_CHT": return "當前文檔";
+            case "ja_JP": return "現在のドキュメント";
+            case "en_US":
+            default: return "Current document";
+        }
+    }
+    public get 含子文档() {
+        switch (this.lang) {
+            case "zh_CN": return "含子文档";
+            case "zh_CHT": return "含子文檔";
+            case "ja_JP": return "子ドキュメントを含む";
+            case "en_US":
+            default: return "Include sub-docs";
+        }
+    }
+    public get 收集到() {
+        switch (this.lang) {
+            case "zh_CN": return "收集到";
+            case "zh_CHT": return "收集到";
+            case "ja_JP": return "収集先";
+            case "en_US":
+            default: return "Destination";
+        }
+    }
+    public get 剪贴板() {
+        switch (this.lang) {
+            case "zh_CN": return "剪贴板";
+            case "zh_CHT": return "剪貼板";
+            case "ja_JP": return "クリップボード";
+            case "en_US":
+            default: return "Clipboard";
+        }
+    }
+    public get 当天日记() {
+        switch (this.lang) {
+            case "zh_CN": return "当天日记";
+            case "zh_CHT": return "當天日記";
+            case "ja_JP": return "今日の日記";
+            case "en_US":
+            default: return "Today's diary";
+        }
+    }
+    public get 指定文件() {
+        switch (this.lang) {
+            case "zh_CN": return "指定文件";
+            case "zh_CHT": return "指定文件";
+            case "ja_JP": return "指定ファイル";
+            case "en_US":
+            default: return "Specific file";
+        }
+    }
+    public get 选择文档() {
+        switch (this.lang) {
+            case "zh_CN": return "选择文档…";
+            case "zh_CHT": return "選擇文檔…";
+            case "ja_JP": return "ドキュメントを選択…";
+            case "en_US":
+            default: return "Pick a doc…";
+        }
+    }
+    public get 已收集() {
+        switch (this.lang) {
+            case "zh_CN": return "已收集";
+            case "zh_CHT": return "已收集";
+            case "ja_JP": return "収集済み";
+            case "en_US":
+            default: return "Collected";
+        }
+    }
+    public get 条批注() {
+        switch (this.lang) {
+            case "zh_CN": return "条批注";
+            case "zh_CHT": return "條批註";
+            case "ja_JP": return "件の注釈";
+            case "en_US":
+            default: return "annotations";
+        }
+    }
+    public get 未发现批注() {
+        switch (this.lang) {
+            case "zh_CN": return "未发现批注";
+            case "zh_CHT": return "未發現批註";
+            case "ja_JP": return "注釈が見つかりません";
+            case "en_US":
+            default: return "No annotations found";
+        }
+    }
+    public get 未找到日记笔记本() {
+        switch (this.lang) {
+            case "zh_CN": return "未找到日记笔记本，可改选指定文件";
+            case "zh_CHT": return "未找到日記筆記本，可改選指定文件";
+            case "ja_JP": return "日記ノートブックが見つかりません。ファイル指定に変更してください";
+            case "en_US":
+            default: return "No daily-note notebook found; pick a file instead";
+        }
+    }
+    public get 收集目标已失效请重选() {
+        switch (this.lang) {
+            case "zh_CN": return "收集目标已失效，请重选文件";
+            case "zh_CHT": return "收集目標已失效，請重選文件";
+            case "ja_JP": return "収集先が無効になりました。選び直してください";
+            case "en_US":
+            default: return "Target file is gone; re-pick it";
+        }
+    }
+    public get 收集失败() {
+        switch (this.lang) {
+            case "zh_CN": return "收集失败，请重试";
+            case "zh_CHT": return "收集失敗，請重試";
+            case "ja_JP": return "収集に失敗しました。再試行してください";
+            case "en_US":
+            default: return "Collect failed, retry";
+        }
+    }
+    public get 收集批注说明() {
+        switch (this.lang) {
+            case "zh_CN": return "收集当前文档批注（可含子文档）到日记/文件/剪贴板";
+            case "zh_CHT": return "收集當前文檔批註（可含子文檔）到日記/文件/剪貼板";
+            case "ja_JP": return "この文書の注釈（子文書含む）を日記/ファイル/クリップボードに収集";
+            case "en_US":
+            default: return "Collect this doc's annotations (optionally sub-docs) to diary/file/clipboard";
         }
     }
     public get 文档只读() {

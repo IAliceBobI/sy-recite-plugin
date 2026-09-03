@@ -1154,12 +1154,156 @@ body:not(.recite-unpaid)[data-recite-theme="nocturne"] .protyle-wysiwyg div[cust
 // docs/research/recite-bg-library/proposals.md §0.1）
 
 // ---- 手动级装饰通道（用户拍板统一手动级，右键菜单入口见 contextMenu） ----
-// 超级块蕾丝 custom-recite-lace：accent 驱动统一款（五套老主题也可用），挂属性实时渲染
-body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace] {
+// 块级蕾丝五款（2026-09-02 右键子菜单化，spec=docs/recite-block-lace-styles-spec.md）：
+// line 款=存量视觉原值不动，选择器收紧为「其余一切值兜底」（:not 排除链四新款）——旧版
+// 裸属性存在选择器 [custom-recite-lace] 命中一切值，新款 slug 会被本条压住（属性选择器
+// 同特异性后者胜也拦不住同文件内的层叠混战，显式排除是唯一干净形态）；存量 "1"/未知值
+// 兜底成 line 款渲染，零迁移
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace]:not([custom-recite-lace="scallop"]):not([custom-recite-lace="fret"]):not([custom-recite-lace="gilded"]):not([custom-recite-lace="vermilion"]) {
     border-inline-start: 3px solid color-mix(in srgb, var(--recite-accent) 55%, transparent);
     border-radius: 6px;
     background: linear-gradient(90deg, var(--recite-accent-soft), transparent 70%);
 }
+// ---- 块级花边 2/5「扇贝花边」(scallop)：上→下渐隐底色 + 底缘仰弧齿修剪带 + 底缘针脚线，
+// 纯 background 表达，零伪元素零布局占位（spec=docs/recite-block-lace-styles-spec.md §2.2；
+// 2026-09-02 用户反馈补渐变底：只有底缘带=下划线感，看不出块轮廓——补上部渐隐底让整块
+// 形状一眼可辨，渐变与 line 款同源 accent-soft）。
+// 生死线：① 齿填充 α=accent 14% —— ≤0.16 文字对比红线；禁用 --recite-accent-soft 代替
+//   （各皮肤该变量 α 不可控，会击穿红线）——禁令只针对齿层，渐变底用 accent-soft 是
+//   line 款整块渐变的存量先例（不过红线）；
+// ② 齿径 6px / 齿距 12px / at 6px 12px 照浮条 radial 几何（index.scss 扇贝段），改小即糊、
+//   改大即胖；
+// ③ background 简式齿层必须列在渐变层之前（前层在上），换序=齿被渐变盖糊；
+//   background-origin:border-box 必须在简式之后声明——默认 padding-box 会让
+//   齿悬空 4px 不贴真底缘；
+// ④ 渐变 180deg 向下渐隐、止点 60%——比 line 的 70% 短：扇贝重心在底缘，上部渐变只做
+//   形状提示不与齿抢视觉；改长则整块发闷；
+// ⑤ 针脚线只准 1px 且贴底缘（inset 0 -1px 0）：块末行墨线止于底缘上 ≈9.5px，
+//   该线是底缘 0-9px 带内唯一允许的实体线；暗色 32%→40% 提一档可见度，勿再高 ----
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="scallop"] {
+    background: radial-gradient(circle 6px at 6px 12px, color-mix(in srgb, var(--recite-accent) 14%, transparent) 97%, transparent 100%) -6px bottom / 12px 12px repeat-x, linear-gradient(180deg, var(--recite-accent-soft), transparent 60%);
+    background-origin: border-box;
+    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--recite-accent) 32%, transparent);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="scallop"] {
+    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--recite-accent) 40%, transparent);
+}
+// ---- 块级花边 3/5「回纹滚边」(fret)：四边黛灰青滚边（顶主底次左右陪衬）+ 悬浮回纹楣带
+//（spec §2.3；2026-09-02 用户反馈补左右细线：滚边语义本应四边包边，缺左右则高块中部
+// 左右裸奔、轮廓感断层——补全后落入「四边框住」类，无需渐变底）。
+// 生死线：① 两条 ::after 的 SVG data URI 与浮条 fret 段逐字节一致（路径/色值/描边宽全锁），
+//   禁改禁重绘——这是「同一家族」的字面载体；
+// ② 楣带 top:-12px / height:12px 冻结：带体探入块内 >0 即逼近首行墨线 9.5px 红线，上探
+//   >12px 即压上邻块末行墨线（净距仅 ~1.2px）；
+// ③ 滚边晕线 spread 3px（0-1px 实线 + 1-3px 晕）不得加到 4px 以上——4-9px 只准 α≤0.16 柔晕，
+//   晕色 α0.14 已是上限；
+// ④ 左右线 α0.30 陪衬档（gilded 侧线同档先例）、暗色提 0.38——只做轮廓提示，禁止提到
+//   顶线 0.50 档（四边等强=箍桶感，滚边的主次层次即毁）；
+// ⑤ ::after 带 :not([class*="dragover"]) 让位内核拖拽落点指示线（瞬态类）；
+// ⑥ 黛灰青为固定色不走 accent（SVG data URI 吃不了 CSS 变量，浮条先例）----
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="fret"] {
+    box-shadow:
+        inset 0 1px 0 rgba(85, 104, 89, 0.50),
+        inset 0 3px 0 rgba(85, 104, 89, 0.14),
+        inset 0 -1px 0 rgba(85, 104, 89, 0.35),
+        inset 1px 0 0 rgba(85, 104, 89, 0.30),
+        inset -1px 0 0 rgba(85, 104, 89, 0.30);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="fret"] {
+    box-shadow:
+        inset 0 1px 0 rgba(157, 179, 169, 0.50),
+        inset 0 3px 0 rgba(157, 179, 169, 0.14),
+        inset 0 -1px 0 rgba(157, 179, 169, 0.35),
+        inset 1px 0 0 rgba(157, 179, 169, 0.38),
+        inset -1px 0 0 rgba(157, 179, 169, 0.38);
+}
+// 楣带（悬浮在块顶缘外 -12..0px；亮 #556859/#7a8c80，暗 #9db3a9/#bccdc2，opacity 0.8 照浮条）
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="fret"]:not([class*="dragover"])::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: -12px;
+    height: 12px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12' viewBox='0 0 20 12'%3E%3Cpath d='M0 10 Q5 0 10 10 Q15 20 20 10' fill='none' stroke='%23556859' stroke-width='1.6'/%3E%3Cpath d='M5 10 Q5 4 10 4 Q15 4 15 10' fill='none' stroke='%237a8c80' stroke-width='1.2' opacity='0.85'/%3E%3C/svg%3E") repeat-x center top / 20px 12px;
+    opacity: 0.8;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+    pointer-events: none;
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="fret"]:not([class*="dragover"])::after {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='12' viewBox='0 0 20 12'%3E%3Cpath d='M0 10 Q5 0 10 10 Q15 20 20 10' fill='none' stroke='%239db3a9' stroke-width='1.6'/%3E%3Cpath d='M5 10 Q5 4 10 4 Q15 4 15 10' fill='none' stroke='%23bccdc2' stroke-width='1.2' opacity='0.85'/%3E%3C/svg%3E") repeat-x center top / 20px 12px;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+// （无伪元素退化形态：宿主环境若需彻底避开 ::after，删除上面两条 ::after 规则即可——
+// 款式退化为「黛灰青双线滚边 + 底缘细线」，家族色仍可辨；滚边规则本身零伪元素）
+// ---- 块级花边 4/5「鎏金嵌边」(gilded)：accent 驱动三层 inset 环，α 主次 0.40/0.10/0.30
+// 照浮条 gilded 底线 0.40/侧线 0.30 组合（spec §2.4）。
+// 生死线：① box-shadow 先列者在上——三层 spread 序列 1px/3px/4px 不可换序，换序=金雾盖线
+//   「线-雾-线」读数即毁；
+// ② 内环外缘止步 4px：正文墨迹起于块缘内 ≈4.5px（padding4+字形内边），内环再外扩一格
+//   即切首列/末列字形；
+// ③ 金雾垫环 α0.10 ≤0.16 纹理红线；
+// ④ 不加浮条式外投影（文档流内元素投影会罩下邻块正文）；
+// ⑤ 暗色三档各提一档 α（40→50/10→14/30→38）：暗底弱金可见度下限，勿再高（金变荧光）----
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="gilded"] {
+    box-shadow:
+        inset 0 0 0 1px color-mix(in srgb, var(--recite-accent) 40%, transparent),
+        inset 0 0 0 3px color-mix(in srgb, var(--recite-accent) 10%, transparent),
+        inset 0 0 0 4px color-mix(in srgb, var(--recite-accent) 30%, transparent);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="gilded"] {
+    box-shadow:
+        inset 0 0 0 1px color-mix(in srgb, var(--recite-accent) 50%, transparent),
+        inset 0 0 0 3px color-mix(in srgb, var(--recite-accent) 14%, transparent),
+        inset 0 0 0 4px color-mix(in srgb, var(--recite-accent) 38%, transparent);
+}
+// ---- 块级花边 5/5「朱丝栏」(vermilion)：信笺纸底 + 双线朱丝框 + 淡栏丝 + 右上角悬出朱印
+//（spec §2.5）。颜色全套固定朱红色系（信笺语义不随 accent 换色，浮条先例），暗色纸底重调。
+// 生死线：① 双线框层序 = 外框 1px rgba(176,64,46,.40) → 纸色垫层 spread 3px → 内环 1px
+//   rgba(200,84,62,.65)（先列者在上；内环 offset3px 与浮条 ::after inset3px 同族几何）。
+//   纸色垫层是遮带不是装饰：换暗色时三处必须同步换（背景 #302823 + 垫层 #302823 + 双环
+//   换 rgba(210,110,88,.32)/rgba(224,128,104,.55)），垫层忘换 = 白带穿帮；
+// ② 栏丝 α0.05（暗 0.07）≤0.16 全块纹理红线；栏距 96px 仅节奏用，无排版含义；
+// ③ 朱印必须用 ::after——.bq::before 被内核引条占用，新款一律不碰 ::before；
+// ④ 印 22×22 / top:-11px / right:-11px 冻结：块内探入 >11px 压首行墨线角，右悬 >12px 逼近
+//   wysiwyg 右 padding 16px 裁切线，上悬 >11.5px 压上邻末行墨线；
+// ⑤ 印带 :not([class*="dragover"]) 让位拖拽指示；暗色印章不换色（#c14b33 + 米白描环
+//   在 #302823 纸底上对比反而更好）----
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="vermilion"] {
+    background-color: #fcf4ea;
+    background-image: repeating-linear-gradient(90deg, rgba(176, 64, 46, 0.05) 0 1px, transparent 1px 96px);
+    box-shadow:
+        inset 0 0 0 1px rgba(176, 64, 46, 0.40),
+        inset 0 0 0 3px #fcf4ea,
+        inset 0 0 0 4px rgba(200, 84, 62, 0.65);
+}
+html[data-theme-mode="dark"] body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="vermilion"] {
+    background-color: #302823;
+    background-image: repeating-linear-gradient(90deg, rgba(224, 128, 104, 0.07) 0 1px, transparent 1px 96px);
+    box-shadow:
+        inset 0 0 0 1px rgba(210, 110, 88, 0.32),
+        inset 0 0 0 3px #302823,
+        inset 0 0 0 4px rgba(224, 128, 104, 0.55);
+}
+// 朱印（浮条 13px 印的块尺度放大版：rotate 10°/米白描环/朱砂投影照抄浮条组合，尺寸 13→22、
+// 圆角 3→5、描环 1.5→2px、投影 3px→4px 线性放大）
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="vermilion"]:not([class*="dragover"])::after {
+    content: "";
+    position: absolute;
+    top: -11px;
+    right: -11px;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    background: #c14b33;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 246, 238, 0.85),
+        0 1px 4px rgba(140, 50, 36, 0.35);
+    transform: rotate(10deg);
+    pointer-events: none;
+}
+// （无伪元素退化形态：删除朱印 ::after 规则——纸底 + 双线朱丝框 + 栏丝三件套独立成立，
+//   仅失印章点睛；不得改用 ::before 补印，.bq::before 已被内核引条占用）
 // （单文档背景 custom-recite-bg 三条已随全局纸纹退役，2026-08-26：全局背景铺满视口后，
 // 单文档再挂皮肤纸纹语义重叠且互抢主视觉；存量文档 IAL 上的旧属性值成无害孤儿属性，
 // CSS 侧零命中。决策记录见 docs/research/recite-global-bg/proposals.md）
