@@ -25,6 +25,7 @@ type TomatoSettings = {
     navSourceBlock: boolean,
     exportWL4All: boolean,
     blockEditorMenu: boolean,
+    qeFloatBall: boolean,
     superRefBoxGlobalLnkMenu: boolean,
     superRefBoxGlobalFixMenu: boolean,
     superRefBoxCheckBox: boolean,
@@ -43,6 +44,7 @@ type TomatoSettings = {
     floatingballEnable: boolean,
     floatingballDocList: FloatingDocItem[],
     floatingballKeyboardList: FloatingKeyboardItem[],
+    floatingballBallList: BallItem[],
     exportWhiteList: string[],
     exportBlackList: string[],
     hiddenMenuItems: string[],
@@ -51,7 +53,6 @@ type TomatoSettings = {
     markdownExportPics: boolean,
     exportCleanPath: boolean,
     markdownExportBoxCheckbox: boolean,
-    readingAdd2DocName: string,
     exportIntervalSec: string,
     exportCleanFiles: string,
     exportPath: string,
@@ -87,6 +88,9 @@ type TomatoSettings = {
     blockIconMenu: boolean,
     ProgressiveStart2learn: boolean,
     digestmenu: boolean,
+    wholeDigestMenu: boolean,
+    reviewSchedMenu: boolean,
+    revisitRhythmMenu: boolean,
     toolbarlocatedoc: boolean,
     toolbarrefreshVr: boolean,
     toolbarspacerepeat: boolean,
@@ -96,6 +100,10 @@ type TomatoSettings = {
     readingAddDeleteMenu: boolean,
     dbBkBoxRefreshMenu: boolean,
     readingAddRPmenu: boolean,
+    /** rpfloatbar 战役（2026-09-05）：悬浮球主控/显隐标记/位置（九宫格锚点+偏移） */
+    readingFloatBar: boolean,
+    readingFloatBallHidden: boolean,
+    readingFloatBallPos: { anchor: number, offsetX: number, offsetY: number },
     bkenableAndDisablemenu: boolean,
     linkBoxBilinkMenu: boolean,
     graphlocatetographMenu: boolean,
@@ -138,6 +146,7 @@ type TomatoSettings = {
     graphMaxPBlocks: string,
     // graphbox 期2：默认展开层级（按标题层级 h1=1；"all"=全部展开，段落链折叠独立于档位）
     graphDefaultExpandLevel: string,
+    graphDefaultLayout: string,
     graphBoxCheckbox: string,
     userToken: string,
     userID: string,
@@ -161,12 +170,9 @@ type TomatoSettings = {
     flashThoughtUseDialog: boolean,
     tomatoClockCheckbox: boolean,
     readingPointBoxCheckbox: boolean,
-    readingPointWithEnv: boolean,
     readingTopBar: boolean,
+    readingStatusBar: boolean,
     readingShowAllFolders: boolean,
-    readingAdd2Card: boolean,
-    readingSaveFile: boolean,
-    readingDialog: boolean,
     cardBoxCheckbox: boolean,
     cardBoxAddConcepts: boolean,
     cardBoxSpradEvenlyPostpone: boolean,
@@ -406,6 +412,7 @@ type AttrType = {
     "custom-bkMenDocCount"?: string,
     "custom-bkRefDocCount"?: string,
     "custom-graph-isVertical"?: string,
+    "custom-graph-layout"?: string,
     "custom-graph-node-positions"?: string,
     "custom-graph-collapsed"?: string,
     "custom-super-list"?: string,
@@ -513,10 +520,17 @@ interface GraphDockData<T> {
     fitView?: (opts?: { padding?: number; duration?: number }) => void;
     /** graphbox 期2：展开目标节点的折叠祖先链（定位不静默）；返回是否有折叠变更 */
     expandTo?: (id: string) => Promise<boolean>;
-    /** graphbox 期4：图当前通道态/文档/块上限（locateNode 的 toast 分支文案依据） */
-    getGraphState?: () => { mode: "full" | "skeleton"; docID: string; maxBlocks: number };
-    /** graphbox 期3：当前布局方向（横 LR=false 纵 TB=true）——zoom 过小提示切纵向的判定依据 */
+    /** graphbox 期4：图当前通道态/文档/块上限（locateNode 的 toast 分支文案依据）；
+     *  二期 □2 增 blockCount（precheck 真实块数，「超上限」文案只留给 cnt > maxBlocks 的真超限） */
+    getGraphState?: () => { mode: "full" | "skeleton"; docID: string; maxBlocks: number; blockCount?: number };
+    /** graphbox 二期 □2：图内全块 id 集（locateNode 定位兜底上爬祖先的「图内」判定） */
+    graphIDsOf?: () => Set<string>;
+    /** graphbox 期3：当前布局方向（横 LR=false 纵 TB=true）——zoom 过小提示切纵向的判定依据（期7 起随 isVertical 退役，改 layoutForm） */
     isVertical?: boolean;
+    /** graphbox 期7：当前布局形态四态（lr/tb/vlr/vtb）——fitView toast 已竖排态不提示的判定依据 */
+    layoutForm?: string;
+    /** graphbox 期7：¶ 链中段定位重定向（目标块并进 ¶ 大节点 → 图上节点=链头） */
+    paraRedirectOf?: (id: string) => string;
     /** graphbox 期3：xyflow 内部 store 借道（官方更新通道；bind store 在 runes 组件不可靠） */
     graphStore?: { nodes: any; edges: any };
 }
@@ -675,6 +689,27 @@ type FloatingKeyboardItem = {
     altKey?: boolean;
     shiftKey?: boolean;
     ctrlKey?: boolean;
+}
+
+// 悬浮球统一模型（期1 翻新地基）：位置进数据本体（anchor 九宫格+偏移，几何见
+// libs/ballGeometry.ts），废 config 顶层 TomatoFloatingBtnDMKey_* 动态散键；
+// id=newID() 稳定身份；type 走 actions/ 注册表分派。size/opacity/label 为期4 外观字段预留。
+type BallType = "doc" | "shortcut" | "url" | "plugincmd";
+
+type BallItem = {
+    id: string;
+    type: BallType;
+    action?: any;
+    icon?: string;
+    label?: string;
+    size?: number;
+    opacity?: number;
+    showLabel?: boolean;
+    anchor?: number;
+    offsetX?: number;
+    offsetY?: number;
+    enable?: boolean;
+    enableMobile?: boolean;
 }
 
 type ArticlesPrefix = { id: string; docName: string; prefix: string }

@@ -69,6 +69,9 @@ export default class ThePlugin extends BaseTomatoPlugin {
     }
 
     onload() {
+        // □5 核实：recite 无「改配置生效」reload 点——设置项全即时生效（store .set/.write），
+        // 激活重载在 tomato 侧 UnlockDialog/UpgradeBar 共用组件（□1 已按 product 映射改好）；
+        // 时序无手术面：onload 同步注册零配置依赖，onLayoutReady 是 DOM 属性/auth/播种语义。
         events.onload(this);
         tomatoI18n.init();
         this.addIcons(RECITE_FLOAT_ICONS); // 浮条按钮图标 sprite（2026-08-27 移动端顶栏改造）

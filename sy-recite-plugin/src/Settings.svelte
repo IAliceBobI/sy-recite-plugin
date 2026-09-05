@@ -12,7 +12,7 @@
     // 购买/激活/邻居解锁共享文案走 tomatoI18n（六语种，UnlockDialog 内聚）；
     // recite 特有文案走 plugin.i18n（zh_CN/en_US 起步）。
     import { Dialog } from "siyuan";
-    import { mount } from "svelte";
+    import { mount, unmount } from "svelte";
     import { onDestroy, onMount, tick } from "svelte";
     import { newID } from "stonev5-utils";
     import UpgradeBar from "../../sy-tomato-plugin/src/UpgradeBar.svelte";
@@ -23,7 +23,7 @@
     import { DestroyManager } from "../../sy-tomato-plugin/src/libs/destroyer";
     import { events } from "../../sy-tomato-plugin/src/libs/Events";
     import { STORAGE_SETTINGS } from "../../sy-tomato-plugin/src/constants";
-    import changelog from "./changelog.json";
+    import changelog2026 from "./changelog/2026.json";
     import helpDoc from "./help.json";
     import pluginPkg from "../plugin.json";
     import RecConfPractice from "./RecConfPractice.svelte";
@@ -35,6 +35,9 @@
     // 作用域限定——根节点挂同名类启用（progressive 同款做法）；该 css 其余规则命不中 recite 模板
     // 类名，不泄漏不影响本面板既有视觉
     import "../../sy-tomato-plugin/src/IndexConf.css";
+
+    // 更新日志按年拆分存储（src/changelog/<年>.json，当年文件追加、往年冻结），此处组装倒序全集
+    const changelog = [...changelog2026];
 
     interface Props {
         plugin: any;
@@ -163,7 +166,7 @@
             props: { doc: { ...helpDoc, url: FEISHU_DOC_URL } },
         });
         dm.add("dialog", () => dialog.destroy());
-        dm.add("svelte", () => d.destroy());
+        dm.add("svelte", () => unmount(d));
     }
 
     // □4 关于弹窗：hero 名片区退役后的版本+标语承接位（择轻=纯 Dialog 零 Svelte mount）。

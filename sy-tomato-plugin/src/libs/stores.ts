@@ -380,6 +380,9 @@ export const graphMaxAllBlocks = settingFactory("graphMaxAllBlocks", 800, STORAG
 export const graphHideStructEdges = settingFactory("graphHideStructEdges", false, STORAGE_SETTINGS, null as TSK);
 // graphbox 期2（2026-09-04）：折叠机制默认展开层级（"1"|"2"|"3"|"all"，按标题层级 h1=1；段落链折叠独立于档位）
 export const graphDefaultExpandLevel = settingFactory("graphDefaultExpandLevel", "2", STORAGE_SETTINGS, null as TSK);
+// graphbox 期7（2026-09-04）：默认布局形态（"lr"|"tb"|"vlr"|"vtb"；文档无 custom-graph-layout 时用，
+// 顶栏循环钮写的 per-doc 持久化优先）
+export const graphDefaultLayout = settingFactory("graphDefaultLayout", "lr", STORAGE_SETTINGS, null as TSK);
 export const graphAddTopbarIcon = settingFactory("graphAddTopbarIcon", true, STORAGE_SETTINGS, null as TSK);
 export const graph打开块关系图Menu = settingFactory("graphopengraphMenu", true, STORAGE_SETTINGS, null as TSK);
 export const graph定位到图中的节点Menu = settingFactory("graphlocatetographMenu", true, STORAGE_SETTINGS, null as TSK);
@@ -404,16 +407,27 @@ export const toolbarspacerepeat = settingFactory("toolbarspacerepeat", true, STO
 export const toolbarrefreshVr = settingFactory("toolbarrefreshVr", true, STORAGE_SETTINGS, null as TSK);
 export const toolbarlocatedoc = settingFactory("toolbarlocatedoc", true, STORAGE_SETTINGS, null as TSK);
 export const readingPointBoxCheckbox = settingFactory("readingPointBoxCheckbox", false, STORAGE_SETTINGS, null as TSK);
-export const readingPointWithEnv = settingFactory("readingPointWithEnv", false, STORAGE_SETTINGS, null as TSK);
 export const readingTopBar = settingFactory("readingTopBar", true, STORAGE_SETTINGS, null as TSK);
+// 阅读点翻新（2026-09）：状态栏指示钮（有点点亮点击跳回/无点半暗点击设点）；以下五项随老模型退役
+// （readingDialog/readingSaveFile/readingAdd2Card/readingAdd2DocName/readingPointWithEnv，存量 petal 值残留无害）
+export const readingStatusBar = settingFactory("readingStatusBar", false, STORAGE_SETTINGS, null as TSK);
 export const readingShowAllFolders = settingFactory("readingShowAllFolders", false, STORAGE_SETTINGS, null as TSK);
-export const readingAdd2Card = settingFactory("readingAdd2Card", true, STORAGE_SETTINGS, null as TSK);
-export const readingAdd2DocName = settingFactory("readingAdd2DocName", "", STORAGE_SETTINGS, null as TSK);
-export const readingSaveFile = settingFactory("readingSaveFile", "", STORAGE_SETTINGS, null as TSK);
-export const readingDialog = settingFactory("readingDialog", true, STORAGE_SETTINGS, null as TSK);
-export const readingAddRPmenu = settingFactory("readingAddRPmenu", true, STORAGE_SETTINGS, null as TSK);
-export const readingAddJumpMenu = settingFactory("readingAddJumpMenu", true, STORAGE_SETTINGS, null as TSK);
-export const readingAddDeleteMenu = settingFactory("readingAddDeleteMenu", true, STORAGE_SETTINGS, null as TSK);
+// rpfloatbar 战役（2026-09-05）入口收敛：悬浮球成主交互面（球↔条双态），状态栏/顶栏钮语义
+// 统一为 toggle 球显隐（readingFloatBar 关时回退打开面板）→ readingStatusBar 默认 true→false、
+// 三右键菜单开关默认 true→false（存量用户已存的 petal 值不受影响，settingFactory.load 存储值优先）
+export const readingAddRPmenu = settingFactory("readingAddRPmenu", false, STORAGE_SETTINGS, null as TSK);
+export const readingAddJumpMenu = settingFactory("readingAddJumpMenu", false, STORAGE_SETTINGS, null as TSK);
+export const readingAddDeleteMenu = settingFactory("readingAddDeleteMenu", false, STORAGE_SETTINGS, null as TSK);
+// 悬浮球主控（关=球整体不出场，顶栏/状态栏点击回退打开面板）；hidden=用户隐藏标记（球菜单/入口 toggle）
+export const readingFloatBar = settingFactory("readingFloatBar", true, STORAGE_SETTINGS, null as TSK);
+export const readingFloatBallHidden = settingFactory("readingFloatBallHidden", false, STORAGE_SETTINGS, null as TSK);
+/** 球位置持久化：九宫格锚点(0-8)+像素偏移（ballGeometry 同款语义；anchor=5 中右默认，避让 recite 右下/渐进左下） */
+export interface RPBallPos {
+    anchor: number; offsetX: number; offsetY: number;
+    /** 自由位像素（□4 自由拖动）：存在即优先于锚点模型渲染；拖拽松手写入，旧锚点存量不迁移 */
+    x?: number; y?: number;
+}
+export const readingFloatBallPos = settingFactory("readingFloatBallPos", { anchor: 5, offsetX: 0, offsetY: 0 } as RPBallPos, STORAGE_SETTINGS, null as TSK);
 export const cardBoxCheckbox = settingFactory("cardBoxCheckbox", false, STORAGE_SETTINGS, null as TSK);
 export const cardBoxCardtab = settingFactory("cardBoxCardtab", false, STORAGE_SETTINGS, null as TSK);
 export const card_refresh_visible_only = settingFactory("card_refresh_visible_only", true, STORAGE_SETTINGS, null as TSK);
@@ -436,6 +450,9 @@ export const superRefBoxCheckBox = settingFactory("superRefBoxCheckBox", false, 
 export const superRefBoxGlobalLnkMenu = settingFactory("superRefBoxGlobalLnkMenu", true, STORAGE_SETTINGS, null as TSK);
 export const blockEditorBox = settingFactory("blockEditorBox", false, STORAGE_SETTINGS, null as TSK);
 export const blockEditorMenu = settingFactory("blockEditorMenu", true, STORAGE_SETTINGS, null as TSK);
+// □5 块编辑器常驻悬浮球：开=onload 即挂收缩球（toggle 入口统一为球显隐）；默认开
+// （提需求者本人要球；参照阅读点 readingFloatBar 默认 true）
+export const qeFloatBall = settingFactory("qeFloatBall", true, STORAGE_SETTINGS, null as TSK);
 export const superRefBoxGlobalFixMenu = settingFactory("superRefBoxGlobalFixMenu", true, STORAGE_SETTINGS, null as TSK);
 // R5 □1 总开关化退役：cpBoxCheckbox/linkBoxCheckbox/linkBoxSyncBlock 三功能开关并入
 // pairBarEnabled（老 petal 存量值读不到即忽略，零迁移）
@@ -545,6 +562,8 @@ export const floatingballDocList = settingFactory("floatingballDocList", [] as F
 export const floatingballDocMenu = settingFactory("floatingballDocMenu", true, STORAGE_SETTINGS, null as TSK);
 export const floatingballDocTabMenu = settingFactory("floatingballDocTabMenu", true, STORAGE_SETTINGS, null as TSK);
 export const floatingballKeyboardList = settingFactory("floatingballKeyboardList", [] as FloatingKeyboardItem[], STORAGE_SETTINGS, null as TSK);
+// 悬浮球翻新期1：统一球列表（旧 doc/keyboard 两列表启动时迁移进来后清空，见 FloatingBall.ts）
+export const floatingballBallList = settingFactory("floatingballBallList", [] as BallItem[], STORAGE_SETTINGS, null as TSK);
 export const markdownExportPics = settingFactory("markdownExportPics", false, STORAGE_SETTINGS, null as TSK);
 export const mindWireCheckbox = settingFactory("mindWireCheckbox", false, STORAGE_SETTINGS, null as TSK);
 export const mindWireEnable = settingFactory("mindWireEnable", true, STORAGE_SETTINGS, null as TSK);
@@ -634,6 +653,12 @@ export const piecesmenu = settingFactory("piecesmenu", false, STORAGE_Prog_SETTI
 // 弹的菜单）默认关，超出「右键清爽」拍板字面口径；拆独立门默认开（意图型入口不构成
 // 右键不清爽），管块图标菜单的渐进两项：跳到分片或回到原文 / 渐进阅读摘抄模式。
 export const blockIconMenu = settingFactory("blockIconMenu", true, STORAGE_Prog_SETTINGS, null as TSK);
+// 可见性期4 □4 B②：右键菜单四项各自开关（默认全开=拍板 A 不 breaking）。digestmenu
+// 存量键默认 false 不动（旧语义兼容）；替代通道——整篇摘抄=快捷键+命令面板，
+// 重访调度/复访节奏=浮条 ✧ + 期3 复习计划面板。
+export const wholeDigestMenu = settingFactory("wholeDigestMenu", true, STORAGE_Prog_SETTINGS, null as TSK);
+export const reviewSchedMenu = settingFactory("reviewSchedMenu", true, STORAGE_Prog_SETTINGS, null as TSK);
+export const revisitRhythmMenu = settingFactory("revisitRhythmMenu", true, STORAGE_Prog_SETTINGS, null as TSK);
 // v5 □7 设置砍半：words2dailycard/finishPieceCreateAt/PieceSummaryBoxmenu/merg2newBookEnable/
 // getAllPieceNotesEnable/multilineMarkEnable/send2* 六件/makeCard* 两件/summary2dailynote/
 // PieceMoving*/ProgressiveViewAllMenu 共 18 个显隐与计划流 store 退役（旧持久化值留着无害）。

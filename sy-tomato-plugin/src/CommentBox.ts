@@ -9,7 +9,7 @@ import { winHotkey } from "./libs/winHotkey";
 import { addIfVisible } from "./libs/menuManager";
 import { newID } from "stonev5-utils";
 import { verifyKeyTomato } from "./libs/user";
-import { mount } from "svelte";
+import { mount, unmount } from "svelte";
 import { annotations } from "./Annotations";
 import { quickCollect, cachedDocName } from "./libs/annoCollect";
 import { openAnnoCollectDialog } from "./AnnoCollectDialog";
@@ -30,18 +30,8 @@ class CommentBox {
     svelteResize: () => void;
     svelte: CommentBoxSvelte;
 
+    /** □4 时序统一：index.async onload 已 await taskCfg（框架保序），双路竞态消化退役 */
     onload(plugin: BaseTomatoPlugin) {
-        if (plugin.initCfg()) {
-            this._onload(plugin)
-        } else {
-            (async () => {
-                await plugin.taskCfg;
-                this._onload(plugin);
-            })();
-        }
-    }
-
-    _onload(plugin: BaseTomatoPlugin) {
         // 划词工具条批注钮补态监听先于总开关早退挂上（MindWire 同款评审 P1-3）：工具条项
         // 恒附（构造期内核已收项早于设置落库），checkbox 关闭态冷启动若无监听，按钮裸露成
         // 点击无反馈的死按钮；sync gates 含 checkbox，off 态自动隐藏
@@ -81,6 +71,36 @@ class CommentBox {
             editorCallback: (protyle: IProtyle) => {
                 const dest = annoCollectDest.get();
                 void quickCollect(protyle.block.rootID, dest === "clipboard" || dest === "file" ? dest : "daily");
+            },
+        });
+
+        // 三直发项命令化（2026-09-04 □2 拍板）：同上无默认键留用户键位设置自绑；langKey 与
+        // 右键菜单项同一 key（菜单/命令面板显隐走 hiddenMenuItems 一处藏两处消失）；file 项
+        // 无「菜单有目标记忆才显示」前提——命令无记忆时 fallback 开收集小窗，不闷声没反应
+        this.plugin.addCommand({
+            langKey: "anno collect clipboard",
+            langText: `${tomatoI18n.收集批注} → ${tomatoI18n.剪贴板}`,
+            editorCallback: (protyle: IProtyle) => {
+                void quickCollect(protyle.block.rootID, "clipboard");
+            },
+        });
+        this.plugin.addCommand({
+            langKey: "anno collect daily",
+            langText: `${tomatoI18n.收集批注} → ${tomatoI18n.当天日记}`,
+            editorCallback: (protyle: IProtyle) => {
+                void quickCollect(protyle.block.rootID, "daily");
+            },
+        });
+        this.plugin.addCommand({
+            langKey: "anno collect file",
+            langText: `${tomatoI18n.收集批注} → ${tomatoI18n.收集到文件}`,
+            editorCallback: (protyle: IProtyle) => {
+                const rootID = protyle.block.rootID;
+                if (annoCollectTargetDoc.get()) {
+                    void quickCollect(rootID, "file");
+                } else {
+                    openAnnoCollectDialog(rootID);
+                }
             },
         });
 
@@ -144,18 +164,18 @@ class CommentBox {
             label: tomatoI18n.收集批注,
             click: () => openAnnoCollectDialog(rootID),
         });
-        addIfVisible(menu, "m.annoCollect.clipboard", {
+        addIfVisible(menu, "anno collect clipboard", {
             icon: "iconCopy",
             label: `${tomatoI18n.收集批注} → ${tomatoI18n.剪贴板}`,
             click: () => void quickCollect(rootID, "clipboard"),
         });
-        addIfVisible(menu, "m.annoCollect.daily", {
+        addIfVisible(menu, "anno collect daily", {
             icon: "iconCalendar",
             label: `${tomatoI18n.收集批注} → ${tomatoI18n.当天日记}`,
             click: () => void quickCollect(rootID, "daily"),
         });
         if (targetDoc && targetName) {
-            addIfVisible(menu, "m.annoCollect.file", {
+            addIfVisible(menu, "anno collect file", {
                 icon: "iconFile",
                 label: `${tomatoI18n.收集批注} → ${tomatoI18n.收集到文件}：《${targetName}》`,
                 click: () => void quickCollect(rootID, "file"),
@@ -248,7 +268,7 @@ class CommentBox {
             update() {
             },
             destroy() {
-                commentBox.svelte.destroy();
+                unmount(commentBox.svelte);
             },
             init: (dock) => {
                 const eleID = newID();

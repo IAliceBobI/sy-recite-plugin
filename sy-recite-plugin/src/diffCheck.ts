@@ -1,6 +1,6 @@
 import type { Plugin } from "siyuan";
 import { Dialog } from "siyuan";
-import { mount } from "svelte";
+import { mount, unmount } from "svelte";
 import { newID } from "stonev5-utils";
 import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { DestroyManager } from "../../sy-tomato-plugin/src/libs/destroyer";
@@ -286,8 +286,8 @@ export async function openDiffCheck(plugin: Plugin, docID: string) {
     const comp = mount(DiffDialog, {
         target: dialog.element.querySelector("#" + host),
         props: { plugin, entries: views, summary },
-    }) as { destroy: () => void }; // 无导出组件的 Exports 推断为 {}，运行时有 destroy（Settings.openHelp 同款用法）
+    });
     dm.add("dialog", () => dialog.destroy());
-    dm.add("svelte", () => comp.destroy());
+    dm.add("svelte", () => unmount(comp));
     debugLog("recite.diffCheck", `extract=${docID} entries=${views.length} diffs=${summary.diffs} sim=${summary.similarity}`, "recite");
 }
