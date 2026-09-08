@@ -34,6 +34,7 @@ type TomatoSettings = {
     cardBoxCardtab: boolean,
     card_refresh_visible_only: boolean,
     cardBoxSettingsShow: boolean,
+    cardBoxDeleteNoConfirm: boolean,
     prefixArticlesTagsShow: boolean,
     fastNoteBoxDocPrefix: boolean,
     foldTypesNODE_listITEM: boolean,
@@ -89,20 +90,24 @@ type TomatoSettings = {
     ProgressiveStart2learn: boolean,
     digestmenu: boolean,
     wholeDigestMenu: boolean,
+    cardContextMenu: boolean,
     reviewSchedMenu: boolean,
     revisitRhythmMenu: boolean,
     toolbarlocatedoc: boolean,
     toolbarrefreshVr: boolean,
     toolbarspacerepeat: boolean,
+    bigReloadTopbar: boolean,
     tag2RefSearchLnk: boolean,
     tag2RefSearchRef: boolean,
     readingAddJumpMenu: boolean,
     readingAddDeleteMenu: boolean,
     dbBkBoxRefreshMenu: boolean,
     readingAddRPmenu: boolean,
-    /** rpfloatbar 战役（2026-09-05）：悬浮球主控/显隐标记/位置（九宫格锚点+偏移） */
+    /** rpfloatbar 战役（2026-09-05）：悬浮球主控/显隐标记/位置（九宫格锚点+偏移）；
+     *  readingAdd2Card=设点入闪卡（readpoint □2-B 复活，老版同名） */
     readingFloatBar: boolean,
     readingFloatBallHidden: boolean,
+    readingAdd2Card: boolean,
     readingFloatBallPos: { anchor: number, offsetX: number, offsetY: number },
     bkenableAndDisablemenu: boolean,
     linkBoxBilinkMenu: boolean,
@@ -122,6 +127,7 @@ type TomatoSettings = {
     digest2dailycard: boolean,
     digestLanding: string,
     card2dailycard: boolean,
+    cardLanding: string,
     mobileTopBar: boolean,
     cardAppendTime: boolean,
     cardUnderPiece: boolean,
@@ -135,7 +141,6 @@ type TomatoSettings = {
     markOriginTextBG: boolean,
     pieceNoBacktraceLink: boolean,
     digestNoBacktraceLink: boolean,
-    flashcardUseLink: boolean,
     flashcardNotebook: string,
     windowOpenStyle: string,
     flashcardMultipleLnks: boolean,
@@ -181,6 +186,7 @@ type TomatoSettings = {
     cardAddListBoxCheckbox: boolean,
     cardPriorityBoxCheckbox: boolean,
     cardPriorityBoxAutoHide: boolean,
+    cardPriBarPos: string,
     card_priority_slider_hide: boolean,
     card_priority_stopBtn_hide: boolean,
     linkBoxLnkTitle: boolean,
@@ -229,8 +235,9 @@ type TomatoSettings = {
     tag2RefBoxCheckbox: boolean,
     spaceRefEnabled: boolean,
     spaceRefLinkType: "ref" | "lnk",
-    toolbarBoxCheckbox: boolean,
     toolbarEN2CHBtn: boolean,
+    copyIdCheckbox: boolean,
+    foldCmdCheckbox: boolean,
     toolbarTidy: boolean,
     cmdBlockBoxCheckbox: boolean,
     listBoxCheckbox: boolean,
@@ -288,10 +295,17 @@ type TomatoSettings = {
     "avoiding-cloud-synchronization-conflicts": boolean,
     "flash-thoughts-2-top": boolean,
     "flash-thoughts-target-file": string,
+    "shorthandRelayEnabled": boolean,
+    "flashThoughtsBlurClose": boolean,
+    "quickNoteCheckbox": boolean,
+    "quickNoteOpenMode": "external" | "focus",
+    "quickNoteRect": { x: number; y: number; width: number; height: number; opacity?: number } | null,
+    "dailyNoteReviewTopbar": boolean,
+    "dailyNoteCopyFragment": boolean,
     storeNoteBox_selectedNoteType: string,
     storeNoteBox_keep: boolean,
     storeNoteBox_pin: boolean,
-    storeNoteBox_recentText: string[],
+    storeNoteBox_recentText: (string | import("../libs/stores").RecentItem)[],
     storeNoteBox_noteAreaText: string,
     storeNoteBox_selectedNotebook: string,
     fastNoteBoxCheckbox: boolean,
@@ -503,6 +517,8 @@ interface ID_Time {
     id: string;
     time: string;
     interval: string;
+    /** 块 created（YYYYMMDDHHmmss），间隔计算优先用它（跨天正确） */
+    created?: string;
 }
 
 type WindowOpenStyle = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "nop" | "front" | "back" | "right" | "bottom" | "move" | "peek"

@@ -278,6 +278,12 @@ export function doubleSupRows(text: string, attrStr = "") {
     return `{{{row\n{{{row\n${text}\n}}}\n}}}${attrStr}`;
 }
 
+/** SQLite 字符串字面量包裹：单引号双写转义（SQL 标准）。用户配置串（落点文件名/
+ *  自定义类型名）拼 SQL 必经此——裸拼含引号会炸语句，内核静默返 null 无从排查 */
+export function sqlQuoteStr(s: string): string {
+    return `'${s.replaceAll("'", "''")}'`;
+}
+
 export function getLastNumberFromString(str: string): number | null {
     // 匹配字符串末尾的一个或多个数字
     const match = str.match(/\d+$/);
@@ -310,6 +316,34 @@ export function convertMinutesToTimeFormat(minutes: number): string {
         return `${remainingMinutes}m`;
     }
     return `${hours}h${remainingMinutes}m`;
+}
+
+/** 块 id/created 时间戳（YYYYMMDDHHmmss）→ 毫秒；非 14 位数字返回 NaN */
+export function parseIDTimestamp(s: string): number {
+    if (!/^\d{14}$/.test(s ?? "")) return NaN;
+    const d = new Date(
+        s.slice(0, 4) + "-" + s.slice(4, 6) + "-" + s.slice(6, 8) +
+        "T" + s.slice(8, 10) + ":" + s.slice(10, 12) + ":" + s.slice(12, 14));
+    return d.getTime();
+}
+
+/** 相邻收集块间隔分钟数（ceil）：created 全时间戳优先（跨天正确——搬运块与当天块
+ *  相隔真实小时数），缺/畸形任一侧退回 "2020-01-01 "+HH:MM 平面（老语义：同分钟
+ *  早退）。返回 null=相等早退，调用方不写属性。 */
+export function intervalMinutesBetween(a: { created?: string; time: string }, b: { created?: string; time: string }): number | null {
+    const at = parseIDTimestamp(a.created ?? "");
+    const bt = parseIDTimestamp(b.created ?? "");
+    let atime: number, btime: number;
+    if (!isNaN(at) && !isNaN(bt)) {
+        if (at == bt) return null;
+        atime = at;
+        btime = bt;
+    } else {
+        if (a.time == b.time) return null;
+        atime = (new Date("2020-01-01 " + a.time)).getTime();
+        btime = (new Date("2020-01-01 " + b.time)).getTime();
+    }
+    return Math.ceil(Math.abs(atime - btime) / (1000 * 60));
 }
 
 export class TabBuilder {

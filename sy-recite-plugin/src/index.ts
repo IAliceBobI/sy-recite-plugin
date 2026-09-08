@@ -199,8 +199,11 @@ export default class ThePlugin extends BaseTomatoPlugin {
      */
     setTopBarGear(on: boolean) {
         this.topBarGearEl = this.toggleTopBarEl(on, this.topBarGearEl, () => {
+            // 自建双页对照 iconSettingsRec（topbar-logo 战役 2026-09-08 返工旋钮）：左右两页=
+            // 原文/习作对照的 logo 化标识；三插件顶栏家族色——番茄齿轮红/渐进火苗琥珀/仿写双页青绿。
+            // 青绿挂色 .recite-topbar-gear 不变
             const el = this.addTopBar({
-                icon: "iconSettings",
+                icon: "iconSettingsRec",
                 title: this.i18n.顶栏设置提示,
                 position: "left",
                 callback: () => this.setting.open(this.i18n.设置页标题),

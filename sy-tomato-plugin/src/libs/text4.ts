@@ -765,6 +765,25 @@ it means that as long as one of these keywords appears, it will match.</strong><
         }
     }
 
+    /** 失败=原件保留原位未删（验证后删防线），重跑即重试 */
+    public assets整理x成功y失败(okCount: number, failCount: number) {
+        switch (this.lang) {
+            case "zh_CN":
+                return `assets: 整理成功[${okCount}]个，失败[${failCount}]个（原件保留原位，可重跑重试）`;
+            case "es_ES":
+                return `assets: [${okCount}] organizados, [${failCount}] fallidos (los originales permanecen en su lugar, reintente)`;
+            case "fr_FR":
+                return `assets: [${okCount}] organisés, [${failCount}] échoués (les originaux restent en place, réessayez)`;
+            case "ja_JP":
+                return `assets: [${okCount}]個整理、[${failCount}]個失敗（元ファイルは元の場所に残ります、再実行で再試行）`;
+            case "zh_CHT":
+                return `assets: 整理成功[${okCount}]個，失敗[${failCount}]個（原件保留原位，可重跑重試）`;
+
+            default:
+                return `assets: [${okCount}] organized, [${failCount}] failed (originals kept in place, rerun to retry)`;
+        }
+    }
+
     public 已经处理了x个块(count: number, filesCount: number, blockCount: number) {
         switch (this.lang) {
             case "zh_CN":
@@ -797,6 +816,40 @@ it means that as long as one of these keywords appears, it will match.</strong><
 
             default:
                 return `Preparing to delete ${x} invalid flashcards`;
+        }
+    }
+    public 仍有x张失效闪卡无法删除(x: number) {
+        switch (this.lang) {
+            case "zh_CN":
+                return `仍有${x}张失效闪卡无法删除`;
+            case "es_ES":
+                return `No se pudieron eliminar ${x} tarjetas flash no válidas`;
+            case "fr_FR":
+                return `${x} cartes flash non valides n'ont pas pu être supprimées`;
+            case "ja_JP":
+                return `${x}枚の無効なフラッシュカードを削除できませんでした`;
+            case "zh_CHT":
+                return `仍有${x}張失效閃卡無法刪除`;
+
+            default:
+                return `${x} invalid flashcards could not be removed`;
+        }
+    }
+    public get 失效闪卡受内核校验限制无法删除() {
+        switch (this.lang) {
+            case "zh_CN":
+                return "以下失效闪卡的内容块已不存在，受官方内核 2026-08 新校验限制暂无法删除，等待官方修复（issue 已提）。";
+            case "es_ES":
+                return "Los bloques de las siguientes tarjetas ya no existen; una validación del kernel de 2026-08 impide eliminarlas por ahora. A la espera de una corrección oficial (issue reportado).";
+            case "fr_FR":
+                return "Les blocs des cartes suivantes n'existent plus ; une validation du noyau de 2026-08 empêche leur suppression pour le moment. En attente d'un correctif officiel (issue signalé).";
+            case "ja_JP":
+                return "以下のカードのブロックは既に存在せず、2026-08 のカーネル検証により現時点では削除できません。公式の修正を待っています（issue 報告済み）。";
+            case "zh_CHT":
+                return "以下失效閃卡的內容塊已不存在，受官方內核 2026-08 新校驗限制暫無法刪除，等待官方修復（issue 已提）。";
+
+            default:
+                return "The blocks of the following cards no longer exist; a kernel validation from 2026-08 prevents removing them for now. Waiting for an official fix (issue reported).";
         }
     }
     public get 默认关闭自动刷新() {

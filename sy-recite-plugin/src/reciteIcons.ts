@@ -14,6 +14,18 @@ export const RECITE_FLOAT_ICONS = `
 <symbol id="iconReciteSplit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l7.8-7.8"/><path d="M14.6 2.8l1.1 2.7 2.7 1.1-2.7 1.1-1.1 2.7-1.1-2.7-2.7-1.1 2.7-1.1z"/><path d="M19.7 14.3l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></symbol>
 <symbol id="iconReciteSpin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></symbol>
 <symbol id="iconReciteClose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<!-- 顶栏设置双页对照（topbar-logo 战役 2026-09-08，返工一期旋钮）：左右两页=原文/习作对照，
+     仿写核心语义的 logo 化标识。二期取证修正：官方顶栏生态=24vb / stroke 1.7u / round cap·join /
+     fill:none 细线稿（litheness icon.js 231/234 同规格）——一期 32vb 粗剪影（环壁 2.2 倍官方线宽）
+     被用户判「不合群」已弃。本枚与浮条族同 24vb 但线宽按顶栏生态用 1.7（浮条族 1.8 不变，语境不同）。
+     中缝几何经 vision 像素复核：两页各宽 7.4、右页 x13.3，中缝净空 0.7u（64px 下 ~2px 背景缝、
+     14px 双窗结构成立）。id 特例对齐 iconSettings* 家族命名（iconSettingsProg 先例），保住 e2e
+     顶栏按钮通道（querySelectorAll('use') href 含 iconSettingsXxx）。挂色 .recite-topbar-gear
+     固定青绿两档不变（stroke:currentColor 随 color） -->
+<symbol id="iconSettingsRec" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.5" y="4.5" width="7.4" height="15" rx="1.5"></rect>
+    <rect x="13.3" y="4.5" width="7.4" height="15" rx="1.5"></rect>
+</symbol>
 `;
 
 /** 渲染 sprite 引用（名字必须 iconRecite 开头防与宿主 spritespace 撞 id） */

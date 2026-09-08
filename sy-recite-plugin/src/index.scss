@@ -1316,10 +1316,15 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-lace="vermilion"]:no
     color: var(--recite-accent);
 }
 
-// 顶栏「设置」齿轮按钮：青绿第二主题色（--recite-yours token 首次启用，亮 #2f7d6e / 暗 #5c9c8f，
-// 皮肤映射表里随各皮肤的 yours 档联动）——与笔金色 accent 一金一青一眼可辨
+// 顶栏「设置」双页按钮：固定青绿两档（topbar-gear 战役 2026-09-08 定色，topbar-logo 2026-09-08
+// 换形）。原挂 --recite-yours 随皮肤漂移——但 yours 实为「你的句」预留对色（青瓷/护眼等 4 皮肤下
+// =琥珀 #8a5a20，与渐进顶栏琥珀撞色），三插件家族要求红/琥珀/青绿三色锚定，故直写固定档（与
+// tomato 红两档、渐进 --prog-topbar 两档同构）；yours token 还给「你的句」语义。与笔金色 accent 一金一青一眼可辨
 .toolbar__item.recite-topbar-gear {
-    color: var(--recite-yours);
+    color: #2f7d6e;
+}
+html[data-theme-mode="dark"] .toolbar__item.recite-topbar-gear {
+    color: #5c9c8f;
 }
 
 

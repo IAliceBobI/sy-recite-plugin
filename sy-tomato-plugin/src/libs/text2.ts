@@ -1,6 +1,24 @@
 import { TomatoI18nABC3 } from "./text3";
 
 export abstract class TomatoI18nABC2 extends TomatoI18nABC3 {
+    // 大刷新（2026-09-06 seller 迁入）：命令/顶栏钮名自文档化（括注整页重载语义）
+    public get 大刷新() {
+        switch (this.lang) {
+            case "zh_CN":
+                return "大刷新（整页重载）";
+            case "es_ES":
+                return "Recarga completa (página entera)";
+            case "fr_FR":
+                return "Rechargement complet (page entière)";
+            case "ja_JP":
+                return "完全リロード（ページ全体）";
+            case "zh_CHT":
+                return "大刷新（整頁重載）";
+
+            default:
+                return "Big reload (whole page)";
+        }
+    }
     public get maxBkDocs最大展开的反链文件数() {
         switch (this.lang) {
             case "zh_CN":
@@ -539,6 +557,24 @@ export abstract class TomatoI18nABC2 extends TomatoI18nABC3 {
         }
     }
 
+    public get 删除内容块时无需确认直接删除() {
+        switch (this.lang) {
+            case "zh_CN":
+                return "删除内容块时无需确认，直接删除";
+            case "es_ES":
+                return "Eliminar bloques sin pedir confirmación";
+            case "fr_FR":
+                return "Supprimer les blocs sans confirmation";
+            case "ja_JP":
+                return "コンテンツブロックを確認なしで削除";
+            case "zh_CHT":
+                return "刪除內容塊時無需確認，直接刪除";
+
+            default:
+                return "Delete content blocks without confirmation";
+        }
+    }
+
     public get 定位闪卡() {
         switch (this.lang) {
             case "zh_CN":
@@ -592,39 +628,61 @@ export abstract class TomatoI18nABC2 extends TomatoI18nABC3 {
         }
     }
 
-    public 推迟x小时(hours: number) {
+    // □7 阶梯时长（spreaddelay）：text=durationText(hours) 组合串（「4 月」/"4 months"），
+    // 单位换算在 cardUtils ladderDuration，i18n 层只嵌串
+    public 推迟x时长(text: string) {
         switch (this.lang) {
             case "zh_CN":
-                return `推迟${hours.toFixed(1)}小时`;
+                return `推迟${text}`;
             case "es_ES":
-                return `Retrasar ${hours.toFixed(1)} horas`;
+                return `Retrasar ${text}`;
             case "fr_FR":
-                return `Retarder ${hours.toFixed(1)} heures`;
+                return `Retarder de ${text}`;
             case "ja_JP":
-                return `${hours.toFixed(1)}時間遅れる`;
+                return `${text}遅れる`;
             case "zh_CHT":
-                return `推遲${hours.toFixed(1)}小時`;
+                return `推遲${text}`;
 
             default:
-                return `Delay by ${hours.toFixed(1)} hours`;
+                return `Delay by ${text}`;
         }
     }
 
-    public 推迟余下闪卡x小时(hours: number) {
+    public 推迟余下闪卡x时长(text: string) {
         switch (this.lang) {
             case "zh_CN":
-                return `推迟余下闪卡${hours.toFixed(1)}小时`;
+                return `余下推迟${text}`;
             case "es_ES":
-                return `Retrasar el resto de tarjetas flash por ${hours.toFixed(1)} horas`;
+                return `Resto ${text}`;
             case "fr_FR":
-                return `Retarder le reste des cartes flash de ${hours.toFixed(1)} heures`;
+                return `Reste ${text}`;
             case "ja_JP":
-                return `残りのフラッシュカードを${hours.toFixed(1)}時間遅らせる`;
+                return `残り${text}`;
             case "zh_CHT":
-                return `推遲剩餘閃卡${hours.toFixed(1)}小時`;
+                return `剩餘推遲${text}`;
 
             default:
-                return `Postpone the rest of the flashcards for ${hours.toFixed(1)} hours`;
+                return `Rest ${text}`;
+        }
+    }
+
+    // 推迟三入口归组（cardui 反馈轮 □3）：第三钮短文案，与「余下推迟X」成对；
+    // title 用 把剩余闪卡分散推迟在未来x时长内 全语义
+    public 余下分散到x内(text: string) {
+        switch (this.lang) {
+            case "zh_CN":
+                return `余下分散到${text}内`;
+            case "es_ES":
+                return `Dispersar resto en ${text}`;
+            case "fr_FR":
+                return `Disperser le reste sur ${text}`;
+            case "ja_JP":
+                return `残りを${text}に分散`;
+            case "zh_CHT":
+                return `剩餘分散到${text}內`;
+
+            default:
+                return `Spread rest over ${text}`;
         }
     }
 
@@ -753,6 +811,61 @@ export abstract class TomatoI18nABC2 extends TomatoI18nABC3 {
 
             default:
                 return "Resume all paused flashcards";
+        }
+    }
+
+    // □1b 恢复粒度（resume-granularity，2026-09-07 拍板 A 双入口）：按文档树（含子文档）恢复
+    public get 恢复文档暂停闪卡() {
+        switch (this.lang) {
+            case "zh_CN":
+                return "恢复此文档及子文档的暂停闪卡";
+            case "es_ES":
+                return "Reanudar tarjetas suspendidas de este documento y subdocumentos";
+            case "fr_FR":
+                return "Reprendre les fiches suspendues de ce document et ses sous-documents";
+            case "ja_JP":
+                return "このドキュメントとサブドキュメントの中断カードを再開";
+            case "zh_CHT":
+                return "恢復此文檔及子文檔的暫停閃卡";
+
+            default:
+                return "Resume suspended cards in this doc and subdocs";
+        }
+    }
+
+    public 将恢复n张暂停闪卡含子文档(length: number) {
+        switch (this.lang) {
+            case "zh_CN":
+                return `将恢复 ${length} 张暂停闪卡（含子文档）`;
+            case "es_ES":
+                return `Se reanudarán ${length} tarjetas suspendidas (incl. subdocumentos)`;
+            case "fr_FR":
+                return `${length} fiches suspendues seront reprises (sous-documents inclus)`;
+            case "ja_JP":
+                return `${length}枚の中断カードを再開します（サブドキュメント含む）`;
+            case "zh_CHT":
+                return `將恢復 ${length} 張暫停閃卡（含子文檔）`;
+
+            default:
+                return `Will resume ${length} suspended cards (subdocs included)`;
+        }
+    }
+
+    public get 此文档及子文档内没有暂停的闪卡() {
+        switch (this.lang) {
+            case "zh_CN":
+                return "此文档及子文档内没有暂停的闪卡";
+            case "es_ES":
+                return "No hay tarjetas suspendidas en este documento ni subdocumentos";
+            case "fr_FR":
+                return "Aucune fiche suspendue dans ce document ni ses sous-documents";
+            case "ja_JP":
+                return "このドキュメントとサブドキュメントに中断カードはありません";
+            case "zh_CHT":
+                return "此文檔及子文檔內沒有暫停的閃卡";
+
+            default:
+                return "No suspended cards in this doc or subdocs";
         }
     }
 

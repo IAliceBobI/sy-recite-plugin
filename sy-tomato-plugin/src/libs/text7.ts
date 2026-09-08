@@ -302,23 +302,6 @@ export abstract class TomatoI18nABC7 extends TomatoI18nABC8 {
                 return "Make card within fragment, put in the subdocument of the fragment";
         }
     }
-    public get 制卡并入dailycard当天文档() {
-        switch (this.lang) {
-            case "zh_CN":
-                return "制卡并入 dailycard 当天文档";
-            case "es_ES":
-                return "Las tarjetas se integran en el documento dailycard de hoy";
-            case "fr_FR":
-                return "Les cartes sont intégrées dans le document dailycard du jour";
-            case "ja_JP":
-                return "カードを当日の dailycard ドキュメントに統合";
-            case "zh_CHT":
-                return "製卡併入 dailycard 當天文檔";
-
-            default:
-                return "Cards go into today's dailycard document";
-        }
-    }
     public get cards前缀文件() {
         switch (this.lang) {
             case "zh_CN":
@@ -1157,36 +1140,20 @@ export abstract class TomatoI18nABC7 extends TomatoI18nABC8 {
             default: return "Create card in place";
         }
     }
-    public get 制卡并发到dailycard() {
+    public get 制卡无引用() {
         switch (this.lang) {
-            case "zh_CN": return "制卡并发到dailycard";
-            case "es_ES": return "Tarjeta de fabricación enviada a dailycard";
-            case "fr_FR": return "Carte fabriquée envoyée à dailycard";
-            case "ja_JP": return "カード作成してdailycardに送信";
-            case "zh_CHT": return "製卡併發到dailycard";
-            case "it_IT": return "Carta prodotta inviata a dailycard";
-            case "de_DE": return "Karte hergestellt und an dailycard gesendet";
-            case "he_IL": return "כרטיס מיוצר נשלח ל-dailycard";
-            case "ru_RU": return "Изготовленная карта отправлена в dailycard";
-            case "pl_PL": return "Wyprodukowana karta wysłana do dailycard";
+            case "zh_CN": return "制卡无引用";
+            case "zh_CHT": return "製卡無引用";
             case "en_US":
-            default: return "Card made and sent to dailycard";
-        }
-    }
-    public get 制卡并发到dailycard无引用() {
-        switch (this.lang) {
-            case "zh_CN": return "制卡并发到dailycard(无引用)";
-            case "es_ES": return "Tarjeta de fabricación enviada a dailycard (sin referencia)";
-            case "fr_FR": return "Carte fabriquée envoyée à dailycard (sans référence)";
-            case "ja_JP": return "カード作成してdailycardに送信(参照なし)";
-            case "zh_CHT": return "製卡併發到dailycard(無引用)";
-            case "it_IT": return "Carta prodotta inviata a dailycard (senza riferimento)";
-            case "de_DE": return "Karte hergestellt und an dailycard gesendet (ohne Referenz)";
-            case "he_IL": return "כרטיס מיוצר נשלח ל-dailycard (ללא הפניה)";
-            case "ru_RU": return "Изготовленная карта отправлена в dailycard (без ссылки)";
-            case "pl_PL": return "Wyprodukowana karta wysłana do dailycard (bez referencji)";
-            case "en_US":
-            default: return "Card made and sent to dailycard (no reference)";
+            default: return "Card, no backtrace";
+            case "es_ES": return "Tarjeta sin referencia";
+            case "fr_FR": return "Carte sans référence";
+            case "ja_JP": return "カード(参照なし)";
+            case "it_IT": return "Carta senza riferimento";
+            case "de_DE": return "Karte ohne Rückverweis";
+            case "he_IL": return "כרטיס ללא הפניה";
+            case "ru_RU": return "Карта без ссылки";
+            case "pl_PL": return "Karta bez referencji";
         }
     }
     public get 多行标记() {
