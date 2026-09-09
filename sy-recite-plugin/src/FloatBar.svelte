@@ -17,7 +17,7 @@
 
 <script lang="ts">
     import type { Plugin } from "siyuan";
-    import { getFrontend } from "siyuan";
+    import { Constants, getFrontend } from "siyuan";
     import { onMount } from "svelte";
     import { reciteDoc, cleanPractice } from "./statusBtn";
     import { doExtract, rewriteExtract } from "./extract";
@@ -92,15 +92,38 @@
         return () => document.body.classList.remove("recite-topbar-on");
     });
 
-    // □13 一键加卡：当前产物文档整体进快速卡组（与渐进摘抄卡同组混排复习；官方路径需
-    // 文档属性面板三四步，这里一键）。addRiffCards 对已在卡组的块幂等，重复点无副作用。
-    // siyuan.call 吞错返回 null 不抛异常（review P1-1），须查返回值防假成功 toast
+    // □13 一键加卡 → toggle（2026-09-09 群反馈）：制卡钮只留抽取文档浮条——对比/答案文档
+    // 制卡=把答案整篇复习，是错误入口（compare 分支已摘）。判态走文档 IAL custom-riff-decks
+    // （内核制卡=挂该属性、取消=摘除，落盘即真相；getRiffCardsByBlockIDs 对不在卡组的块也
+    // 回占位行，不可作判据）。removeRiffCards 传快速卡组 ID 只摘这一组——用户手动加进
+    // 别的卡组的卡不动。siyuan.call 吞错返回 null 不抛异常（review P1-1），须查返回值防假成功 toast。
+    let carded = $state(false);
+    $effect(() => {
+        const id = $reciteDoc.docID;
+        carded = false;
+        if (!id) return;
+        siyuan.getBlockAttrs(id).then(a => {
+            if (id !== $reciteDoc.docID) return; // then 回调读 docID 不进依赖集（依赖收集只在同步期）
+            carded = (a?.["custom-riff-decks"] ?? "").split(",").includes(Constants.QUICK_DECK_ID);
+        }).catch(() => { /* 查询失败按未制卡处理，点击走 add 幂等兜底 */ });
+    });
     async function addToCards() {
+        if (carded) {
+            const ret = await siyuan.removeRiffCards([$reciteDoc.docID], Constants.QUICK_DECK_ID);
+            if (!ret) {
+                await siyuan.pushMsg(plugin.i18n["取消闪卡失败"] || "移除闪卡失败，请重试", 2500);
+                return;
+            }
+            carded = false;
+            await siyuan.pushMsg(plugin.i18n["已取消闪卡"] || "已从快速卡组移除，不再出现在闪卡复习", 2500);
+            return;
+        }
         const ret = await siyuan.addRiffCards([$reciteDoc.docID]);
         if (!ret) {
             await siyuan.pushMsg(plugin.i18n["加闪卡失败"] || "加入闪卡失败，请重试", 2500);
             return;
         }
+        carded = true;
         await siyuan.pushMsg(plugin.i18n["已加入闪卡"] || "已加入闪卡（快速卡组），可在闪卡复习中查看", 2500);
     }
 
@@ -296,20 +319,20 @@
             <div class="recite-floatbar-btns">
                 <button class="b3-tooltips b3-tooltips__n" aria-label={tip("生成对比文档：每题左右两列，原文与复述逐题对照")} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["默写查错提示"] || "逐字比对原文与复述：错/多字红删除线、漏字绿下划线，弹窗即看即走，不写入文档")} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["加闪卡提示"] || "把本篇练习文档整体加入快速闪卡卡组，与摘抄卡同组复习")} onclick={addToCards}>{@html reciteIcon("iconReciteCard")}<span class="recite-btn-text">{t("加闪卡")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" aria-label={tip(carded ? (plugin.i18n["取消制卡提示"] || "本篇练习文档已在快速卡组，再点移除") : (plugin.i18n["加闪卡提示"] || "把本篇练习文档整体加入快速闪卡卡组，与摘抄卡同组复习"))} onclick={addToCards}>{@html reciteIcon(carded ? "iconReciteCardOn" : "iconReciteCard")}<span class="recite-btn-text">{carded ? (plugin.i18n["取消制卡"] || "取消制卡") : t("加闪卡")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删当前抽取文档（连对比，复述可从回收站找回）并按原文当前批注重建空抽取，重新练习")} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
             </div>
         {:else if $reciteDoc.role === "compare"}
             {#if isMobile}
                 <!-- 单行横滑 + 分组分隔线（判分行 | 操作行；两行会让条高翻倍到 85px 违背矮条承诺，
-                     分隔线保留桌面两行的分组认知） -->
+                     分隔线保留桌面两行的分组认知）。制卡钮不进对比文档（2026-09-09 群反馈）：
+                     对比=含原文答案的对照视图，制卡入口只留抽取文档浮条 -->
                 <div class="recite-floatbar-btns">
                     <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["默写查错提示"] || "逐字比对原文与复述：错/多字红删除线、漏字绿下划线，弹窗即看即走，不写入文档")} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
                     <button class="b3-tooltips b3-tooltips__n" class:recite-btn-busy={grading} disabled={grading} aria-label={tip(grading ? (plugin.i18n["判卷中提示"] || "AI 判卷进行中…") : (plugin.i18n["AI判卷提示"] || "用思源已配置的 AI（设置 → AI）当场判卷，结果覆盖上一次判卷"))} onclick={runGrade}>{@html reciteIcon(grading ? "iconReciteSpin" : "iconReciteJudge")}<span class="recite-btn-text">{grading ? (plugin.i18n["判卷中"] || "判卷中…") : (plugin.i18n["AI 判卷"] || "AI 判卷")}</span></button>
                     <span class="recite-topbar-sep" aria-hidden="true"></span>
                     <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("按抽取文档当前复述刷新本对比文档")} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
                     <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["复制提示词提示"] || "复制判卷提示词，可选直接打开 DeepSeek/豆包/千问等网页版粘贴")} onclick={e => copyPrompt($reciteDoc.docID, plugin, e.currentTarget)}>{@html reciteIcon("iconReciteCopyPrompt")}<span class="recite-btn-text">{t("复制提示词")}</span></button>
-                    <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["加闪卡提示"] || "把本篇练习文档整体加入快速闪卡卡组，与摘抄卡同组复习")} onclick={addToCards}>{@html reciteIcon("iconReciteCard")}<span class="recite-btn-text">{t("加闪卡")}</span></button>
                     <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删抽取文档（连对比子树）并按原文当前批注重建练习文档，复述清零重新练习")} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
                 </div>
             {:else}
@@ -321,7 +344,6 @@
                 <div class="recite-floatbar-btns">
                     <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("按抽取文档当前复述刷新本对比文档")} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
                     <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["复制提示词提示"] || "复制判卷提示词，可选直接打开 DeepSeek/豆包/千问等网页版粘贴")} onclick={e => copyPrompt($reciteDoc.docID, plugin, e.currentTarget)}>{@html reciteIcon("iconReciteCopyPrompt")}<span class="recite-btn-text">{t("复制提示词")}</span></button>
-                    <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["加闪卡提示"] || "把本篇练习文档整体加入快速闪卡卡组，与摘抄卡同组复习")} onclick={addToCards}>{@html reciteIcon("iconReciteCard")}<span class="recite-btn-text">{t("加闪卡")}</span></button>
                     <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删抽取文档（连对比子树）并按原文当前批注重建练习文档，复述清零重新练习")} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
                 </div>
             {/if}

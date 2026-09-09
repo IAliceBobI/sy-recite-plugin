@@ -7,6 +7,9 @@ export const RECITE_FLOAT_ICONS = `
 <symbol id="iconReciteCompare" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></symbol>
 <!-- □13 加闪卡：叠卡+入卡下箭头（与渐进 iconProgCardHere 同构，跨插件视觉一致） -->
 <symbol id="iconReciteCard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/><path d="M14.5 11v7"/><path d="m12 15.5 2.5 2.5 2.5-2.5"/></symbol>
+<!-- □13 toggle 态（2026-09-09 群反馈）：iconReciteCard 同构对勾版——下箭头（入卡）↔ 对勾
+     （已在卡组）。浮条全形态 icon-only，加闪卡→取消制卡的文案切换不可见，态差异只能走图形 -->
+<symbol id="iconReciteCardOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/><path d="m12.5 14.8 2 2 4-4.5"/></symbol>
 <symbol id="iconReciteDiff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h13"/><path d="M4 10h6"/><path d="M4 19h6"/><circle cx="14.5" cy="13.5" r="4.5"/><path d="m17.8 16.8 3.7 3.7"/></symbol>
 <symbol id="iconReciteJudge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3l1.9 5.1L17 10l-5.1 1.9L10 17l-1.9-5.1L3 10l5.1-1.9Z"/><path d="m14.5 18.5 2.5 2.5L22 16.5"/></symbol>
 <symbol id="iconReciteCopyPrompt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M20 1.5v5"/><path d="M17.5 4h5"/></symbol>

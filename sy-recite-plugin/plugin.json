@@ -2,7 +2,7 @@
   "name": "sy-recite-plugin",
   "author": "IAliceBobI",
   "url": "https://github.com/IAliceBobI/sy-recite-plugin",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "minAppVersion": "2.12.6",
   "backends": [
     "all"
@@ -15,8 +15,8 @@
     "zh_CN": "仿写练习"
   },
   "description": {
-    "default": "✍️ Read-then-rewrite practice on any document: mark & tint, extract & rewrite, compare with the original",
-    "zh_CN": "任意文档的读后仿写练习：批注变色、抽取仿写、对比原文"
+    "default": "✍️ Read-then-rewrite practice on any document: mark & tint, drill targets with kept context, extract & rewrite, per-item compare, AI grading",
+    "zh_CN": "任意文档的读后仿写练习：批注变色、练靶保留语境、抽取仿写、单题对照、AI 判卷"
   },
   "readme": {
     "default": "README.md",
@@ -31,6 +31,10 @@
     "练习",
     "写作",
     "联想",
+    "复述",
+    "上下文",
+    "对照",
+    "记忆",
     "Recite",
     "Dictation",
     "Writing",

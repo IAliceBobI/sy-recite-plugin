@@ -13,11 +13,13 @@ Highlighting a good article isn't enough to make it stick. Mark the sentences yo
 ## Features
 
 - **Mark & tint** — in practice mode, mark the sentences you want to practice with SiYuan's native mark highlight; annotated sentences tint automatically, distinguishable from unmarked ones at a glance
+- **Target practice & kept context** — don't want the whole piece? Select a passage and hit "Drill This" to circle it as the target: a summary slot appears right after it, and on extraction only the target is drilled while the rest of the original is copied into the practice document as context. "Keep as Context" preserves reference passages as-is (dimmed, never in the way), so flashcard reviews always carry their surrounding text. Drag-select works (Ctrl+click gathers multiple blocks); click again to unmark. No targets circled? You get the classic whole-piece recall — and both styles mix freely in one document
 - **AI Split** (Pro) — no idea where to start? Let the AI read the whole piece and drop anchor notes at narrative beats, in three flavors: recite anchors (beat + noun keywords — cues without leaking the prose), imitation anchors (beat + technique walkthrough) and direction anchors (plot direction + emotional arc). Pick one from a three-way menu; re-running replaces old AI anchors while your handwritten notes always stay untouched, and beats you've already split are skipped automatically. Uses the AI you've configured in SiYuan (Settings → AI, same channel as AI grading); grading recognizes AI anchors too, reviewing "technique delivered" and "direction-level" accordingly
 - **Extract & rewrite** — one click generates an "Extract" sub-document from your marks, with a rewrite slot under each annotation; close the original and start writing
+- **Per-item compare** — each rewrite slot in the extract document carries a "Compare" button: click to expand an in-place side-by-side panel (original vs. your rewrite) for that one item, click again to collapse — see each gap right after writing, not after the whole piece
 - **Compare document** — when you finish rewriting, one click generates a "Compare" sub-document: original on the left, your version on the right, one card per item — gaps at a glance
 - **Dictation check** — a dialog compares original and rewrite character by character for Chinese, word by word for English: mistakes get red strikethrough, omissions green underline, with a diff tally at the bottom (punctuation differences ignored). Read and go — nothing is written into your document
-- **AI grading** — the AI you've already configured in SiYuan (Settings → AI) reviews each item on the spot; multi-standard templates automatically tell apart recitation-level line-by-line comparison, skeleton-level structure analysis and association-level creativity review; results stream into the end of the compare document and can be re-graded as often as you like. Three grader tones (Gentle / Neutral / Strict, switchable in settings) — or one-click copy the grading prompt and paste it to any AI
+- **AI grading** — the AI you've already configured in SiYuan (Settings → AI) reviews each item on the spot; multi-standard templates automatically tell apart recitation-level line-by-line comparison, skeleton-level structure analysis and association-level creativity review; the verdict lands as a standalone result block at the end of the compare document for later review (re-grading overwrites the previous one), with missed points listed at the top of the result card. Three grader tones (Gentle / Neutral / Strict, switchable in settings) — or one-click copy the grading prompt and paste it to any AI
 - **Grading pet** (desktop) — a tiny companion lives in the top-left corner of the recite bar: it blinks and breathes while you practice, wiggles excitedly when your mouse passes over, and clicking it brings surprises — Doudou and Xuetuan bounce with a squinting smile and little hearts, while Xiaopan, Boshi and Douya each have their own transformation show (full-body spread wings / flying pages with a swinging tassel / puffed cheeks breathing tiny fireballs). During AI grading it naps on guard, then pops up the moment scores arrive, emoting to match the result (smiling squint on praise, pout with tears on a poor grade) — and it plays along with the grader's tone (cheering paw raised on gentle praise, arms akimbo glaring on strict criticism). Free by default; can be turned off in settings
 - **Association practice** — mark a prompt like "idea: tree · seat belt · exam", write freely from the words after extraction, and the AI grades creativity at association level — grow a story out of three words
 
@@ -27,7 +29,7 @@ The three imitation modes are graded by how far you stray from the original, and
 
 ## Entry Points
 
-Original, extract and compare documents each carry a persistent recite bar with icon buttons (icon + label on desktop, icon-only on mobile); the ✕ in the title row / top bar tucks it away until you switch documents (it comes back automatically). On desktop the bar is freely draggable; on mobile it snaps into a horizontally scrollable strip right below the toolbar, stepping aside automatically when the Progressive Learning top bar shares the screen. Three entrances to practice mode: the **pen icon in the top bar** (on by default, hideable in settings), the command palette, and the "Plugins" submenu of the right-click menu.
+Original, extract and compare documents each carry a persistent recite bar with icon buttons (icon + label on desktop, icon-only on mobile); the ✕ in the title row / top bar tucks it away until you switch documents (it comes back automatically). On desktop the bar is freely draggable; on mobile it snaps into a horizontally scrollable strip right below the toolbar, stepping aside automatically when the Progressive Learning top bar shares the screen. On mobile, the original-document bar also carries three selection buttons (select upwards / downwards / undo last) so you can gather blocks for "Drill This" / "Keep as Context" without touchscreen drag-select (toggle in settings). Three entrances to practice mode: the **pen icon in the top bar** (on by default, hideable in settings), the command palette, and the "Plugins" submenu of the right-click menu.
 
 | Action | Mac | Windows |
 |---|---|---|
@@ -42,7 +44,7 @@ The table lists the **default** shortcuts — every one is remappable: click a k
 ## Getting Started
 
 1. Open any document and click the pen icon in the top bar to enter practice mode
-2. Mark the sentences you want to practice with mark highlights (annotated sentences tint automatically); not sure how to break the piece into beats? Click "AI Split" (Pro) on the recite bar for a head start — splitting is itself practice, so write your own notes once you get the hang of it
+2. Mark the sentences you want to practice with mark highlights (annotated sentences tint automatically); only want part of the piece? Select it and hit "Drill This" on the recite bar — the rest stays as context. Not sure how to break the piece into beats? Click "AI Split" (Pro) on the recite bar for a head start — splitting is itself practice, so write your own notes once you get the hang of it
 3. Click "Extract" on the recite bar and rewrite from memory in the generated extract document
 4. Click "Compare" to see the gaps, run "Dictation check" for a character-level proofread, then "AI grading" for comments
 
@@ -50,7 +52,7 @@ Details — every recite-bar button explained, with full examples: plugin settin
 
 ## Free / Pro
 
-**The free version covers the full practice loop — no second-class citizen**: marking, extraction, comparison, dictation check, association practice, AI grading and the grading prompt all work, with no limits on runs or documents.
+**The free version covers the full practice loop — no second-class citizen**: marking, target practice with kept context, extraction, per-item compare, comparison, dictation check, association practice, AI grading and the grading prompt all work, with no limits on runs or documents.
 
 **AI Split is the one Pro-gated feature; AI grading stays free**: when you don't know where to start, let it read the piece and drop anchor notes at narrative beats (see Features). The button stays visible before activation and prompts when clicked.
 
