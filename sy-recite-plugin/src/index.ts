@@ -2,6 +2,9 @@ import "./index.scss";
 import { mount, unmount } from "svelte";
 import { Setting } from "siyuan";
 import { BaseTomatoPlugin } from "../../sy-tomato-plugin/src/libs/BaseTomatoPlugin";
+import { syncSettingsFromDisk } from "../../sy-tomato-plugin/src/libs/storageHotReload";
+import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
+import { reloadSelfPlugin } from "../../sy-tomato-plugin/src/libs/pluginReload";
 import { events } from "../../sy-tomato-plugin/src/libs/Events";
 import { tomatoI18n } from "../../sy-tomato-plugin/src/tomatoI18n";
 import { isObject, Siyuan } from "../../sy-tomato-plugin/src/libs/utils";
@@ -12,11 +15,17 @@ import { statusBtn, togglePractice, enterPractice, reciteDoc } from "./statusBtn
 import { highlight } from "./highlight";
 import { writeZone } from "./writeZone";
 import { contextMenu } from "./contextMenu";
+import { onload as selmlOnload } from "./selml";
+import { selmlOn } from "./uiState";
 import { RECITE_HOTKEYS } from "./constants";
 import { RECITE_FLOAT_ICONS } from "./reciteIcons";
 import { doExtract, rewriteExtract } from "./extract";
 import { doCompare } from "./compare";
 import { copyPrompt } from "./promptCopy";
+import { toggleKeepBlocks } from "./keep";
+import { toggleTargetBlocks } from "./target";
+import { registerAiGradeRender } from "./aiGradeRender";
+import { registerQCtrlRender, unloadQCtrlRender } from "./qCtrlRender";
 import { applyReciteTheme, applyReciteFloatbarSkin, seedFloatbarSkin, applyBgForMode, clearReciteBg, watchAppearance, applyWzVisuals } from "./theme";
 import { applyReciteMascot, applyMascotEnabled, mountReciteMascot, unmountReciteMascot } from "./mascot";
 import FloatBar from "./FloatBar.svelte";
@@ -26,6 +35,9 @@ function loadStore(plugin: BaseTomatoPlugin) {
     userToken.load(plugin);
     userID.load(plugin);
     licenseCloudSynced.load(plugin);
+    // 移动端选块三钮开关（2026-09-09）：settingCfg 落盘键 mobileSelectBtns，store 驱动
+    // FloatBar {#if} 即时生效（taskCfg 装载后必经此处，浮条 mount 在 onload 更晚不抢先）
+    selmlOn.set((plugin.settingCfg as any)?.mobileSelectBtns !== false);
 }
 
 export default class ThePlugin extends BaseTomatoPlugin {
@@ -79,6 +91,11 @@ export default class ThePlugin extends BaseTomatoPlugin {
         highlight.onload();
         writeZone.onload();
         contextMenu.onload(this);
+        selmlOnload(); // □8 期4：移动端选块三钮的锚点跟随监听（按钮本体在 FloatBar 顶栏）
+        // □8 判卷结果自定义块渲染器（3.8.3+；旧内核 customBlockRenders 缺省=注册即无操作）
+        registerAiGradeRender(this);
+        // □5 单题就地对照控制块渲染器（3.8.3+；注册后 backfillQCtrlBlocks 才回填，旧内核=围栏原文一行）
+        registerQCtrlRender(this);
 
         // 调试通道（照 tomato 的 window.tomato_zZmqus5PtYRi 惯例）：e2e/目视验证用
         // window.recitePlugin.setting.open('仿写练习') 直开设置面板
@@ -145,6 +162,18 @@ export default class ThePlugin extends BaseTomatoPlugin {
             langText: "仿写练习：重新写（删旧抽取连对比，按当前批注重建空抽取）",
             hotkey: RECITE_HOTKEYS.reciteRewrite.m,
             editorCallback: (protyle) => rewriteExtract(this, protyle.block?.rootID),
+        });
+        this.addCommand({
+            langKey: RECITE_HOTKEYS.reciteKeep.langKey,
+            langText: "仿写练习：留作上下文/取消（选中块，抽取时复制进练习文档做卡面语境）",
+            hotkey: RECITE_HOTKEYS.reciteKeep.m,
+            editorCallback: (protyle) => toggleKeepBlocks(this, protyle),
+        });
+        this.addCommand({
+            langKey: RECITE_HOTKEYS.reciteTarget.langKey,
+            langText: "仿写练习：这段练/取消（选中块圈靶，段后写总结，抽取只练这段）",
+            hotkey: RECITE_HOTKEYS.reciteTarget.m,
+            editorCallback: (protyle) => toggleTargetBlocks(this, protyle),
         });
     }
 
@@ -277,6 +306,28 @@ export default class ThePlugin extends BaseTomatoPlugin {
         statusBtn.refresh();
     }
 
+    /** siyuan383 □3 多端热更：覆盖即自管（未覆盖=内核对他端每条 petal 写入自动整重载）。
+     *  仿写版=共享刷值（STORAGE_SETTINGS）+ apply 族重应用（onLayoutReady 同款——它们是
+     *  一次性调用非订阅）；背景不重跑（reciteDoc 订阅驱动自动跟随）。 */
+    async onDataChanged(reason?: string) {
+        debugLog("onDataChanged", `${this.name} reason=${reason ?? "?"}`);
+        try {
+            const r = await syncSettingsFromDisk(this);
+            applyReciteTheme((this.settingCfg as any).reciteTheme);
+            applyReciteFloatbarSkin((this.settingCfg as any).floatbarSkin); // review P1-3：面板编辑即落盘广播的键，钩子须重应用
+            applyReciteMascot((this.settingCfg as any).reciteMascot);
+            applyMascotEnabled((this.settingCfg as any).reciteMascotOn !== false);
+            applyWzVisuals(this.settingCfg);
+            this.setTopBarIcon((this.settingCfg as any).reciteTopBar !== false);
+            this.setTopBarGear(!!(this.settingCfg as any).reciteTopBarGear);
+            this.syncBgVisibility(); // 背景键（bgLight/bgDark）值变化时重铺——订阅只覆盖角色变化
+            if (r.structural.length) await reloadSelfPlugin(this.name);
+        } catch (e) {
+            debugLog("onDataChanged", `${this.name} 热更失败回退整重载：${e}`);
+            await reloadSelfPlugin(this.name);
+        }
+    }
+
     onunload() {
         if (this.userIDTimer) clearInterval(this.userIDTimer);
         this.userIDTimer = null;
@@ -304,6 +355,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
         this.floatHost = null;
         if (this.settingsComp) unmount(this.settingsComp);
         this.settingsComp = null;
+        unloadQCtrlRender(); // □5 活面板与 document 捕获段监听全收（跨插件代清理）
         contextMenu.onunload();
         highlight.onunload();
         writeZone.onunload();

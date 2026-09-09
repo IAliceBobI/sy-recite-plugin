@@ -5,13 +5,16 @@ import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { toWin } from "../../sy-tomato-plugin/src/libs/winHotkey";
 import { Siyuan } from "../../sy-tomato-plugin/src/libs/utils";
 import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
-import { RECITE_START, RECITE_EXTRACT, RECITE_COMPARE, RECITE_HOTKEYS, RECITE_LACE } from "./constants";
+import { RECITE_START, RECITE_EXTRACT, RECITE_COMPARE, RECITE_HOTKEYS, RECITE_LACE, RECITE_KEEP, KEEP_MENU_KEY, RECITE_TARGET, TARGET_MENU_KEY } from "./constants";
 import { enterPractice, cleanPractice, reciteDoc } from "./statusBtn";
 import type { ReciteRole } from "./statusBtn";
 import { RECITE_LACES, LACE_MENU_KEY } from "./theme";
 import { doExtract } from "./extract";
 import { doCompare } from "./compare";
 import { copyPrompt } from "./promptCopy";
+import { toggleKeepBlocks } from "./keep";
+import { reciteSelection } from "./selection";
+import { toggleTargetBlocks } from "./target";
 
 /**
  * 编辑器内容右键菜单入口（2026-08-25，照 tomato GraphBox.locateNodeMenu 惯例）：订阅
@@ -49,6 +52,10 @@ class ContextMenu {
         if (events.isMobile || !detail?.menu) return;
         const docID: string = detail.protyle?.block?.rootID;
         if (!docID) return;
+        // 右键命中块（app/src/menus/protyle.ts hasClosestBlock 产物）：origin 分支的 keep 入口
+        // 与下方花边入口共用，提前声明（原在花边段内）
+        const blockEl = detail.element as HTMLElement | undefined;
+        const blockID = blockEl?.getAttribute("data-node-id");
         const role = this.docRole(docID, detail.protyle);
         debugLog("recite.menu", `doc=${docID} role=${role || "-"}`, "recite");
         const item = (label: string, icon: string, langKey: keyof typeof RECITE_HOTKEYS, click: () => void) =>
@@ -61,6 +68,34 @@ class ContextMenu {
             item("抽取批注", "iconCopy", "reciteExtract", () => { void doExtract(this.plugin, docID); });
             item("重新写", "iconRedo", "reciteRewrite", () => { void doExtract(this.plugin, docID); });
             item("删除仿写模式", "iconTrashcan", "reciteTogglePractice", () => { void cleanPractice(docID); });
+            // label 零请求判向（review P2-6 修正：判向跟动作作用域）——右键块在选中集内=动作
+            // 作用于整集→任一选中块带标记即显「取消」；不在选中集→只看右键块自身。
+            // □8 期1 review P1-1 修正：判向与动作同源化——直接用 reciteSelection 解析 toggle
+            // 将作用的块集（旧手写 `:scope > .protyle-wysiwyg-select` 单横线恒查空，□7 同族
+            // 漏网：块选集右键成员时标签显示打向、动作实际走清向，方向相反）
+            const markEls = reciteSelection(detail.protyle, blockEl).blocks;
+            const marked = (attr: string) => markEls.some(el => el?.getAttribute?.(attr));
+            // 「留作上下文」（期1，2026-09-08）：作用于选中块集（.protyle-wysiwyg-select）或右键
+            // 所在块，keep 块抽取时复制进练习文档做卡面语境（DOM 属性镜像随 IAL 走，渲染即带）；
+            // KEEP_MENU_KEY 开关默认开。免费功能无门禁——任意文档右键不出（只在仿写原文档），
+            // keep 打在非仿写文档无抽取链路无意义。
+            if (blockID && (this.plugin as any).settingCfg?.[KEEP_MENU_KEY] !== false) {
+                detail.menu.addItem({
+                    label: marked(RECITE_KEEP) ? this.plugin.i18n["取消留作上下文"] : this.plugin.i18n["留作上下文"],
+                    icon: "iconBookmark",
+                    click: () => { void toggleKeepBlocks(this.plugin, detail.protyle, blockEl as HTMLElement); },
+                });
+            }
+            // 「这段练」（期2，2026-09-08）：圈靶+段后插待填批注+光标落位，抽取切节选语义只练
+            // 这段。label 零请求判向同 keep；TARGET_MENU_KEY 开关默认开；靶只打在仿写原文档
+            // （同 keep 判定：非仿写文档无抽取链路无意义，且 toggleTargetBlocks 打向另有门禁）
+            if (blockID && (this.plugin as any).settingCfg?.[TARGET_MENU_KEY] !== false) {
+                detail.menu.addItem({
+                    label: marked(RECITE_TARGET) ? this.plugin.i18n["取消这段练"] : this.plugin.i18n["这段练"],
+                    icon: "iconReciteTarget",
+                    click: () => { void toggleTargetBlocks(this.plugin, detail.protyle, blockEl as HTMLElement); },
+                });
+            }
         } else if (role === "extract") {
             item("生成对比", "iconEye", "reciteCompare", () => { void doCompare(this.plugin, docID); });
             item("复制判卷提示词", "iconSparkles", "reciteCopyPrompt", () => { void copyPrompt(docID, this.plugin); });
@@ -82,8 +117,6 @@ class ContextMenu {
         // 单键移除（沿旧 toggle 语义，不展开子菜单；换款=去掉再加）。去花边不设门禁——清残留
         // 不该被付费拦（旧版统一拦的行为变更）。setBlockAttrs 走 API 通道内核即刷 DOM 属性镜像
         // （renderCustom）→ CSS 实时渲染；事务 setAttrs 只落盘 IAL 不刷已开编辑器，CSS 场景必须走 API。
-        const blockEl = detail.element as HTMLElement | undefined;
-        const blockID = blockEl?.getAttribute("data-node-id");
         // settingCfg 是本插件主类扩展属性（siyuan Plugin 无此类型），启动早期 loadData 未回时
         // undefined——`?.[key] !== false` 缺省即显示，与 Settings 侧同判据
         const laceCfg = (this.plugin as any).settingCfg;

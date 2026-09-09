@@ -4,7 +4,7 @@ import { events } from "../../sy-tomato-plugin/src/libs/Events";
 import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { parseIAL } from "../../sy-tomato-plugin/src/libs/strUtils";
-import { RECITE_START, RECITE_EXTRACT, RECITE_COMPARE, RECITE_OLD } from "./constants";
+import { RECITE_START, RECITE_EXTRACT, RECITE_COMPARE, RECITE_OLD, RECITE_KEEP, RECITE_TARGET } from "./constants";
 import { findDerivedDocID } from "./extract";
 
 export type ReciteRole = "" | "origin" | "extract" | "compare";
@@ -81,7 +81,8 @@ export async function cleanPractice(docID: string) {
     const derivedID = await findDerivedDocID(docID);
     const doClean = async () => {
         if (notes.length) await siyuan.deleteBlocks(notes.map(c => c.id));
-        const olds = children.filter(c => !noteIDs.has(c.id)).map(c => ({ id: c.id, attrs: { [RECITE_OLD]: "" } as AttrType }));
+        // 原文块标记与 keep/靶标记一并清（期1/期2：标记挂在原文块上，删除练习=恢复原状不留孤儿属性）
+        const olds = children.filter(c => !noteIDs.has(c.id)).map(c => ({ id: c.id, attrs: { [RECITE_OLD]: "", [RECITE_KEEP]: "", [RECITE_TARGET]: "" } as AttrType }));
         if (olds.length) await siyuan.batchSetBlockAttrsTrans(olds);
         await siyuan.setBlockAttrs(docID, { [RECITE_START]: "" } as AttrType);
         if (derivedID) await siyuan.removeDocByIDSiyuan(derivedID);

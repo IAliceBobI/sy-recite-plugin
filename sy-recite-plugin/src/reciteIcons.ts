@@ -14,6 +14,12 @@ export const RECITE_FLOAT_ICONS = `
 <symbol id="iconReciteSplit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l7.8-7.8"/><path d="M14.6 2.8l1.1 2.7 2.7 1.1-2.7 1.1-1.1 2.7-1.1-2.7-2.7-1.1 2.7-1.1z"/><path d="M19.7 14.3l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></symbol>
 <symbol id="iconReciteSpin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></symbol>
 <symbol id="iconReciteClose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<!-- 期1 留作上下文（2026-09-08）：书签=保留语义，与右键菜单官方 iconBookmark 同语言 -->
+<symbol id="iconReciteKeep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4.6L5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+<!-- 期2 这段练（2026-09-08）：靶心准星=圈定练习语义，与快捷键 ⌥⌘O（O=靶圈）同助记 -->
+<symbol id="iconReciteTarget" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.6"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></symbol>
+<!-- □5 单题对照（2026-09-08）：左右双栏+中缝=单题「原文 vs 复述」就地对照（iconReciteCompare 双栏矩形族的单页迷你变体） -->
+<symbol id="iconReciteQctrl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M12 5v14"/><path d="M6.5 11.5l1.8-2 1.7 3.5"/><path d="M14.5 12.5h3.2"/></symbol>
 <!-- 顶栏设置双页对照（topbar-logo 战役 2026-09-08，返工一期旋钮）：左右两页=原文/习作对照，
      仿写核心语义的 logo 化标识。二期取证修正：官方顶栏生态=24vb / stroke 1.7u / round cap·join /
      fill:none 细线稿（litheness icon.js 231/234 同规格）——一期 32vb 粗剪影（环壁 2.2 倍官方线宽）

@@ -4,12 +4,14 @@ import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { NewNodeID, cancelSuperBlock } from "../../sy-tomato-plugin/src/libs/utils";
 import { parseIAL } from "../../sy-tomato-plugin/src/libs/strUtils";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
-import { OpenAIClient, buildMessages, appendChunk, stripThinkTag, getOfficialConfig } from "../../sy-tomato-plugin/src/libs/openAI";
+import { OpenAIClient, buildMessages, appendChunk, stripThinkTag, getOfficialConfig, diagnoseAI } from "../../sy-tomato-plugin/src/libs/openAI";
 import type { StreamState } from "../../sy-tomato-plugin/src/libs/openAI";
 import { RECITE_COMPARE, RECITE_AI } from "./constants";
 import { readExtractDoc } from "./extract";
 import { buildPrompt, GRADER_TONES, DEFAULT_TONE_SLUG, TONE_SETTING_KEY } from "./promptCopy";
 import { setRecitePose, parsePose, stripPoseLine, poseWithTone } from "./mascot";
+import { buildAiGradeBlockMD, buildAiGradeContent, parseMissedTag, stripMissedTag } from "./aiGradeBlock";
+import { supportsAiGradeBlock } from "./aiGradeRender";
 
 /**
  * AI 当场判卷（2026-08-25，免费功能不进门禁）：对比文档浮条「AI 判卷」按钮 →
@@ -17,27 +19,25 @@ import { setRecitePose, parsePose, stripPoseLine, poseWithTone } from "./mascot"
  * 结构朴素优先：判卷头（块引用「🧑‍🏫 AI 判卷 · 时间」挂 custom-recite-ai 仅作弱视觉）+
  * AI 输出拆成的普通块（流式期临时装在 super block 里承接多块 markdown，完成后 cancelSuperBlock
  * 拆包——照抄 tomato openAI.ts do_completions 的流式写块手法）；重复判卷覆盖旧节（见 deleteOldGradeSections）。
+ * □8（3.8.3）：流式体验照旧，完成后 3.8.3+ 转自定义块卡（convertToGradeBlock，先插后删保不丢），
+ * 旧内核回落引用块节现状形态。
  */
 let running = false; // 双保险防重入（FloatBar 按钮 disabled 之外，命令/其它入口共用）
 
 /**
  * 密钥读取两级兜底：getOfficialConfig 读 window.siyuan.config（启动快照，思源启动后才配的
- * 密钥拿不到）→ 拿不到走 /api/system/getConf 实时读内核 conf.ai.providers（同插件 fetch 通道，
- * ToolbarBox 既有先例）。两级都无 → 返回 undefined 由调用方弹引导。
+ * 密钥拿不到）→ 拿不到走 /api/system/getConf 实时读。两级都无 → 返回 undefined 由调用方弹引导。
+ * 判定走共享库 diagnoseAI：providers 优先、老结构 ai.openAI（思源 <3.7.0）兜底——
+ * 木卫三 09-09 报障根因=老结构无回退致误报「未配置」。
  */
 export async function getAIConfig(): Promise<{ apiKey: string; baseURL: string; model: string } | undefined> {
     const snap = getOfficialConfig();
     if (snap) return snap;
     try {
         const ret = await siyuan.getConf();
-        const providers = (ret?.conf?.ai as any)?.providers;
-        if (Array.isArray(providers)) {
-            for (const p of providers) {
-                if (!p?.enabled || !p.apiKey || !p.baseURL) continue;
-                const m = (p.models || []).find((mm: any) => mm?.enabled && mm.name);
-                if (m) return { apiKey: p.apiKey, baseURL: p.baseURL, model: m.name };
-            }
-        }
+        const ai = (ret?.conf?.ai as any);
+        const d = diagnoseAI(ai?.providers, ai?.openAI);
+        if (d.ok) return { apiKey: d.apiKey, baseURL: d.baseURL, model: d.model };
     } catch (e) {
         debugLog("recite.aiGrade", `getConf fallback failed: ${e}`, "recite");
     }
@@ -57,6 +57,43 @@ async function deleteOldGradeSections(compareID: string): Promise<number> {
     if (start < 0) return 0;
     await siyuan.deleteBlocks(children.slice(start).map(c => c.id));
     return children.length - start;
+}
+
+/**
+ * □8 判卷结果转自定义块（3.8.3+，流式完成后调）：先插卡后删临时块——插卡被拒/无 id 时
+ * 临时块原样保留，调用方回落 cancelSuperBlock 普通块形态（判卷结果不丢，只是没进卡）。
+ * text 统一在此剥 pose 协议行（流式臂的 write 剥的是流显示，resp 原文到这仍带协议行——
+ * reasoning P0-1：漏剥则卡全文末尾显字面 <pose>…</pose>）。
+ * custom-recite-ai IAL 插入后 setBlockAttrs 补挂（内核 markdown 通道不解析 kramdown IAL，
+ * roller.ts 同坑）：挂失败重试一次，仍失败不阻断——无 IAL 的卡永久逃逸删旧链（孤儿卡
+ * 手删即净，好过丢判卷）；删临时块失败亦不阻断（双份好过丢失）。返回 false=未转成卡。
+ */
+async function convertToGradeBlock(
+    compareID: string, hdrID: string, bodyID: string,
+    toneSlug: string, ts: Date, pose: string | undefined, missed: string[] | undefined, text: string,
+): Promise<boolean> {
+    if (!supportsAiGradeBlock()) return false;
+    try {
+        const content = buildAiGradeContent({
+            v: 1, tone: toneSlug, ts: ts.getTime(),
+            ...(pose ? { pose } : {}), ...(missed?.length ? { missed } : {}),
+            text: stripMissedTag(stripPoseLine(text)),
+        });
+        const r = await siyuan.appendBlock(buildAiGradeBlockMD(content), compareID);
+        const bid = ((r as any[])?.[0])?.doOperations?.[0]?.id ?? "";
+        if (!bid) return false;
+        try {
+            await siyuan.setBlockAttrs(bid, { [RECITE_AI]: "1" } as any);
+        } catch {
+            await siyuan.setBlockAttrs(bid, { [RECITE_AI]: "1" } as any).catch(() => { }); // 重试一次
+        }
+        await siyuan.deleteBlocks([hdrID, bodyID]).catch(() => { });
+        debugLog("recite.aiGrade", `as_block id=${bid} pose=${pose ?? "none"}`, "recite");
+        return true;
+    } catch (e) {
+        debugLog("recite.aiGrade", `convert failed: ${e}`, "recite");
+        return false;
+    }
 }
 
 export async function aiGrade(plugin: Plugin, compareID: string) {
@@ -113,8 +150,8 @@ export async function aiGrade(plugin: Plugin, compareID: string) {
         }
         await siyuan.insertBlockAfter(`{: id="${bodyID}"}`, hdrID);
         // 流式写块（tomato 手法）：单块 super block 承接任意多块 markdown，IAL 保 id 增量重写；
-        // <pose> 协议行在 write 内统一剥离（流式期截末尾残片，完整行整体删），正文零污染
-        const write = (txt: string) => siyuan.safeUpdateBlock(bodyID, `{{{row\n\n${stripPoseLine(txt)}\n\n}}}\n{: id="${bodyID}"}`);
+        // <pose>/<missed> 协议块在 write 内统一剥离（流式期截末尾残片，完整块整体删），正文零污染
+        const write = (txt: string) => siyuan.safeUpdateBlock(bodyID, `{{{row\n\n${stripMissedTag(stripPoseLine(txt))}\n\n}}}\n{: id="${bodyID}"}`);
         let respLen = 0;
         let resp = ""; // 提到 try 外：流结束后 parsePose 还要用（协议行成绩驱动宠物）
         try {
@@ -140,12 +177,19 @@ export async function aiGrade(plugin: Plugin, compareID: string) {
             setRecitePose("error");
             return;
         }
-        await cancelSuperBlock(bodyID); // 拆掉流式临时 sb，正文还原为普通块组合
         // 宠物按成绩摆表情：协议行成绩 × 判官等级组合（gentle-great/strict-poor 特征态 CSS
         // 门禁内生效）；AI 没回标记（undefined）保守回落 idle 待机脸，6s 自动退场
         const grade = parsePose(resp);
+        // □3 遗漏点清单：<missed> 协议块在原文上解析（AI 没回/输坏=undefined，卡不渲染清单）
+        const missed = parseMissedTag(resp);
+        // □8 转卡分流：3.8.3+ 判卷全文收进 custom 块（先插后删保不丢）；转不成回落
+        // 现状普通块形态（拆 sb）——旧内核（<3.8.3）恒走此臂
+        const asBlock = await convertToGradeBlock(
+            compareID, hdrID, bodyID, toneHit?.slug ?? DEFAULT_TONE_SLUG, now, grade, missed, stripThinkTag(resp),
+        );
+        if (!asBlock) await cancelSuperBlock(bodyID); // 拆掉流式临时 sb，正文还原为普通块组合
         setRecitePose(grade ? poseWithTone(grade, toneHit?.slug) : "idle");
-        debugLog("recite.aiGrade", `compare=${compareID} hdr=${hdrID} model=${cfg.model} tone=${toneHit?.slug ?? DEFAULT_TONE_SLUG} entries=${entries.length} chars=${respLen} removedOld=${removedOld} pose=${grade ?? "none"}`, "recite");
+        debugLog("recite.aiGrade", `compare=${compareID} hdr=${hdrID} model=${cfg.model} tone=${toneHit?.slug ?? DEFAULT_TONE_SLUG} entries=${entries.length} chars=${respLen} removedOld=${removedOld} pose=${grade ?? "none"} missed=${missed?.length ?? 0} asBlock=${asBlock}`, "recite");
         await siyuan.pushMsg(say("判卷完成", "AI 判卷完成，结果已插入文档末尾"), 2500);
     } finally {
         running = false;

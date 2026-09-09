@@ -28,7 +28,12 @@
     import type { AISplitMode } from "./aiSplit";
     import { openDiffCheck } from "./diffCheck";
     import { FLOATBAR_POS_KEY } from "./constants";
+    import { selmlOn } from "./uiState";
     import { reciteIcon } from "./reciteIcons";
+    import { toggleKeepBlocks } from "./keep";
+    import { toggleTargetBlocks } from "./target";
+    import { getSelectionML } from "../../sy-tomato-plugin/src/libs/selectionML";
+    import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
     import { siyuan } from "../../sy-tomato-plugin/src/libs/utils";
 
     let { plugin }: { plugin: Plugin } = $props();
@@ -97,6 +102,24 @@
             return;
         }
         await siyuan.pushMsg(plugin.i18n["已加入闪卡"] || "已加入闪卡（快速卡组），可在闪卡复习中查看", 2500);
+    }
+
+    // □8 期4（2026-09-09）：顶栏选块三钮（向上/向下/取消最后一次）——触屏拖蓝难的逐块
+    // 多选入口，复用 □9 升格的 SelectionML，挂内核同款 protyle-wysiwyg--select 类，
+    // 上下文/这段练经 reciteSelection 一级链直接读走（同一条栏选完即消费）。挂顶栏行内
+    // 而非 breadcrumb：顶栏（z-index 安全档 10）会盖住 breadcrumb（z 5），挂 breadcrumb
+    // 在 role 文档上等于不可点（e2e 实锤）。空 seed 复用实例——act 不重置锚点（连按
+    // 向上持续外扩），锚点随点击的刷新由 selml.ts 监听器负责（tomato 同款分工）；
+    // 无需 dispose（WeakMap 键随 wysiwyg 回收）。图标用内核 sprite（iconUp/Down/Redo，
+    // 与 tomato breadcrumb 三钮同源）；{@html} 注入走 parser——程序化
+    // setAttribute("xlink:href") 不进命名空间会画占位（infra 坑在案）。
+    function selmlAct(name: string, fn: (s: ReturnType<typeof getSelectionML>) => void) {
+        const protyle = $reciteDoc.protyle as any;
+        const wysiwyg = protyle?.wysiwyg?.element as HTMLElement | undefined;
+        if (!wysiwyg) return;
+        const s = getSelectionML(wysiwyg);
+        fn(s);
+        debugLog("recite.selml", `${name} ${JSON.stringify(s.state)}`, "recite");
     }
 
     // AI 判卷进行态：图标自旋 + 禁点（aiGrade 内另有 running 双保险）
@@ -223,7 +246,11 @@
 
 <!-- 根 div 常驻 DOM（判卷小宠物 mascot.ts 挂进来，随浮条拖动自动跟随；无激活文档或 ✕ 收起挂
      --idle 类整体隐藏，display 翻转同样会重播出场动画，与原 {#if} 卸载重建行为一致）。
-     移动端（--topbar）：钉 toolbar 下沿的 44px 全宽矮条，纯图标横滑 + ✕ 收起，不拖拽 -->
+     移动端（--topbar）：钉 toolbar 下沿的 44px 全宽矮条，纯图标横滑 + ✕ 收起，不拖拽。
+     onmousedown 全根 preventDefault（□7 2026-09-09 bear 主实例 Loki 实锤 selCollapsed=true）：
+     真人点击带 1~3px 微移，mousedown 默认行为把拖蓝选区塌成光标（playwright 零移点击测不出），
+     keep/靶通道点按钮时刻选区恒空——preventDefault 保选区，划词工具条按钮同款手法；
+     pointer 拖拽/click/tooltip 均不受影响 -->
 <div class="recite-floatbar" role="toolbar" tabindex="-1" aria-label="仿写练习浮条" bind:this={bar}
     class:recite-floatbar--idle={hidden}
     class:recite-floatbar--drag={!isMobile && dragging}
@@ -231,7 +258,8 @@
     class:recite-floatbar--square={!isMobile && $reciteDoc.role === "compare"}
     class:recite-floatbar--topbar={isMobile}
     style={isMobile ? `left:0;top:${barTop}px` : `left:${x}px;top:${y}px`}
-    onpointerdown={isMobile ? undefined : startDrag}>
+    onpointerdown={isMobile ? undefined : startDrag}
+    onmousedown={(e) => e.preventDefault()}>
     {#if $reciteDoc.role}
         <!-- 桌面标题行（移动端顶栏省略：思源移动端页头已有文档名，矮条宽度留给按钮）；
              ✕ 绝对定位右上不参与 width:0/min-width:100% 的标题排版计算 -->
@@ -247,6 +275,21 @@
             <div class="recite-floatbar-btns">
                 <button class="b3-tooltips b3-tooltips__n recite-btn-pro" class:recite-btn-busy={splitting} disabled={splitting} aria-label={tip(splitting ? (plugin.i18n["拆分中提示"] || "AI 拆分进行中…") : (plugin.i18n["AI拆分提示"] || "AI 通读全文按叙事节拍自动插入锚点批注（走思源 AI 配置，消耗自己的额度）；重跑删旧 AI 锚点，手写批注不动")) + (splitting ? "" : proNote())} onclick={onSplitClick}>{@html reciteIcon(splitting ? "iconReciteSpin" : "iconReciteSplit")}<span class="recite-btn-text">{splitting ? (plugin.i18n["拆分中"] || "拆分中…") : t("AI 拆分")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" aria-label={tip("生成练习文档：原文批注逐题拆出，每题留空写位")} onclick={() => doExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteExtract")}<span class="recite-btn-text">{t("抽取")}</span></button>
+                <!-- □8 期4 选块三钮（移动端顶栏纯图标，桌面共用标记但桌面顶栏不渲染）：
+                     选完的块挂内核同款选中类，右侧 上下文/这段练 直接读走；
+                     $selmlOn=设置面板「移动端选块按钮」开关（2026-09-09），切换即时生效 -->
+                {#if isMobile && $selmlOn}
+                    <span class="recite-topbar-sep" aria-hidden="true"></span>
+                    <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["向上选择"] || "向上选择"} onclick={() => selmlAct("up", s => s.selectUp())}>{@html "<svg><use xlink:href=\"#iconUp\"></use></svg>"}<span class="recite-btn-text">{plugin.i18n["向上选择"] || "向上选择"}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["向下选择"] || "向下选择"} onclick={() => selmlAct("down", s => s.selectDown())}>{@html "<svg><use xlink:href=\"#iconDown\"></use></svg>"}<span class="recite-btn-text">{plugin.i18n["向下选择"] || "向下选择"}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["取消最后一次选择的内容"] || "取消最后一次选择"} onclick={() => selmlAct("cancel", s => s.cancelLast())}>{@html "<svg><use xlink:href=\"#iconRedo\"></use></svg>"}<span class="recite-btn-text">{plugin.i18n["取消最后一次选择的内容"] || "取消最后一次选择"}</span></button>
+                    <span class="recite-topbar-sep" aria-hidden="true"></span>
+                {/if}
+                <!-- 期1 留作上下文（2026-09-08）：作用于当前编辑器选中块集（Ctrl+点击多选），keep 块
+                     抽取时复制进练习文档做卡面语境；再点取消。选中态读取见 keep.ts keepTargets -->
+                <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["上下文浮条提示"] || "把选中的原文块留作上下文：抽取时复制进练习文档，闪卡复习时看得到语境（再点取消）")} onclick={() => toggleKeepBlocks(plugin, $reciteDoc.protyle)}>{@html reciteIcon("iconReciteKeep")}<span class="recite-btn-text">{t("上下文")}</span></button>
+                <!-- 期2 这段练（2026-09-08）：选中块圈靶+段后留总结位，抽取切节选语义只练这段；再点取消 -->
+                <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["靶浮条提示"] || "把选中的原文块圈为「这段练」：段后写总结，抽取只练这段、其余照抄做语境（再点取消）")} onclick={() => toggleTargetBlocks(plugin, $reciteDoc.protyle)}>{@html reciteIcon("iconReciteTarget")}<span class="recite-btn-text">{t("这段练")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删批注块+抽取/对比子文档+原文标记，彻底抹掉练习痕迹（回收站可找回）")} onclick={() => cleanPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteDelete")}<span class="recite-btn-text">{t("删除")}</span></button>
             </div>
         {:else if $reciteDoc.role === "extract"}

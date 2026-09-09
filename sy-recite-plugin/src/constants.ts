@@ -8,6 +8,10 @@ export const RECITE_EXTRACT = "custom-recite-extract";
 export const RECITE_COMPARE = "custom-recite-compare";
 export const RECITE_NOTE = "custom-recite-note";
 export const RECITE_REFS = "custom-recite-refs";
+// 上下文块标记（期1 整篇语义，2026-09-08）：原文档块挂=「留作上下文」——抽取时按文档序
+// 复制进抽取文档（复制产物同挂本属性），闪卡卡面从此有语境。原文标记（RECITE_OLD）与本
+// 标记可同块共存（keep 块=被点名的原文块）；readExtractDoc 据此跳过复制块不进 writes。
+export const RECITE_KEEP = "custom-recite-keep";
 // 对比视图外层 sb（每题一张卡）：仅样式定位用（index.scss 画题框+中缝），非身份识别
 export const RECITE_CMP_CARD = "custom-recite-cmp-card";
 // 手动级装饰（□13 右键菜单入口，2026-09-02 五款化）：RECITE_LACE 挂任意 div 块，值=款式 slug
@@ -18,6 +22,15 @@ export const RECITE_LACE = "custom-recite-lace";
 // AI 判卷结果头块（块引用「🧑‍🏫 AI 判卷 · 时间」）：仅 CSS 弱视觉定位，免费功能免费视觉，
 // 不挂付费门禁；正文是 AI markdown 拆开的普通块，无任何属性依赖，长期可读
 export const RECITE_AI = "custom-recite-ai";
+// 节选语义靶（期2「这段练」，2026-09-08）：原文档块挂=「这段练」——抽取切换节选语义
+// （靶的存在本身就是模式声明，无显式档位）：整流照抄非靶块、靶段原位换 [锚点+写位]。
+// 与 RECITE_KEEP 同块互斥（打靶清 keep、打 keep 清靶）——靶=永藏换总结，keep=永显进卡面。
+export const RECITE_TARGET = "custom-recite-target";
+// keep 右键菜单入口开关（Settings 练习域，默认开）：关=右键菜单不出「留作上下文」项
+// （命令/浮条通道不设开关——同 laceMenuOn 只藏入口的语义）
+export const KEEP_MENU_KEY = "keepMenuOn";
+// 靶右键菜单入口开关（同 keepMenuOn 语义，默认开）
+export const TARGET_MENU_KEY = "targetMenuOn";
 export const EXTRACT_TITLE = "抽取";
 export const COMPARE_TITLE = "对比";
 export const FLOATBAR_POS_KEY = "sy-recite-floatbar-pos";
@@ -39,4 +52,8 @@ export const RECITE_HOTKEYS = {
     reciteCompare: winHotkey("alt+ctrl+g", "reciteCompare", "iconReciteCompare"),
     reciteCopyPrompt: winHotkey("alt+ctrl+p", "reciteCopyPrompt", "iconReciteCopyPrompt"),
     reciteRewrite: winHotkey("alt+ctrl+c", "reciteRewrite", "iconReciteRewrite"),
+    // 期1 keep（2026-09-08）：H=Hold 保留（⌥⌘ 空闲字母 H/O/V/Y 内取，四插件+官方 keymap 查重无占用）
+    reciteKeep: winHotkey("alt+ctrl+h", "reciteKeep", "iconBookmark"),
+    // 期2 靶「这段练」（2026-09-08）：O=靶心圈（H/O/V/Y 余量内取，全仓 alt+ctrl+o 零占用+官方 keymap 无冲突）
+    reciteTarget: winHotkey("alt+ctrl+o", "reciteTarget", "iconReciteTarget"),
 };

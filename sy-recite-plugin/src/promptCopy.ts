@@ -46,6 +46,16 @@ const POSE_PROMPT_LINES = [
     "好有坏；poor=问题较多、需重点改进）。此标记用于驱动界面小宠物的表情，点评正文不要再出现。",
 ];
 
+// <missed> 协议行指令（□3 遗漏点清单）：AI 在 pose 标记之前单独一行回传「原文有而复述没
+// 提到」的短句 JSON 数组，前端剥存进判卷卡 missed 字段渲染成清单段（漏了什么一眼看出）。
+// 弱模型容忍：输坏=无清单不失败。同 pose 只给当场判卷通道（copyPrompt 无回传通道不追加）。
+const MISSED_PROMPT_LINES = [
+    "输出要求：请在总体评价标记之前再单独输出一行遗漏点清单，格式",
+    '<missed>["第1题：…", "第2题：…"]</missed>（JSON 数组、每条一个短句）：只列【原文有而',
+    "复述没提到】的关键信息，逐条用「第N题：」开头标注出处；联想题没有原文、不列入；确实",
+    "没有遗漏就输出空数组 []。此标记用于界面生成遗漏点清单，点评正文不要再出现。",
+];
+
 function toneLinesOf(tone: string | undefined): string[] {
     return GRADER_TONES.find(t => t.slug === tone)?.lines ?? [];
 }
@@ -108,7 +118,7 @@ export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPo
     ];
     const toneLines = toneLinesOf(tone);
     if (toneLines.length) parts.push(...toneLines, "");
-    if (withPose) parts.push(...POSE_PROMPT_LINES, "");
+    if (withPose) parts.push(...MISSED_PROMPT_LINES, ...POSE_PROMPT_LINES, "");
     entries.forEach((e, i) => {
         const write = e.writes.map(w => w.markdown).join("\n\n");
         parts.push(`## 第 ${i + 1} 题`);

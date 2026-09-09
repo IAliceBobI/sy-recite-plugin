@@ -12,6 +12,7 @@
     import { RECITE_MASCOTS, DEFAULT_MASCOT_SLUG, applyReciteMascot, applyMascotEnabled } from "./mascot";
     import { GRADER_TONES, DEFAULT_TONE_SLUG } from "./promptCopy";
     import { noteHeadingLevel } from "./extract";
+    import { KEEP_MENU_KEY, TARGET_MENU_KEY } from "./constants";
 
     interface Props {
         plugin: any;
@@ -29,6 +30,25 @@
     function onNoteLevel(e: Event) {
         noteLevel = noteHeadingLevel({ noteHeadingLevel: (e.currentTarget as HTMLSelectElement).value });
         plugin.settingCfg.noteHeadingLevel = noteLevel;
+        plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
+    }
+
+    // 上下文右键入口开关（期1，2026-09-08）：缺省判 `!== false` 同 wzRuleOn（默认开）；
+    // contextMenu 构建时读同键判显隐
+    // svelte-ignore state_referenced_locally
+    let keepMenuOn = $state(plugin.settingCfg?.[KEEP_MENU_KEY] !== false);
+    function onToggleKeepMenu(e: Event) {
+        keepMenuOn = (e.currentTarget as HTMLInputElement).checked;
+        plugin.settingCfg[KEEP_MENU_KEY] = keepMenuOn;
+        plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
+    }
+
+    // 靶右键入口开关（期2，2026-09-08）：同 keepMenuOn 语义（默认开、只藏入口）
+    // svelte-ignore state_referenced_locally
+    let targetMenuOn = $state(plugin.settingCfg?.[TARGET_MENU_KEY] !== false);
+    function onToggleTargetMenu(e: Event) {
+        targetMenuOn = (e.currentTarget as HTMLInputElement).checked;
+        plugin.settingCfg[TARGET_MENU_KEY] = targetMenuOn;
         plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
     }
 
@@ -191,6 +211,31 @@
             <option value={lv}>H{lv}</option>
         {/each}
     </select>
+</div>
+
+<!-- 上下文右键入口（期1，默认开）：关=右键菜单不出「留作上下文」项；命令/浮条通道不受
+     影响（同 laceMenuOn 只藏入口语义），已留的 keep 块照常生效 -->
+<div class="rs-setting-row settingBox">
+    <label class="rs-setting-label b3-tooltips b3-tooltips__n" for="recite-keep-menu-switch" aria-label={plugin.i18n.上下文入口说明}>{plugin.i18n.上下文入口}</label>
+    <input
+        id="recite-keep-menu-switch"
+        type="checkbox"
+        class="b3-switch"
+        checked={keepMenuOn}
+        onchange={onToggleKeepMenu}
+    />
+</div>
+
+<!-- 靶右键入口（期2，默认开）：关=右键菜单不出「这段练」项；命令/浮条通道不受影响 -->
+<div class="rs-setting-row settingBox">
+    <label class="rs-setting-label b3-tooltips b3-tooltips__n" for="recite-target-menu-switch" aria-label={plugin.i18n.靶入口说明}>{plugin.i18n.靶入口}</label>
+    <input
+        id="recite-target-menu-switch"
+        type="checkbox"
+        class="b3-switch"
+        checked={targetMenuOn}
+        onchange={onToggleTargetMenu}
+    />
 </div>
 
 <!-- 判官语气三选（分段控件）：AI 判卷的点评口吻，云端判卷与复制提示词两通道同步生效 -->

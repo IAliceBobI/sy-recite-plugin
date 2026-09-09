@@ -5,6 +5,7 @@
     // vision P1 补节标题（2026-09-03 双栏评审）：其余三域首卡均带小节标题，通用域光秃两行卡
     // 观感缺头——两行包进「顶栏入口」节卡（对齐 rs-skins 节形态，搜索粒度=整节）。
     import { STORAGE_SETTINGS } from "../../sy-tomato-plugin/src/constants";
+    import { selmlOn } from "./uiState";
 
     interface Props {
         plugin: any;
@@ -34,6 +35,18 @@
         plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
         plugin.setTopBarGear(gearOn);
     }
+
+    // 移动端选块三钮开关（2026-09-09 发版前 P1 拍板补，默认开）：控制移动端顶栏
+    // 「向上/向下/取消」三钮；切换即时生效（uiState.selmlOn store 驱动 FloatBar {#if}），
+    // 缺省判 `!== false` 同 topBarOn
+    // svelte-ignore state_referenced_locally
+    let selmlSwitchOn = $state(plugin.settingCfg?.mobileSelectBtns !== false);
+    function onToggleSelml(e: Event) {
+        selmlSwitchOn = (e.currentTarget as HTMLInputElement).checked;
+        plugin.settingCfg.mobileSelectBtns = selmlSwitchOn;
+        plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
+        selmlOn.set(selmlSwitchOn);
+    }
 </script>
 
 <!-- 顶栏按钮开关（笔图标默认开，齿轮设置按钮默认关）：切换即时生效（动态 addTopBar / 元素 remove） -->
@@ -57,6 +70,16 @@
             class="b3-switch"
             checked={gearOn}
             onchange={onToggleGear}
+        />
+    </div>
+    <div class="rs-setting-row">
+        <label class="rs-setting-label" for="recite-selml-switch">{plugin.i18n.移动端选块按钮 || "移动端顶栏显示选块按钮"}</label>
+        <input
+            id="recite-selml-switch"
+            type="checkbox"
+            class="b3-switch"
+            checked={selmlSwitchOn}
+            onchange={onToggleSelml}
         />
     </div>
 </div>

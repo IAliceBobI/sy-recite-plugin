@@ -343,9 +343,52 @@ body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:
     padding-inline: 4px;
 }
 // 作者句 = 有 custom-recite-old 的原文块：中性弱化（轻微降不透明度），让「你的句」跳出来、
-// 不另加色（克制，避免两套颜色互相打架）
-body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old] {
+// 不另加色（克制，避免两套颜色互相打架）；keep 块（被点名保留的原文）与靶块（圈定练的段）
+// 不进弱化集——各自的标记规则自带「跳出来」的竖线，压着 0.75 会互相抵消
+body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old]:not([custom-recite-keep]):not([custom-recite-target]) {
     opacity: 0.75;
+}
+
+// ---- 期1 keep 上下文块（原文档侧，2026-09-08）----
+// 被点名「留作上下文」的原文块：左缘青绿细竖条（与「你的句」accent 竖线同构、换第二主题色
+// =「作者句中被点名保留的」）。免费功能免费视觉——不包 unpaid 门禁（unpaid 下双色染色退场
+// 但 keep 标记照常渲染：它标记的是数据语义「这块会复制进练习文档」）。wz-norule 竖线开关
+// 同族跟随（用户嫌竖线像中括号时一并退场）。
+.protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old][custom-recite-keep] {
+    border-inline-start: 3px solid var(--recite-yours);
+    border-radius: 4px;
+    padding-inline: 4px;
+}
+body[data-recite-wz-norule] .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old][custom-recite-keep] {
+    border-inline-start: none;
+    padding-inline: 0;
+}
+
+// ---- 期2 靶段（原文档侧，「这段练」2026-09-08）----
+// 圈定练习的原文段：青绿竖条+青绿浅底双通道——与 keep 单竖线一眼可辨（有底=要练的、
+// 无底=要保留的），从弱化的作者句里跳出来。色系与 keep 同族（青绿=作者句标记族，
+// 琥珀=自写族，不引第三色）。免费功能免费视觉不包 unpaid 门禁；wz-norule 竖线开关
+// 同族跟随（退条退底一并消失）。
+.protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-target] {
+    border-inline-start: 3px solid var(--recite-yours);
+    background-color: color-mix(in srgb, var(--recite-yours) 12%, transparent);
+    border-radius: 4px;
+    padding-inline: 4px;
+}
+body[data-recite-wz-norule] .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-target] {
+    border-inline-start: none;
+    background-color: transparent;
+    padding-inline: 0;
+}
+
+// ---- 期1 上下文块（抽取文档侧）：原文 keep 的复制 ----
+// 语境陪衬：弱化灰 + 略小字号——不与锚点（accent 字色加粗）和写位（竖线+浅底）抢层次，
+// 「看的是语境、写的是复述」一眼分层。免费功能免费视觉，不包 unpaid 门禁。wysiwyg 挂
+// 文档级 custom-recite-extract 镜像属性（内核 renderCustom 全量镜像文档 IAL）限定只弱化
+// 抽取文档内的复制块——原文档的 keep 块走上方竖线规则，不吃弱化。
+.protyle-wysiwyg[custom-recite-extract] div[data-node-id][custom-recite-keep] {
+    opacity: 0.62;
+    font-size: 0.95em;
 }
 
 // ---- 抽取文档中的批注快照（块自带 custom-recite-note 属性，CSS 直接命中）----
@@ -1819,3 +1862,268 @@ body:not(.recite-unpaid)[data-recite-mascot="dino"] .recite-mascot.recite-mascot
 .rs-mascot-frame--spirit { background-image: $m-spirit-idle; }
 .rs-mascot-frame--owl { background-image: $m-owl-idle; }
 .rs-mascot-frame--dino { background-image: $m-dino-idle; }
+
+
+// ========== □8（3.8.3 升级战役）仿写判卷结果自定义块（ai-grade render 卡） ==========
+// 宿主=.custom-block__content（内核已隔离编辑器事件）；颜色全走 b3 变量、color-mix 仅作
+// 变量透明度派生；视觉语言对齐 anno-chat 沉淀卡（tomato □1 同族形态）。
+// hidden 兜底：__body/__mk 的作者 display 恒胜 UA [hidden]（anno-chat vision P0 同坑）
+.recite-aigrade-card [hidden] { display: none; }
+.recite-aigrade-card {
+    margin: 2px 0;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--b3-border-radius);
+    background: var(--b3-theme-surface);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.recite-aigrade-card__broken {
+    padding: 6px 8px;
+    font-size: 12px;
+    color: var(--b3-theme-on-surface-light, #999);
+}
+.recite-aigrade-card__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+}
+.recite-aigrade-card__icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--b3-theme-secondary);
+}
+.recite-aigrade-card__title {
+    font-weight: 500;
+    white-space: nowrap;
+}
+.recite-aigrade-card__meta {
+    font-size: 11px;
+    color: var(--b3-theme-on-surface-light, #999);
+    white-space: nowrap;
+}
+// pose 成绩徽章（<pose> 协议三档同源）：色底 color-mix 派生 + 同色文字
+.recite-aigrade-card__badge {
+    flex-shrink: 0;
+    padding: 1px 8px;
+    border-radius: var(--b3-border-radius-b);
+    font-size: 11px;
+    line-height: 1.5;
+}
+.recite-aigrade-card__badge--great {
+    color: var(--b3-theme-success);
+    background: color-mix(in srgb, var(--b3-theme-success) 12%, transparent);
+}
+.recite-aigrade-card__badge--medium {
+    color: var(--b3-theme-warning, #d25f00);
+    background: color-mix(in srgb, var(--b3-theme-warning, #d25f00) 14%, transparent);
+}
+.recite-aigrade-card__badge--poor {
+    color: color-mix(in srgb, var(--b3-theme-error) 75%, #000); // 浅色直挂 error 仅 ~3.6:1（vision □3 评审同族顺修）
+    background: color-mix(in srgb, var(--b3-theme-error) 12%, transparent);
+}
+// 暗色下 error/warning 徽章文字提亮（midnight error #d23f31 深底仅 2.73:1，60% 混白后 5.09:1）
+html[data-theme-mode="dark"] .recite-aigrade-card__badge--poor {
+    color: color-mix(in srgb, var(--b3-theme-error) 60%, #fff);
+}
+html[data-theme-mode="dark"] .recite-aigrade-card__badge--medium {
+    color: color-mix(in srgb, var(--b3-theme-warning, #d25f00) 60%, #fff);
+}
+.recite-aigrade-card__mk {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 8px;
+    flex-shrink: 0;
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--b3-border-radius);
+    background: transparent;
+    color: var(--b3-theme-on-surface);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .15s;
+}
+.recite-aigrade-card__mk:hover:not(:disabled) { background: var(--b3-theme-surface-lighter); }
+.recite-aigrade-card__mk:disabled { opacity: .38; cursor: default; }
+// 点评层折叠开关：轻文字按钮（无框），chevron 随开合换向
+.recite-aigrade-card__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    margin-left: -6px;
+    padding: 2px 6px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--b3-theme-on-surface-light, #999);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+}
+.recite-aigrade-card__toggle > svg { width: 12px; height: 12px; }
+.recite-aigrade-card__toggle:hover {
+    color: var(--b3-theme-on-surface);
+    background: var(--b3-theme-surface-lighter);
+}
+// 判卷全文：题头/列表/段落静态流（限高内滚防撑爆文档流，anno-chat 讨论层同款）
+.recite-aigrade-card__body {
+    margin-top: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 6px 10px;
+    border-radius: var(--b3-border-radius-b);
+    background: var(--b3-theme-surface-lighter);
+}
+.recite-aigrade-card__l-h {
+    font-weight: 500;
+    margin-top: 8px;
+}
+.recite-aigrade-card__body > .recite-aigrade-card__l-h:first-child { margin-top: 0; }
+.recite-aigrade-card__l-li {
+    display: flex;
+    gap: 6px;
+}
+.recite-aigrade-card__l-li::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    margin-top: 8px;
+    border-radius: 2px;
+    background: var(--b3-theme-secondary);
+    flex-shrink: 0;
+}
+.recite-aigrade-card__l-p { padding-left: 11px; } /* 与 li（5px 点+6px gap）左缘对齐 */
+.recite-aigrade-card__l-gap { display: block; height: 6px; }
+// □3 遗漏点清单（<missed> 协议回传）：error 语义轻提示（弱底+同色标题圆点），置顶于全文流。
+// 浅色下 error 直挂 6% 弱底仅 3.9:1 不过 AA，标题墨色 75% 混黑（≈5.9:1，vision 评审 P1）
+.recite-aigrade-card__missed {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border-radius: var(--b3-border-radius-b);
+    background: color-mix(in srgb, var(--b3-theme-error) 6%, transparent);
+}
+.recite-aigrade-card__missed-h {
+    margin-bottom: 4px;
+    font-weight: 500;
+    font-size: 12px;
+    color: color-mix(in srgb, var(--b3-theme-error) 75%, #000);
+}
+.recite-aigrade-card__missed-li {
+    display: flex;
+    gap: 6px;
+    font-size: 13px; /* 与全文流 l-li 同拍（13/1.6），圆点 margin-top 同参 8px */
+    line-height: 1.6;
+}
+.recite-aigrade-card__missed-li::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    margin-top: 8px;
+    border-radius: 2px;
+    background: var(--b3-theme-error);
+    flex-shrink: 0;
+}
+// 暗色下 error 语义提亮（同 badge--poor：midnight error #d23f31 深底对比不足，60% 混白）
+html[data-theme-mode="dark"] .recite-aigrade-card__missed-h {
+    color: color-mix(in srgb, var(--b3-theme-error) 60%, #fff);
+}
+html[data-theme-mode="dark"] .recite-aigrade-card__missed-li::before {
+    background: color-mix(in srgb, var(--b3-theme-error) 60%, #fff);
+}
+
+// ========== □5（仿写上下文升级战役）单题就地对照（q-ctrl 控制钮 + 注入面板） ==========
+// 控制钮宿主=.custom-block__content（内核已隔离编辑器事件）；面板=纯 DOM 注入挂控制块宿主
+// 之后（写位下方），零落盘零事务。颜色全走 b3 变量；z-index 安全档=10（内核弹层计数器
+// 首弹窗即 11，常驻浮层家族档位）。视觉语言对齐 ai-grade 卡（b3 边框/圆角/表面色）。
+// 桌面默认低调半显（opacity .62）、hover 提亮；移动端无 hover 通道同样可读可点（常显）。
+.recite-qctrl-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 7px;
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--b3-border-radius-b, 4px);
+    background: transparent;
+    color: var(--b3-theme-on-surface-light, #999);
+    font-size: 12px;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    opacity: .62;
+    transition: opacity .15s, color .15s, border-color .15s;
+}
+.recite-qctrl-btn > svg { width: 12px; height: 12px; flex-shrink: 0; }
+.recite-qctrl-btn:hover {
+    opacity: 1;
+    color: var(--b3-theme-on-surface);
+    border-color: var(--b3-scroll-color, var(--b3-border-color));
+}
+// 展开态激活信号（vision P2-1）：面板开着时按钮全显——aria-expanded 由渲染器开/收同步
+.recite-qctrl-btn[aria-expanded="true"] {
+    opacity: 1;
+    color: var(--b3-theme-on-surface);
+}
+// 暗色下弱灰×.62 有效对比不足（vision P1-1，ai-grade 徽章同坑的 60% 混白先例）：暗色提亮到 .8
+html[data-theme-mode="dark"] .recite-qctrl-btn { opacity: .8; }
+// 触屏（vision P1-2）：无 hover 通道常显提亮 + 触控目标 24px（WCAG 2.5.8 最小档）
+@media (pointer: coarse) {
+    .recite-qctrl-btn { height: 24px; padding: 0 9px; opacity: .8; }
+}
+// 坏 JSON 占位（渲染层容错）
+.recite-qctrl-broken {
+    padding: 2px 0;
+    font-size: 12px;
+    color: var(--b3-theme-on-surface-light, #999);
+}
+// 对照面板：宽屏左右两栏（左原文弱化灰、右复述正常）+ 栏标签行；窄屏（容器查询，编辑器
+// 分屏下面板自身宽度才是真宽度）自动上下堆叠。临时态不做块——切文档/重载随宿主卸载自动消。
+.recite-qctrl-panel {
+    position: relative;
+    z-index: 10;
+    container-type: inline-size;
+    display: flex;
+    gap: 0;
+    margin: 2px 0 6px;
+    padding: 6px 0;
+    box-sizing: border-box;
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--b3-border-radius);
+    background: var(--b3-theme-surface);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.recite-qctrl-panel__origin,
+.recite-qctrl-panel__mine {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 2px 12px;
+}
+// 左栏原文弱化灰（对照语境：看的内容退后，写的内容在前）
+.recite-qctrl-panel__origin {
+    color: var(--b3-theme-on-surface-light, #999);
+    border-right: 1px solid var(--b3-border-color);
+}
+.recite-qctrl-panel__tag {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--b3-theme-on-surface-light, #999);
+    margin-bottom: 4px;
+}
+.recite-qctrl-panel__body { word-break: break-word; }
+// 窄屏：两栏上下堆叠，弱化竖线改横线；上下栏补呼吸感（vision P2-3，堆叠缝 ~5px 偏紧）
+@container (max-width: 560px) {
+    .recite-qctrl-panel { flex-direction: column; }
+    .recite-qctrl-panel__origin {
+        border-right: none;
+        border-bottom: 1px solid var(--b3-border-color);
+        padding-bottom: 4px;
+    }
+    .recite-qctrl-panel__mine { padding-top: 6px; }
+}

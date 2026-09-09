@@ -21,9 +21,12 @@ import DiffDialog from "./DiffDialog.svelte";
 
 // ---------- 文本清洗与分词 ----------
 
-/** markdown 装饰剥壳（链接取文字、== ** * ~~ ` 剥壳、换行并空格），diff 只看纯文本 */
+/** markdown 装饰剥壳（链接取文字、== ** * ~~ ` 剥壳、换行并空格），diff 只看纯文本。
+ *  heading 前缀先剥——题目 heading 化（v1.2.3 默认）后 SQL markdown 带 `###### `，
+ *  不剥则查错弹窗题目显示 # 字面（isAssociation 剥壳同族，□5 review 发现） */
 function md2plain(md: string): string {
     return md
+        .replace(/^#{1,6}\s+/gm, "")
         .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
         .replace(/(\*\*|==|~~|\*|`)/g, "")
         .replace(/\n+/g, " ")
