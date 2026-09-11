@@ -29,6 +29,10 @@ export default defineConfig({
         { src: "./group-qr.png", dest: "./" },
         { src: "./plugin.json", dest: "./" },
         { src: "./src/i18n/**", dest: "./i18n/" },
+        // AI 说明书（内核 agent 不自动发现插件目录 skills——官方只扫 workspace/storage/ai 与
+        // ~/.agents/skills 两根；打包供文件浏览型 AI 客户端发现+用户手动装入）。
+        // 目录整拷：`**/*` glob 会把子目录文件平铺出重复副本（□5 实测）
+        { src: "./skills", dest: "./" },
       ],
     }),
   ],

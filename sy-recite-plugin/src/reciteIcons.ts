@@ -19,7 +19,7 @@ export const RECITE_FLOAT_ICONS = `
 <symbol id="iconReciteClose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
 <!-- 期1 留作上下文（2026-09-08）：书签=保留语义，与右键菜单官方 iconBookmark 同语言 -->
 <symbol id="iconReciteKeep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4.6L5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
-<!-- 期2 这段练（2026-09-08）：靶心准星=圈定练习语义，与快捷键 ⌥⌘O（O=靶圈）同助记 -->
+<!-- 期2 这段练（2026-09-08）：靶心准星=圈定练习语义，与快捷键 ⌥⌘⇧O（O=靶圈；09-10 加 ⇧ 避撞 MindWire doc）同助记 -->
 <symbol id="iconReciteTarget" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.6"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></symbol>
 <!-- □5 单题对照（2026-09-08）：左右双栏+中缝=单题「原文 vs 复述」就地对照（iconReciteCompare 双栏矩形族的单页迷你变体） -->
 <symbol id="iconReciteQctrl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M12 5v14"/><path d="M6.5 11.5l1.8-2 1.7 3.5"/><path d="M14.5 12.5h3.2"/></symbol>

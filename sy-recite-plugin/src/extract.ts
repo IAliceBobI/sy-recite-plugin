@@ -5,9 +5,19 @@ import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { DomParaBuilder, md2Divs } from "../../sy-tomato-plugin/src/libs/sydom";
 import { RECITE_START, RECITE_EXTRACT, RECITE_NOTE, RECITE_REFS, RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_COMPARE, EXTRACT_TITLE } from "./constants";
 import { backfillQCtrlBlocks, isQCtrlMarkdown } from "./qCtrlBlock";
+// 结构层纯函数在 extractCore.ts（与 kernel 侧共用一份，2026-09-09 recite MCP □3 抽出）
+import {
+    groupNotes, originBlocksForGroups, keepBlocksForGroups,
+    noteFitsHeading, derivedTitle, noteHeadingLevel,
+} from "./extractCore";
+import type { ReciteBlock } from "./extractCore";
 
-export type ReciteBlock = { id: string; markdown: string; isNote: boolean; isKeep?: boolean; isTarget?: boolean };
-export type NoteGroup = { start: number; end: number; blocks: ReciteBlock[] };
+// 老消费方（compare/RecConfPractice 等）仍从本文件取这些名字——re-export 保导入路径不破
+export {
+    groupNotes, originBlocksForGroups, keepBlocksForGroups,
+    noteFitsHeading, derivedTitle, noteHeadingLevel,
+} from "./extractCore";
+export type { ReciteBlock, NoteGroup } from "./extractCore";
 export type ExtractEntry = {
     noteID: string;
     noteMarkdown: string;
@@ -56,68 +66,9 @@ export async function identifyNotes(originID: string): Promise<ReciteBlock[]> {
 }
 
 /**
- * 连续批注聚合：文档序上中间没有非空原文块（custom-recite-old）分隔的批注视为同一条总结。
- * 语义无损——两条批注间没有原文分隔时本就无法各自成立（后条 refs 必空），聚合是唯一自洽读法；
- * 也是敲错回车（想软换行敲了硬回车裂成两块）的安全网，用户无需改写块习惯。
- * 空块不算分隔（与 refs 过滤空块同源）；start/end 为组在 stream 里的覆盖区间（组内块可与空块交错）。
+ * 每组 refs（原文溯源块）切片等结构判定见 extractCore.ts（groupNotes/originBlocksForGroups/
+ * keepBlocksForGroups/noteFitsHeading/derivedTitle/noteHeadingLevel，与 kernel 共用）。
  */
-export function groupNotes(stream: ReciteBlock[]): NoteGroup[] {
-    const groups: NoteGroup[] = [];
-    let prevNote = false;
-    stream.forEach((b, i) => {
-        if (b.isNote) {
-            const last = groups[groups.length - 1];
-            if (prevNote) {
-                last.blocks.push(b);
-                last.end = i;
-            } else {
-                groups.push({ start: i, end: i, blocks: [b] });
-            }
-            prevNote = true;
-        } else if (b.markdown.trim()) {
-            prevNote = false;
-        }
-    });
-    return groups;
-}
-
-/**
- * 每组 refs（原文溯源块）切片：上一组末到本组首的非空正文=本组 refs（批注锚定其前
- * 文本，既有语义不动）；最后批注组兜底并到流尾——其后无人认领的尾部正文并入最后一组
- * （AI 拆分的收尾锚点未必插在文末——2026-09-01 主实例实锤：10 号锚点后甩两段尾声被
- * 对比/判卷静默漏掉；手写批注不插到底同理）。空块一律滤除。
- */
-export function originBlocksForGroups(stream: ReciteBlock[], groups: NoteGroup[]): ReciteBlock[][] {
-    let cursor = 0;
-    return groups.map((g, gi) => {
-        const origin = stream.slice(cursor, g.start).filter(b => b.markdown.trim());
-        cursor = g.end + 1;
-        return gi === groups.length - 1
-            ? origin.concat(stream.slice(cursor).filter(b => b.markdown.trim()))
-            : origin;
-    });
-}
-
-/**
- * keep 上下文段切片（期1 整篇语义，2026-09-08）：与 originBlocksForGroups 同区间语义——
- * 上一组末到本组首之间的 keep 块复制进本组锚点之前（组间 keep 归后一组，与批注 refs 切片
- * 对齐原文档序）；最后一组之后的尾部 keep 块并进末组（插在抽取文档末尾）。返回
- * groups.length + 1 组（末组=尾部）。批注块上的 keep 忽略（批注本来就进抽取，复制会双重
- * 出现）；空块滤除（复制空块无意义，与 refs 滤空同源）。keep 块照常留在 refs 里——refs 是
- * 「批注锚定其前文本」的现状语义，keep 只加复制不摘溯源（纯增量不动现状）。
- */
-export function keepBlocksForGroups(stream: ReciteBlock[], groups: NoteGroup[]): ReciteBlock[][] {
-    const isKeepBlock = (b: ReciteBlock) => !!b.isKeep && !b.isNote && !!b.markdown.trim();
-    let cursor = 0;
-    const sets = groups.map((g) => {
-        const keeps = stream.slice(cursor, g.start).filter(isKeepBlock);
-        cursor = g.end + 1;
-        return keeps;
-    });
-    sets.push(stream.slice(cursor).filter(isKeepBlock));
-    return sets;
-}
-
 /**
  * 节选语义靶整流切分（期2「这段练」，2026-09-08）：stream 含靶块时抽取文档的构建蓝图。
  * 模式隐式路由——靶的存在本身就是模式声明（无显式档位）：
@@ -179,15 +130,6 @@ export function targetSpans(stream: ReciteBlock[]): { spans: TargetSpan[]; orpha
     }
     flush();
     return { spans, orphanCount };
-}
-
-/**
- * 衍生文档标题：类型前缀·原文标题后缀（文档树/搜索里一眼可辨归属）；取不到原文标题退回裸前缀。
- * 标题里的 / 替换为全角——它是 hpath 分隔符，裸用会把标题拆成多层路径。
- */
-export function derivedTitle(prefix: string, originTitle: string): string {
-    const t = originTitle?.trim().replaceAll("/", "／") ?? "";
-    return t ? `${prefix}·${t}` : prefix;
 }
 
 /**
@@ -287,14 +229,8 @@ export async function insertUnitsDoc(box: string, hpath: string, units: string[]
 }
 
 /**
- * heading 落库单行判据：批注 markdown 含软换行（\n）时保持段落形态——内核 heading 的
- * kramdown 序列化是单行文本语义，\n 与 <br> 落库时一律剥掉（2026-09-01 dev 实测三对照：
- * 段落 \n 存活、heading \n 剥、heading <br> 剥）。内容保真优先于大纲条目，多行题不进大纲。
+ * heading 落库单行判据/题目标题级别收敛：见 extractCore.ts（noteFitsHeading/noteHeadingLevel）。
  */
-export function noteFitsHeading(markdown: string): boolean {
-    return !markdown.includes("\n");
-}
-
 /**
  * 题目块 heading 化：md2Divs 产出的总结块原地改写为 hN 标题块（级别可配默认 6=出厂，
  * 2026-09-01 用户「二级还是很巨大」）——data-type/subtype/class 三处就位，内容不动
@@ -311,17 +247,6 @@ export function noteBlockAsHeading(div: HTMLElement, level: number = 6): HTMLEle
     div.classList.remove("p");
     div.classList.add(sub);
     return div;
-}
-
-/**
- * 题目标题级别设置读取（settingCfg.noteHeadingLevel）：收敛到 1~6 整数，缺省/越界/
- * 非法回落默认 6（2026-09-01 用户拍板出厂即小号标题——H2 巨大折行伤折叠收纳体验，
- * H6 贴近正文行高仍享大纲/折叠；本设置项随 v1.2.3 首发，无 H2 出厂存量，直接定 6）；
- * 数字串（select 表单值）同样认。抽取/对比两条生成链与设置面板三处共用。
- */
-export function noteHeadingLevel(cfg: any): number {
-    const n = Math.round(Number(cfg?.noteHeadingLevel));
-    return Number.isFinite(n) && n >= 1 && n <= 6 ? n : 6;
 }
 
 /**

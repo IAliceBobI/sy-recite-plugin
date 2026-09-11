@@ -305,8 +305,16 @@
     <div class="rs-instant-note">{plugin.i18n.改动即时生效}</div>
 </div>
 
-<style>
+    <style>
+    /* 内滚架构（2026-09-10 第二轮反馈「滚动时顶部空间被压缩、看起来乱」）：原生 Setting
+       本质是 Dialog（app/src/plugin/Setting.ts——content 只装本插件一个 item，:has 稳定
+       命中且 Dialog 每次 open 全新建实例，零跨页签污染），把滚动从原生 content 收进面板
+       内部双栏区——header/搜索框在滚动区外自始至终静止（Dialog 型番茄/渐进同款形态），
+       顶部零压缩。content 的 flex 拉伸链见下方 :global 块 */
     .recite-settings {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
         gap: 10px;
@@ -314,7 +322,9 @@
     }
 
     /* □3 统一 header：主体样式走 IndexConf.css 的 tomato-header* 类（recite 根挂
-       tomato-settings-dialog 已引入），此处仅页签语境微调 */
+       tomato-settings-dialog 已引入），此处仅页签语境微调。第一轮曾做 sticky 吸顶链
+       （header 随滚动上移 54px 收敛），用户仍嫌顶部压缩——内滚架构下 header 在滚动区
+       外，静态即可 */
     .rs-header {
         margin-top: 2px;
     }
@@ -323,6 +333,39 @@
        Dialog 型面板的 12px 横距（vision P1-1 节奏统一——仿写侧 16px 由根 padding 提供） */
     .recite-settings :global(.settingBox.search-bar) {
         margin: 10px 0 0;
+    }
+
+    /* 内滚核心：双栏区（导航列+内容列）即滚动容器，导航列 sticky 贴其可视顶（共享
+       IndexConf.css 规则原样生效，仅钉位归零——sticky top 相对本容器）；共享
+       .tomato-settings-nav 的 display:flex/align-items 保留，此处只接管滚动与拉伸 */
+    .recite-settings :global(.tomato-settings-nav) {
+        --tomato-sticky-top: 0px;
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    /* content 侧 flex 拉伸链：原生结构 content > .config-item(b3-label) > .fn__block >
+       [config-name, fn__hr, host]。「设置」小字（config-name）与分隔线（fn__hr）退役
+       （用户反馈文案冗余——与 Dialog 窗口标题、自绘 header 三层重复）；host 加
+       recite-settings-host 类（index.ts createActionElement），逐层 flex 拉伸把面板根
+       撑到 content 可视高。content 自身保持 overflow:auto 兜底：flex 链若因原生样式
+       变动失效，退回「content 滚动」的旧行为而非内容被裁死 */
+    :global(.b3-dialog__content:has(.recite-settings)) {
+        display: flex;
+        flex-direction: column;
+    }
+    :global(.b3-dialog__content:has(.recite-settings) .config-item),
+    :global(.b3-dialog__content:has(.recite-settings) .fn__block),
+    :global(.b3-dialog__content:has(.recite-settings) .recite-settings-host) {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    :global(.b3-dialog__content:has(.recite-settings) .config-name),
+    :global(.b3-dialog__content:has(.recite-settings) .fn__hr) {
+        display: none;
     }
 
     /* 双栏壳语境微调（公共 .tomato-settings-nav 样式零改动，仅 recite 页签语境覆盖）：

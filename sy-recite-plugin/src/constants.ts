@@ -54,6 +54,9 @@ export const RECITE_HOTKEYS = {
     reciteRewrite: winHotkey("alt+ctrl+c", "reciteRewrite", "iconReciteRewrite"),
     // 期1 keep（2026-09-08）：H=Hold 保留（⌥⌘ 空闲字母 H/O/V/Y 内取，四插件+官方 keymap 查重无占用）
     reciteKeep: winHotkey("alt+ctrl+h", "reciteKeep", "iconBookmark"),
-    // 期2 靶「这段练」（2026-09-08）：O=靶心圈（H/O/V/Y 余量内取，全仓 alt+ctrl+o 零占用+官方 keymap 无冲突）
-    reciteTarget: winHotkey("alt+ctrl+o", "reciteTarget", "iconReciteTarget"),
+    // 期2 靶「这段练」（2026-09-08 定 O；09-10 挪 ⇧）：O=靶心圈。原 ⌥⌘O 撞 tomato MindWire doc（v5.7.8
+    // 已发布）——当初字面 grep "alt+ctrl+o" 漏了 tomato 的 "ctrl+alt+o"（修饰键顺序不同），撞键查重必须
+    // 按 winHotkey 规范化形态（⌥⌘⇧O）比对；⌥⌘ 单字母段官方+四插件已全占，加 ⇧ 保 O 助记（同 seller 先例）。
+    // 旧版用户 keymap.custom 被注册时自动回填过 ⌥⌘O（custom 非空会压过新默认），v1.3.0 发布说明须提示改键
+    reciteTarget: winHotkey("alt+ctrl+shift+o", "reciteTarget", "iconReciteTarget"),
 };

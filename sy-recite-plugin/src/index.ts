@@ -8,6 +8,7 @@ import { reloadSelfPlugin } from "../../sy-tomato-plugin/src/libs/pluginReload";
 import { events } from "../../sy-tomato-plugin/src/libs/Events";
 import { tomatoI18n } from "../../sy-tomato-plugin/src/tomatoI18n";
 import { isObject, Siyuan } from "../../sy-tomato-plugin/src/libs/utils";
+import { migrateLegacyHotkeys } from "../../sy-tomato-plugin/src/libs/hotkeyCap";
 import { STORAGE_SETTINGS } from "../../sy-tomato-plugin/src/constants";
 import { licenseCloudSynced, userID, userToken } from "../../sy-tomato-plugin/src/libs/stores";
 import { resetKey, verifyKeyRecite } from "../../sy-tomato-plugin/src/libs/user";
@@ -80,7 +81,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
         });
     }
 
-    onload() {
+    async onload() {
         // □5 核实：recite 无「改配置生效」reload 点——设置项全即时生效（store .set/.write），
         // 激活重载在 tomato 侧 UnlockDialog/UpgradeBar 共用组件（□1 已按 product 映射改好）；
         // 时序无手术面：onload 同步注册零配置依赖，onLayoutReady 是 DOM 属性/auth/播种语义。
@@ -114,14 +115,17 @@ export default class ThePlugin extends BaseTomatoPlugin {
             },
         });
         this.setting.addItem({
-            // □5 打磨：原 title=i18n.帮助 与面板内自绘 header「仿写练习 · 设置」双标题叠层
-            // 且语义错位（这是设置面板非帮助页），改「设置」与 header 尾缀呼应
-            title: this.i18n.设置,
+            // title 传空串（原生渲染成 config-name「设置」小字，2026-09-10 用户反馈文案
+            // 冗余——与 Dialog 窗口标题、面板自绘 header 三层重复；空 div 由 scoped
+            // :global 规则 display:none 收掉，传 "" 防 undefined 字面量渲染）
+            title: "",
             // row 方向让 host 拿 fn__block（全宽）；默认 column 的 fn__size200 只有 200px 太窄
             direction: "row",
             createActionElement: () => {
                 if (this.settingsComp) unmount(this.settingsComp);
                 const settingsHost = document.createElement("div");
+                // 内滚架构拉伸链终点（Settings.svelte scoped :global 按此类接管 flex 拉伸）
+                settingsHost.classList.add("recite-settings-host");
                 this.settingsComp = mount(Settings, { target: settingsHost, props: { plugin: this } });
                 // 面板存活期背景强制在场：无关文档上开面板也能立刻看到货架点选/滑块效果
                 this.bgPreviewOn = true;
@@ -175,6 +179,13 @@ export default class ThePlugin extends BaseTomatoPlugin {
             hotkey: RECITE_HOTKEYS.reciteTarget.m,
             editorCallback: (protyle) => toggleTargetBlocks(this, protyle),
         });
+
+        // 2026-09-10 撞键迁移（同 tomato index.ts 先例）：reciteTarget 原 ⌥⌘O 撞 tomato MindWire doc
+        // （v5.7.8 已发布），custom 仍是旧默认（注册时自动回填、用户从未改键）才写新默认，改过/删过的
+        // 不动（幂等）；命令注册完毕后 keymap 条目就绪可查
+        await migrateLegacyHotkeys("sy-recite-plugin", [
+            ["reciteTarget", "⌥⌘O", "⌥⇧⌘O"],
+        ]);
     }
 
     /**
