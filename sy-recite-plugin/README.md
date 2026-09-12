@@ -5,6 +5,7 @@ A read-then-rewrite practice loop on any document: **mark → extract → rewrit
 Highlighting a good article isn't enough to make it stick. Mark the sentences you want to master, close the original, rewrite them from memory, then compare item by item to see the gap. This plugin brings that workflow into SiYuan: any document, no special formatting — every annotation becomes an exercise.
 
 - 📖 **[Full User Guide](https://my.feishu.cn/docx/FgSpdE2PmoEfJmxGYCqcurmDnCf)** (Chinese, with complete walk-throughs for five scenarios — recitation / dictation / skeleton / English / association — plus full AI grading output and demo data download)
+- 🤖 **[Connect AI to SiYuan (MCP)](https://my.feishu.cn/docx/BkRldeWJ7o3T4ExE2fdciZbgnRV)** (Chinese) — let AI read the source text and assemble practice drills for you (Pro); three-step setup for ZCode / Trae / CodeBuddy / Qoder
 - 🔓 **[Open-source repo](https://github.com/IAliceBobI/sy-recite-plugin)** — what you see is what's compiled: release packages are built remotely by GitHub Actions from source
 - 💬 [QQ Channel](https://pd.qq.com/s/r3jz0g16) (Chinese) — feedback and feature requests, shared with Tomato Toolbox
 - 💬 [Feishu Group](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=f08gff0c-d6b0-4a0d-8323-c8a0553e4fff&qr_code=true) (Chinese) — feedback and feature requests, shared with Tomato Toolbox

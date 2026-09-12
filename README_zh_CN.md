@@ -5,6 +5,7 @@
 读了一篇好文章，光划线记不住——把想练的句子标出来，合上原文凭记忆复述，再和原文逐题对比找差距。本插件把这套流程搬进思源笔记：任意文档、无需特殊格式，批注即练习题。
 
 - 📖 **[完整使用指南](https://my.feishu.cn/docx/FgSpdE2PmoEfJmxGYCqcurmDnCf)**（图文 + 背诵/默写/骨架/英语/联想五场景完整实例 + AI 判卷全文 + 演示数据下载）
+- 🤖 **[把 AI 助手接进思源（MCP）](https://my.feishu.cn/docx/BkRldeWJ7o3T4ExE2fdciZbgnRV)**——让 AI 通读原文、替你装配仿写练习（Pro），ZCode / Trae / CodeBuddy / Qoder 三步接入
 - 🔓 **[开源仓库](https://github.com/IAliceBobI/sy-recite-plugin)** — 所见即所编译：发布包由 GitHub Actions 从源码远程构建
 - 💬 [QQ 频道](https://pd.qq.com/s/r3jz0g16) — 反馈与功能建议（与番茄工具箱共用）
 - 💬 [飞书群](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=f08gff0c-d6b0-4a0d-8323-c8a0553e4fff&qr_code=true) — 反馈与功能建议（与番茄工具箱共用）

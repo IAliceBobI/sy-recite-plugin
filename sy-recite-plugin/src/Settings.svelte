@@ -16,6 +16,8 @@
     import { onDestroy, onMount, tick } from "svelte";
     import { newID } from "stonev5-utils";
     import UpgradeBar from "../../sy-tomato-plugin/src/UpgradeBar.svelte";
+    // AI 接入（MCP）引导卡（mcpcopy 2026-09-11；09-12 二期迁入导航「AI 接入」独立域渲染）
+    import McpPromo from "../../sy-tomato-plugin/src/McpPromo.svelte";
     import Help from "../../sy-tomato-plugin/src/libs/Help.svelte";
     import { openHelpMenu } from "../../sy-tomato-plugin/src/libs/helpMenu";
     import { searchSettings } from "../../sy-tomato-plugin/src/libs/ui";
@@ -66,10 +68,12 @@
         { id: "appearance", label: () => plugin.i18n.外观 },
         { id: "hotkeys", label: () => plugin.i18n.快捷键 },
         { id: "general", label: () => plugin.i18n.通用 },
+        // mcpcopy 二期（2026-09-12）：MCP 引导卡自顶部通栏迁入导航独立域（bear：通栏占空间）
+        { id: "mcp", label: () => plugin.i18n.AI接入 },
     ];
     let navActive = $state("practice");
     const NavKeyItemKey = "recite_settings_NavKeyItemKey_Km3vRtQ8wZxYc7hLsYdA2g";
-    // 聚合视图：searchKey 非空=全 4 域聚合渲染，navActive 冻结待清空回位；
+    // 聚合视图：searchKey 非空=全 5 域聚合渲染，navActive 冻结待清空回位；
     // navHits=各域是否有命中卡（searchSettings 过滤后从 DOM 回读），驱动导航项高亮
     let navHits: Record<string, boolean> = $state({});
     // 输入沿聚合视图进出跳变跟踪（非响应式：只用于进/出沿触发滚顶，逐键过滤不触发）
@@ -266,7 +270,7 @@
             {/each}
         </nav>
         <div class="tomato-nav-content">
-            <!-- 4 域组件渲染抽出 snippet 供浏览/聚合两分支复用；练习/外观两域吃 codeValid
+            <!-- 5 域组件渲染抽出 snippet 供浏览/聚合两分支复用；练习/外观两域吃 codeValid
                  激活态（货架锁），其余域纯 props 零状态 -->
             {#snippet domainCards(id: string)}
                 {#if id === "practice"}
@@ -275,12 +279,14 @@
                     <RecConfAppearance {plugin} {codeValid}></RecConfAppearance>
                 {:else if id === "hotkeys"}
                     <RecConfHotkeys {plugin}></RecConfHotkeys>
-                {:else}
+                {:else if id === "general"}
                     <RecConfGeneral {plugin}></RecConfGeneral>
+                {:else if id === "mcp"}
+                    <McpPromo></McpPromo>
                 {/if}
             {/snippet}
             {#if searchKey}
-                <!-- 聚合视图：全 4 域同屏+域标题行做域界标，data-domain 供 updateNavHits
+                <!-- 聚合视图：全 5 域同屏+域标题行做域界标，data-domain 供 updateNavHits
                      回读命中态；searchSettings 深收按域过滤、空域整节隐藏 -->
                 {#each NAV_DOMAINS as d (d.id)}
                     <section class="conf-group" data-domain={d.id}>
