@@ -254,6 +254,7 @@ export async function openDiffCheck(plugin: Plugin, docID: string) {
         return;
     }
     const views: DiffEntryView[] = [];
+    const say = (k: string, fb: string) => ((plugin as any)?.i18n?.[k] as string) || fb;
     let gWrong = 0, gMiss = 0, gExtra = 0, gMatched = 0, gTotal = 0;
     for (const e of entries) {
         // 联想题：自由联想写作无逐字比对——保留题号与题目展示、不跑 diff 不进统计（查错语义只属还原型练法）
@@ -264,7 +265,8 @@ export async function openDiffCheck(plugin: Plugin, docID: string) {
         const origin = (await fetchOriginMarkdown(e.refs)).map(md2plain).join(" ");
         const write = e.writes.map(w => md2plain(w.markdown)).join(" ");
         const r = diffText(origin, write);
-        views.push({ note: md2plain(e.noteMarkdown), lines: r.lines });
+        // 空锚点题（□2 纯默写）noteMarkdown 归一空串——题目展示给占位，不落空标题
+        views.push({ note: md2plain(e.noteMarkdown) || say("无提示锚点占位", "（无提示 · 凭记忆默写）"), lines: r.lines });
         gWrong += r.summary.wrong;
         gMiss += r.summary.miss;
         gExtra += r.summary.extra;

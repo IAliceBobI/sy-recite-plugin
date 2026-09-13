@@ -62,9 +62,11 @@ export async function doCompare(plugin: Plugin, extractID: string) {
     }
     // 题目标题级别跟设置项（出厂默认 H6——H2 巨大折行；2026-09-01 用户「二级还是很巨大」可配 1~6）
     const noteLevel = noteHeadingLevel((plugin as any).settingCfg);
+    const say = (k: string, fb: string) => ((plugin as any)?.i18n?.[k] as string) || fb;
     const units = (await Promise.all(entries.map(async e => {
-        // 题目标题 hN：单行化全文进标题——接通大纲跳转与 heading 折叠收纳（看过的折起来）
-        const heading = headingifyNoteDivs(md2Divs(flatNote(e.noteMarkdown)), noteLevel).map(d => d.outerHTML);
+        // 题目标题 hN：单行化全文进标题——接通大纲跳转与 heading 折叠收纳（看过的折起来）。
+        // 空锚点题（□2 纯默写）noteMarkdown 归一为空串——标题给占位文案，不落空 heading
+        const heading = headingifyNoteDivs(md2Divs(flatNote(e.noteMarkdown) || say("无提示锚点占位", "（无提示 · 凭记忆默写）")), noteLevel).map(d => d.outerHTML);
         // 左栏：联想题=题目本身（自由联想无原文可比，不回查 refs）；普通题=refs 实时回查原文
         let leftDivs: (HTMLElement | DomBuilder)[];
         if (isAssociation(e.noteMarkdown)) {

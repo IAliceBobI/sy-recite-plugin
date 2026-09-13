@@ -443,6 +443,13 @@ export const cssShowHomeEndIcon = settingFactory("cssShowHomeEndIcon", false, ST
 export const cssHomeEndIconLeft = settingFactory("cssHomeEndIconLeft", false, STORAGE_SETTINGS, null as TSK);
 export const keepLazyLoadStore = settingFactory("keepLazyLoadStore", false, STORAGE_SETTINGS, null as TSK);
 export const awaysExitFocusStore = settingFactory("awaysExitFocusStore", false, STORAGE_SETTINGS, null as TSK);
+// 外观域·界面净化 6 开关（uiclean 2026-09-12：seller 写死 CSS 迁移改造，默认全关=原生界面）
+export const uiCleanTabClose = settingFactory("uiCleanTabClose", false, STORAGE_SETTINGS, null as TSK);
+export const uiCleanTabBarBtns = settingFactory("uiCleanTabBarBtns", false, STORAGE_SETTINGS, null as TSK);
+export const uiCleanTopbarStatus = settingFactory("uiCleanTopbarStatus", false, STORAGE_SETTINGS, null as TSK);
+export const uiCleanEmptyHelp = settingFactory("uiCleanEmptyHelp", false, STORAGE_SETTINGS, null as TSK);
+export const uiCleanDocTreeBadge = settingFactory("uiCleanDocTreeBadge", false, STORAGE_SETTINGS, null as TSK);
+export const uiCleanDocTreeCompact = settingFactory("uiCleanDocTreeCompact", false, STORAGE_SETTINGS, null as TSK);
 export const graphBoxCheckbox = settingFactory("graphBoxCheckbox", false, STORAGE_SETTINGS, null as TSK);
 export const graphMaxPBlocks = settingFactory("graphMaxPBlocks", 20, STORAGE_SETTINGS, null as TSK);
 export const graphMaxAllBlocks = settingFactory("graphMaxAllBlocks", 800, STORAGE_SETTINGS, null as TSK);
@@ -522,6 +529,10 @@ export const cardBoxCardtab = settingFactory("cardBoxCardtab", false, STORAGE_SE
 export const card_refresh_visible_only = settingFactory("card_refresh_visible_only", true, STORAGE_SETTINGS, null as TSK);
 export const cardBoxSuperCard = settingFactory("cardBoxSuperCard", false, STORAGE_SETTINGS, null as TSK);
 export const cardBoxAddConcepts = settingFactory("cardBoxAddConcepts", false, STORAGE_SETTINGS, null as TSK);
+// □1（vipdoctree 2026-09-13）：右键「复习此文档及子文档」菜单开关（文档树+编辑器双落点，默认开）
+export const cardBoxReviewDocMenu = settingFactory("cardBoxReviewDocMenu", true, STORAGE_SETTINGS, null as TSK);
+// □4（vipdoctree 2026-09-13）：右键「检查失效引用」菜单开关（文档树+编辑器双落点，默认开）
+export const refCleanMenu = settingFactory("refCleanMenu", true, STORAGE_SETTINGS, null as TSK);
 export const cardBoxSpradEvenlyPostpone = settingFactory("cardBoxSpradEvenlyPostpone", true, STORAGE_SETTINGS, null as TSK);
 export const cardBoxDelayDays = settingFactory("cardBoxDelayDays", 0.1, STORAGE_SETTINGS, null as TSK);
 export const cardBoxSettingsShow = settingFactory("cardBoxSettingsShow", false, STORAGE_SETTINGS, null as TSK);
@@ -812,6 +823,10 @@ export const revisitRhythmMenu = settingFactory("revisitRhythmMenu", true, STORA
 export const windowOpenStyle = settingFactory("windowOpenStyle", "1", STORAGE_Prog_SETTINGS, null as TSK);
 export const flashcardNotebook = settingFactory("flashcardNotebook", "", STORAGE_Prog_SETTINGS, null as TSK);
 export const flashcardAddRefs = settingFactory("flashcardAddRefs", true, STORAGE_Prog_SETTINGS, null as TSK);
+// 制卡加原文引用（2026-09-13，bear 拍板「原文快删不想要指向原文的引用」）：卡尾 `*`（原
+// 文块）/分片场景 `@`（原书块）统一开关，默认开=老用户零感知；关=全通道（快捷键/浮条/
+// 右键）默认不加，⌥S「制卡无引用」显式 noRef 恒优先（合成见 progressive/flashCardRef.ts）
+export const flashcardAddOriginRef = settingFactory("flashcardAddOriginRef", true, STORAGE_Prog_SETTINGS, null as TSK);
 export const flashcardMultipleLnks = settingFactory("flashcardMultipleLnks", true, STORAGE_Prog_SETTINGS, null as TSK);
 export const digestNoBacktraceLink = settingFactory("digestNoBacktraceLink", true, STORAGE_Prog_SETTINGS, null as TSK);
 export const pieceNoBacktraceLink = settingFactory("pieceNoBacktraceLink", true, STORAGE_Prog_SETTINGS, null as TSK);

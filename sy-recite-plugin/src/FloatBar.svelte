@@ -19,7 +19,7 @@
     import type { Plugin } from "siyuan";
     import { Constants, getFrontend } from "siyuan";
     import { onMount } from "svelte";
-    import { reciteDoc, cleanPractice } from "./statusBtn";
+    import { reciteDoc, cleanPractice, exitPractice } from "./statusBtn";
     import { doExtract, rewriteExtract } from "./extract";
     import { doCompare } from "./compare";
     import { copyPrompt } from "./promptCopy";
@@ -30,8 +30,10 @@
     import { FLOATBAR_POS_KEY } from "./constants";
     import { selmlOn } from "./uiState";
     import { reciteIcon } from "./reciteIcons";
-    import { toggleKeepBlocks } from "./keep";
-    import { toggleTargetBlocks } from "./target";
+    import { setBlocksRole, type SettableRole } from "./role";
+    import { blockRole, majorityRole, type ReciteRole } from "./extractCore";
+    import { RECITE_OLD, RECITE_KEEP, RECITE_TARGET } from "./constants";
+    import { reciteSelection } from "./selection";
     import { getSelectionML } from "../../sy-tomato-plugin/src/libs/selectionML";
     import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
     import { siyuan } from "../../sy-tomato-plugin/src/libs/utils";
@@ -143,6 +145,58 @@
         const s = getSelectionML(wysiwyg);
         fn(s);
         debugLog("recite.selml", `${name} ${JSON.stringify(s.state)}`, "recite");
+        refreshSelMajor(); // 块选不走 selectionchange，选完即重算三钮高亮
+    }
+
+    // —— □1 三钮当前角色高亮（2026-09-13 三角色战役）：选中块严格多数角色点亮对应钮。
+    // 判据零请求——DOM 属性镜像（custom-recite-* 随 IAL 走）+ blockRole 同一判定序；
+    // \u200b 先剥（内核空块 contenteditable 恒含零宽空格，裸 trim 剔不掉）。selectionchange
+    // 打字期高频触发，rAF 合并成帧级；文档切换/设完角色后显式重算（属性镜像经 ws 广播
+    // ~1s 异步到达，且不触发 selectionchange——onSetRole 补延迟拍）
+    let selMajor = $state<ReciteRole | null>(null);
+    let selMajorQueued = false;
+    function elRole(el: HTMLElement): ReciteRole {
+        return blockRole({
+            markdown: (el?.textContent ?? "").replaceAll("\u200b", ""),
+            isOld: !!el?.getAttribute?.(RECITE_OLD),
+            isKeep: !!el?.getAttribute?.(RECITE_KEEP),
+            isTarget: !!el?.getAttribute?.(RECITE_TARGET),
+        });
+    }
+    function refreshSelMajor() {
+        if ($reciteDoc.role !== "origin") {
+            selMajor = null;
+            return;
+        }
+        const els = reciteSelection($reciteDoc.protyle as any).blocks.filter(Boolean);
+        selMajor = majorityRole(els.map(elRole));
+    }
+    function scheduleSelMajor() {
+        if (selMajorQueued) return;
+        selMajorQueued = true;
+        requestAnimationFrame(() => {
+            selMajorQueued = false;
+            refreshSelMajor();
+        });
+    }
+    let selMajorTimers: ReturnType<typeof setTimeout>[] = [];
+    onMount(() => {
+        document.addEventListener("selectionchange", scheduleSelMajor);
+        return () => {
+            document.removeEventListener("selectionchange", scheduleSelMajor);
+            selMajorTimers.forEach(clearTimeout); // 卸载后不再有组件态可刷（settleTimer 同款自律，review P2-4）
+        };
+    });
+    $effect(() => {
+        void $reciteDoc.docID; // 文档切换重算（含角色变化清高亮）
+        refreshSelMajor();
+    });
+    async function onSetRole(role: SettableRole) {
+        await setBlocksRole(plugin, $reciteDoc.protyle, role);
+        refreshSelMajor();
+        // 属性 DOM 镜像经 ws 广播 ~1s 到达，且属性变化不触发 selectionchange——只刷一次会
+        // 拿旧态把高亮钉死（e2e 实锤）。补三拍延迟刷新让钮亮落到新角色（句柄入组随卸载清）
+        selMajorTimers.push(...([300, 900, 1800] as const).map(ms => setTimeout(refreshSelMajor, ms)));
     }
 
     // AI 判卷进行态：图标自旋 + 禁点（aiGrade 内另有 running 双保险）
@@ -249,10 +303,6 @@
         document.addEventListener("pointercancel", up);
     }
 
-    // 按钮悬浮提示：首行文档名（标题区被截短，悬浮在哪都可知操作的是哪篇），次行动作说明（若有）
-    // 走思源 b3-tooltips 自绘体系（aria-label + ::after）：原生 title 在桌面端约 1s 延迟且非思源惯例，用户感知为「不显示」
-    const tip = (desc = "") => [$reciteDoc.docName, desc].filter(Boolean).join("\n");
-
     // □30 未激活门禁可视化 + □1 邻居预告（2026-08-31）：AI 拆分钮（本浮条唯一 Pro 钮）
     // 灰档 + tooltip 尾注。读 body class 而非 store——激活流程成功后整页 reload，尾注/
     // 灰档随刷新消失；平时 docID 换代触发 aria-label 重算也会重读。未激活且检测到渐进
@@ -270,6 +320,8 @@
 <!-- 根 div 常驻 DOM（判卷小宠物 mascot.ts 挂进来，随浮条拖动自动跟随；无激活文档或 ✕ 收起挂
      --idle 类整体隐藏，display 翻转同样会重播出场动画，与原 {#if} 卸载重建行为一致）。
      移动端（--topbar）：钉 toolbar 下沿的 44px 全宽矮条，纯图标横滑 + ✕ 收起，不拖拽。
+     按钮悬浮提示=aria-label 纯动作说明（2026-09-13 用户拍板去掉文档标题首行——标题区/页头
+     已示文档名；走 b3-tooltips 自绘：原生 title 桌面端约 1s 延迟，用户感知为「不显示」）。
      onmousedown 全根 preventDefault（□7 2026-09-09 bear 主实例 Loki 实锤 selCollapsed=true）：
      真人点击带 1~3px 微移，mousedown 默认行为把拖蓝选区塌成光标（playwright 零移点击测不出），
      keep/靶通道点按钮时刻选区恒空——preventDefault 保选区，划词工具条按钮同款手法；
@@ -296,8 +348,8 @@
         {/if}
         {#if $reciteDoc.role === "origin"}
             <div class="recite-floatbar-btns">
-                <button class="b3-tooltips b3-tooltips__n recite-btn-pro" class:recite-btn-busy={splitting} disabled={splitting} aria-label={tip(splitting ? (plugin.i18n["拆分中提示"] || "AI 拆分进行中…") : (plugin.i18n["AI拆分提示"] || "AI 通读全文按叙事节拍自动插入锚点批注（走思源 AI 配置，消耗自己的额度）；重跑删旧 AI 锚点，手写批注不动")) + (splitting ? "" : proNote())} onclick={onSplitClick}>{@html reciteIcon(splitting ? "iconReciteSpin" : "iconReciteSplit")}<span class="recite-btn-text">{splitting ? (plugin.i18n["拆分中"] || "拆分中…") : t("AI 拆分")}</span></button>
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip("生成练习文档：原文批注逐题拆出，每题留空写位")} onclick={() => doExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteExtract")}<span class="recite-btn-text">{t("抽取")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n recite-btn-pro" class:recite-btn-busy={splitting} disabled={splitting} aria-label={splitting ? (plugin.i18n["拆分中提示"] || "AI 拆分进行中…") : (plugin.i18n["AI拆分提示"] || "AI 通读全文，按叙事节拍自动插入锚点批注\n走思源 AI 配置（消耗自己的额度）\n重跑删旧 AI 锚点，手写批注不动") + (splitting ? "" : proNote())} onclick={onSplitClick}>{@html reciteIcon(splitting ? "iconReciteSpin" : "iconReciteSplit")}<span class="recite-btn-text">{splitting ? (plugin.i18n["拆分中"] || "拆分中…") : t("AI 拆分")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" aria-label={"生成练习卷\n考核段逐题拆出：段后提示升格为题目\n没提示的段出纯默写题"} onclick={() => doExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteExtract")}<span class="recite-btn-text">{t("抽取")}</span></button>
                 <!-- □8 期4 选块三钮（移动端顶栏纯图标，桌面共用标记但桌面顶栏不渲染）：
                      选完的块挂内核同款选中类，右侧 上下文/这段练 直接读走；
                      $selmlOn=设置面板「移动端选块按钮」开关（2026-09-09），切换即时生效 -->
@@ -308,19 +360,23 @@
                     <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["取消最后一次选择的内容"] || "取消最后一次选择"} onclick={() => selmlAct("cancel", s => s.cancelLast())}>{@html "<svg><use xlink:href=\"#iconRedo\"></use></svg>"}<span class="recite-btn-text">{plugin.i18n["取消最后一次选择的内容"] || "取消最后一次选择"}</span></button>
                     <span class="recite-topbar-sep" aria-hidden="true"></span>
                 {/if}
-                <!-- 期1 留作上下文（2026-09-08）：作用于当前编辑器选中块集（Ctrl+点击多选），keep 块
-                     抽取时复制进练习文档做卡面语境；再点取消。选中态读取见 keep.ts keepTargets -->
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["上下文浮条提示"] || "把选中的原文块留作上下文：抽取时复制进练习文档，闪卡复习时看得到语境（再点取消）")} onclick={() => toggleKeepBlocks(plugin, $reciteDoc.protyle)}>{@html reciteIcon("iconReciteKeep")}<span class="recite-btn-text">{t("上下文")}</span></button>
-                <!-- 期2 这段练（2026-09-08）：选中块圈靶+段后留总结位，抽取切节选语义只练这段；再点取消 -->
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["靶浮条提示"] || "把选中的原文块圈为「这段练」：段后写总结，抽取只练这段、其余照抄做语境（再点取消）")} onclick={() => toggleTargetBlocks(plugin, $reciteDoc.protyle)}>{@html reciteIcon("iconReciteTarget")}<span class="recite-btn-text">{t("这段练")}</span></button>
-                <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删批注块+抽取/对比子文档+原文标记，彻底抹掉练习痕迹（回收站可找回）")} onclick={() => cleanPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteDelete")}<span class="recite-btn-text">{t("删除")}</span></button>
+                <!-- □1 三角色钮（2026-09-13 三角色战役）：三选一互斥设置替「再点取消」toggle，
+                     「总结」兼任取消；钮亮=选中块当前角色（严格多数，判定/高亮同序 blockRole）。
+                     作用对象=当前编辑器选中块集（Ctrl+点击多选/移动端选块三钮） -->
+                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "context"} aria-label={plugin.i18n["上下文浮条提示"] || "设为上下文：抽取时原样照抄进练习卷\n与「这段练」「总结」三选一，钮亮=当前角色"} onclick={() => onSetRole("context")}>{@html reciteIcon("iconReciteKeep")}<span class="recite-btn-text">{t("上下文")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "target"} aria-label={plugin.i18n["靶浮条提示"] || "设为考核（这段练）：抽取只练这段，其余照抄做语境\n段后留有总结位，落笔即配对成题"} onclick={() => onSetRole("target")}>{@html reciteIcon("iconReciteTarget")}<span class="recite-btn-text">{t("这段练")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "summary"} aria-label={plugin.i18n["总结浮条提示"] || "设为总结：当作自己写的提示，抽取时作为题目\n选中块是存量原文时一并认领（清原文标记）"} onclick={() => onSetRole("summary")}>{@html reciteIcon("iconReciteSummary")}<span class="recite-btn-text">{t("总结")}</span></button>
+                <!-- □3 退出两档（2026-09-13）：轻「退出」（字保留+淡标记）与重「删除」（彻底抹）
+                     并排，双 ghost 图标形辨轻重（门箭头 vs 垃圾桶）；退出顶栏笔图标 toggle 同义 -->
+                <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={plugin.i18n["退出浮条提示"] || "温和退出仿写模式\n你写的字保留并加淡色标记，练习标记全清\n抽取/对比文档保留；彻底删除用「删除」"} onclick={() => exitPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteExit")}<span class="recite-btn-text">{t("退出")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n recite-btn-ghost recite-btn-danger" aria-label={"彻底删除练习\n删批注块+抽取/对比子文档+全部标记（回收站可找回）"} onclick={() => cleanPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteDelete")}<span class="recite-btn-text">{t("删除")}</span></button>
             </div>
         {:else if $reciteDoc.role === "extract"}
             <div class="recite-floatbar-btns">
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip("生成对比文档：每题左右两列，原文与复述逐题对照")} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["默写查错提示"] || "逐字比对原文与复述：错/多字红删除线、漏字绿下划线，弹窗即看即走，不写入文档")} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
-                <button class="b3-tooltips b3-tooltips__n" aria-label={tip(carded ? (plugin.i18n["取消制卡提示"] || "本篇练习文档已在快速卡组，再点移除") : (plugin.i18n["加闪卡提示"] || "把本篇练习文档整体加入快速闪卡卡组，与摘抄卡同组复习"))} onclick={addToCards}>{@html reciteIcon(carded ? "iconReciteCardOn" : "iconReciteCard")}<span class="recite-btn-text">{carded ? (plugin.i18n["取消制卡"] || "取消制卡") : t("加闪卡")}</span></button>
-                <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删当前抽取文档（连对比，复述可从回收站找回）并按原文当前批注重建空抽取，重新练习")} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" aria-label={"生成对比文档\n每题左右两列，原文与复述逐题对照"} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["默写查错提示"] || "逐字比对原文与复述\n错/多字红删除线、漏字绿下划线，弹窗即看即走"} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" aria-label={carded ? (plugin.i18n["取消制卡提示"] || "本篇已在快速卡组\n再点移除") : (plugin.i18n["加闪卡提示"] || "把本篇练习文档加入快速闪卡卡组\n与摘抄卡同组复习")} onclick={addToCards}>{@html reciteIcon(carded ? "iconReciteCardOn" : "iconReciteCard")}<span class="recite-btn-text">{carded ? (plugin.i18n["取消制卡"] || "取消制卡") : t("加闪卡")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={"重抽重建练习\n删当前抽取文档（连对比）按当前考核段重建，复述清零"} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
             </div>
         {:else if $reciteDoc.role === "compare"}
             {#if isMobile}
@@ -328,23 +384,23 @@
                      分隔线保留桌面两行的分组认知）。制卡钮不进对比文档（2026-09-09 群反馈）：
                      对比=含原文答案的对照视图，制卡入口只留抽取文档浮条 -->
                 <div class="recite-floatbar-btns">
-                    <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["默写查错提示"] || "逐字比对原文与复述：错/多字红删除线、漏字绿下划线，弹窗即看即走，不写入文档")} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
-                    <button class="b3-tooltips b3-tooltips__n" class:recite-btn-busy={grading} disabled={grading} aria-label={tip(grading ? (plugin.i18n["判卷中提示"] || "AI 判卷进行中…") : (plugin.i18n["AI判卷提示"] || "用思源已配置的 AI（设置 → AI）当场判卷，结果覆盖上一次判卷"))} onclick={runGrade}>{@html reciteIcon(grading ? "iconReciteSpin" : "iconReciteJudge")}<span class="recite-btn-text">{grading ? (plugin.i18n["判卷中"] || "判卷中…") : (plugin.i18n["AI 判卷"] || "AI 判卷")}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["默写查错提示"] || "逐字比对原文与复述\n错/多字红删除线、漏字绿下划线，弹窗即看即走"} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n" class:recite-btn-busy={grading} disabled={grading} aria-label={grading ? (plugin.i18n["判卷中提示"] || "AI 判卷进行中…") : (plugin.i18n["AI判卷提示"] || "用思源已配置的 AI（设置 → AI）当场判卷\n结果覆盖上一次判卷")} onclick={runGrade}>{@html reciteIcon(grading ? "iconReciteSpin" : "iconReciteJudge")}<span class="recite-btn-text">{grading ? (plugin.i18n["判卷中"] || "判卷中…") : (plugin.i18n["AI 判卷"] || "AI 判卷")}</span></button>
                     <span class="recite-topbar-sep" aria-hidden="true"></span>
-                    <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("按抽取文档当前复述刷新本对比文档")} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
-                    <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["复制提示词提示"] || "复制判卷提示词，可选直接打开 DeepSeek/豆包/千问等网页版粘贴")} onclick={e => copyPrompt($reciteDoc.docID, plugin, e.currentTarget)}>{@html reciteIcon("iconReciteCopyPrompt")}<span class="recite-btn-text">{t("复制提示词")}</span></button>
-                    <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删抽取文档（连对比子树）并按原文当前批注重建练习文档，复述清零重新练习")} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label="按当前复述刷新本对比文档" onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["复制提示词提示"] || "复制判卷提示词，可选直接打开 DeepSeek/豆包/千问等网页版粘贴"} onclick={e => copyPrompt($reciteDoc.docID, plugin, e.currentTarget)}>{@html reciteIcon("iconReciteCopyPrompt")}<span class="recite-btn-text">{t("复制提示词")}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={"重抽重建练习\n删抽取文档（连对比子树）按当前考核段重建，复述清零"} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
                 </div>
             {:else}
                 <!-- 两行方形（2026-08-26）：判分行（默写查错+AI 判卷）+ 文档操作行（对比+复制提示词+重新写） -->
                 <div class="recite-floatbar-btns">
-                    <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["默写查错提示"] || "逐字比对原文与复述：错/多字红删除线、漏字绿下划线，弹窗即看即走，不写入文档")} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
-                    <button class="b3-tooltips b3-tooltips__n" class:recite-btn-busy={grading} disabled={grading} aria-label={tip(grading ? (plugin.i18n["判卷中提示"] || "AI 判卷进行中…") : (plugin.i18n["AI判卷提示"] || "用思源已配置的 AI（设置 → AI）当场判卷，结果覆盖上一次判卷"))} onclick={runGrade}>{@html reciteIcon(grading ? "iconReciteSpin" : "iconReciteJudge")}<span class="recite-btn-text">{grading ? (plugin.i18n["判卷中"] || "判卷中…") : (plugin.i18n["AI 判卷"] || "AI 判卷")}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["默写查错提示"] || "逐字比对原文与复述\n错/多字红删除线、漏字绿下划线，弹窗即看即走"} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n" class:recite-btn-busy={grading} disabled={grading} aria-label={grading ? (plugin.i18n["判卷中提示"] || "AI 判卷进行中…") : (plugin.i18n["AI判卷提示"] || "用思源已配置的 AI（设置 → AI）当场判卷\n结果覆盖上一次判卷")} onclick={runGrade}>{@html reciteIcon(grading ? "iconReciteSpin" : "iconReciteJudge")}<span class="recite-btn-text">{grading ? (plugin.i18n["判卷中"] || "判卷中…") : (plugin.i18n["AI 判卷"] || "AI 判卷")}</span></button>
                 </div>
                 <div class="recite-floatbar-btns">
-                    <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("按抽取文档当前复述刷新本对比文档")} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
-                    <button class="b3-tooltips b3-tooltips__n" aria-label={tip(plugin.i18n["复制提示词提示"] || "复制判卷提示词，可选直接打开 DeepSeek/豆包/千问等网页版粘贴")} onclick={e => copyPrompt($reciteDoc.docID, plugin, e.currentTarget)}>{@html reciteIcon("iconReciteCopyPrompt")}<span class="recite-btn-text">{t("复制提示词")}</span></button>
-                    <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={tip("删抽取文档（连对比子树）并按原文当前批注重建练习文档，复述清零重新练习")} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label="按当前复述刷新本对比文档" onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["复制提示词提示"] || "复制判卷提示词，可选直接打开 DeepSeek/豆包/千问等网页版粘贴"} onclick={e => copyPrompt($reciteDoc.docID, plugin, e.currentTarget)}>{@html reciteIcon("iconReciteCopyPrompt")}<span class="recite-btn-text">{t("复制提示词")}</span></button>
+                    <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={"重抽重建练习\n删抽取文档（连对比子树）按当前考核段重建，复述清零"} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>
                 </div>
             {/if}
         {/if}

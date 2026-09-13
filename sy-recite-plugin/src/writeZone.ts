@@ -1,7 +1,7 @@
 import { events } from "../../sy-tomato-plugin/src/libs/Events";
 import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
-import { RECITE_EXTRACT, RECITE_NOTE, RECITE_KEEP } from "./constants";
+import { RECITE_EXTRACT, RECITE_NOTE, RECITE_KEEP, RECITE_HINT, RECITE_WRITTEN } from "./constants";
 import { isQCtrlHost } from "./qCtrlBlock";
 
 const WRITE_ATTR = "data-recite-write";
@@ -20,16 +20,23 @@ const REFRESH_EVENTS = new Set(["switch-protyle", "loaded-protyle-static", "load
  * 挂写区标。首条总结块之前不属于任何写区；末条总结块之后全部归属写区（尾区）。
  * keepFlags（期1，可选）：上下文块（custom-recite-keep 复制的原文语境）恒不挂标——
  * 它插在组前/文末属于展示层，不是写位，框进竖线会把「看的」混进「写的」。
+ * hintFlags（□2，可选）：卷子里的未升格提示块（custom-recite-hint）同判恒不挂标——
+ * 提示是参考材料，不是写位。
+ * writtenFlags（□3，可选）：练习时写的块（custom-recite-written，温和退出标记）同判恒
+ * 不挂标——正常链路 written 不进卷子（copyHTML 重建不带属性），此处与 keep/hint 同 else-if
+ * 链的脏数据防御。
  */
-export function computeWriteFlags(noteFlags: (string | null | undefined)[], keepFlags?: (string | null | undefined)[]): boolean[] {
+export function computeWriteFlags(noteFlags: (string | null | undefined)[], keepFlags?: (string | null | undefined)[], hintFlags?: (string | null | undefined)[], writtenFlags?: (string | null | undefined)[]): boolean[] {
     const flags: boolean[] = [];
     let inZone = false;
     for (let i = 0; i < noteFlags.length; i++) {
-        if (noteFlags[i] != null) {
+        // 判序与 extractEntries/qCtrlAnchorTails 统一（keep/hint/written 先）：属性互斥时等价，
+        // 双属性脏数据漏进卷子时三处同语义（跳过、不开区），消灭未来分叉点
+        if (keepFlags?.[i] != null || hintFlags?.[i] != null || writtenFlags?.[i] != null) {
+            flags.push(false); // 上下文块/提示块/练习时写的块：展示层不进写区
+        } else if (noteFlags[i] != null) {
             inZone = true; // 新写区开区；总结块自己不挂标
             flags.push(false);
-        } else if (keepFlags?.[i] != null) {
-            flags.push(false); // 上下文块：展示层不进写区
         } else {
             flags.push(inZone);
         }
@@ -38,12 +45,14 @@ export function computeWriteFlags(noteFlags: (string | null | undefined)[], keep
 }
 
 /** DOM 执行薄层：按 wysiwyg 顶层块流重算写区并打/摘标（幂等， MutationObserver 回调复用）。
- *  q-ctrl 控制块与注入面板（□5）在锚点区间内但属 UI 层，恒摘标不进竖线（keep 同判）。 */
+ *  q-ctrl 控制块与注入面板（□5）在锚点区间内但属 UI 层，恒摘标不进竖线（keep/hint 同判）。 */
 export function markWriteZones(wysiwyg: HTMLElement): void {
     const blocks = Array.from(wysiwyg.children) as HTMLElement[];
     const flags = computeWriteFlags(
         blocks.map(b => b.getAttribute(RECITE_NOTE)),
         blocks.map(b => b.getAttribute(RECITE_KEEP)),
+        blocks.map(b => b.getAttribute(RECITE_HINT)),
+        blocks.map(b => b.getAttribute(RECITE_WRITTEN)),
     );
     blocks.forEach((b, i) => {
         if (flags[i] && !isQCtrlHost(b) && !b.classList.contains("recite-qctrl-panel")) b.setAttribute(WRITE_ATTR, "");

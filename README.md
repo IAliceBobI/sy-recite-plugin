@@ -51,7 +51,16 @@ The table lists the **default** shortcuts — every one is remappable: click a k
 
 Details — every recite-bar button explained, with full examples: plugin settings → "User Guide".
 
-## Free / Pro
+## Free vs Pro
+
+One rule of thumb: **the full practice loop is free — marking, extraction, compare, dictation check, association, and AI grading included, no limits**. Pro is the one automation you'd otherwise do by hand, plus decorating the room you practice in.
+
+| Domain | Free | Pro adds |
+|---|---|---|
+| 🎯 Practice loop | Marking, target practice, extraction, per-item compare, dictation check, association practice | — |
+| 🤖 AI grading | Free, fully — grading and the prompt | — |
+| ✂️ AI Split | — | AI reads the piece and drops anchor notes at narrative beats |
+| 🎨 Appearance | Glazed Amber & Eye-Care themes, Parchment / Eye-Care backgrounds, Dawn & Bamboo-Slips bars, Shiba Doudou & Snow Bunny pets | 4 more themes; 4 more backgrounds incl. custom image; 6 more bar skins; 3 decorative sets; in-doc tint / snapshot / compare-card visuals; 3 Pro pet looks + tone-reactive emotes |
 
 **The free version covers the full practice loop — no second-class citizen**: marking, target practice with kept context, extraction, per-item compare, comparison, dictation check, association practice, AI grading and the grading prompt all work, with no limits on runs or documents.
 

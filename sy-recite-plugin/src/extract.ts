@@ -3,18 +3,17 @@ import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { OpenSyFile2 } from "../../sy-tomato-plugin/src/libs/navUtils";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { DomParaBuilder, md2Divs } from "../../sy-tomato-plugin/src/libs/sydom";
-import { RECITE_START, RECITE_EXTRACT, RECITE_NOTE, RECITE_REFS, RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_COMPARE, EXTRACT_TITLE } from "./constants";
+import { RECITE_START, RECITE_EXTRACT, RECITE_NOTE, RECITE_REFS, RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_HINT, RECITE_EMPTY_NOTE, RECITE_WRITTEN, RECITE_COMPARE, EXTRACT_TITLE } from "./constants";
 import { backfillQCtrlBlocks, isQCtrlMarkdown } from "./qCtrlBlock";
 // 结构层纯函数在 extractCore.ts（与 kernel 侧共用一份，2026-09-09 recite MCP □3 抽出）
 import {
-    groupNotes, originBlocksForGroups, keepBlocksForGroups,
-    noteFitsHeading, derivedTitle, noteHeadingLevel,
+    extractSpans, noteFitsHeading, derivedTitle, noteHeadingLevel, toReciteBlock,
 } from "./extractCore";
 import type { ReciteBlock } from "./extractCore";
 
-// 老消费方（compare/RecConfPractice 等）仍从本文件取这些名字——re-export 保导入路径不破
+// 老消费方仍从本文件取这些名字——re-export 保导入路径不破（groupNotes 三件套已随 □2 统一
+// 出卷退役自活路径，本体留在 extractCore 作 □4 老整篇文档迁移工具的结构基准）
 export {
-    groupNotes, originBlocksForGroups, keepBlocksForGroups,
     noteFitsHeading, derivedTitle, noteHeadingLevel,
 } from "./extractCore";
 export type { ReciteBlock, NoteGroup } from "./extractCore";
@@ -41,8 +40,10 @@ export function isAssociation(noteMarkdown: string): boolean {
 }
 
 /**
- * 按文档序取原文顶层块流（getChildBlocks 保文档序）。批注 = 无 custom-recite-old 原文标记
- * 且内容非空的块（与 CSS 染色判据同源；空块——打了回车没写字——不算批注，不进抽取文档）
+ * 按文档序取原文顶层块流（getChildBlocks 保文档序）。□1 起统一走 toReciteBlock 三角色
+ * 判定（判定序见 extractCore blockRole）：批注（isNote 兼容面）=总结角色——挂 keep 的
+ * 新写块从此不当批注（不配对成题，走 hint 照抄，□2 起语义归正）。空块——打了回车没
+ * 写字——无角色，不进抽取文档。
  */
 export async function identifyNotes(originID: string): Promise<ReciteBlock[]> {
     const children = await siyuan.getChildBlocks(originID);
@@ -54,82 +55,12 @@ export async function identifyNotes(originID: string): Promise<ReciteBlock[]> {
     const ials = await siyuan.batchGetBlockAttrs(children.map(c => c.id)).catch(() => null);
     return children.map((c, i) => {
         const ial = ials?.[c.id] ?? {};
-        const markdown = rows[i]?.markdown ?? "";
-        return {
-            id: c.id,
-            markdown,
-            isNote: !ial[RECITE_OLD] && !!markdown.trim(),
+        return toReciteBlock(c.id, rows[i]?.markdown ?? "", {
+            isOld: !!ial[RECITE_OLD],
             isKeep: !!ial[RECITE_KEEP],
             isTarget: !!ial[RECITE_TARGET],
-        };
+        });
     });
-}
-
-/**
- * 每组 refs（原文溯源块）切片等结构判定见 extractCore.ts（groupNotes/originBlocksForGroups/
- * keepBlocksForGroups/noteFitsHeading/derivedTitle/noteHeadingLevel，与 kernel 共用）。
- */
-/**
- * 节选语义靶整流切分（期2「这段练」，2026-09-08）：stream 含靶块时抽取文档的构建蓝图。
- * 模式隐式路由——靶的存在本身就是模式声明（无显式档位）：
- * - 连续靶块（滤空流上相邻）聚为一段；段配对 = 紧邻认领：段末后第一个非空块必须是批注
- *   （其后连续批注聚组，与整篇语义 groupNotes 同构）；首块是老原文/下一靶即无主——
- *   不越过原文去找远处的批注（那是别的段落的，「这段练」自动插的空总结位紧邻段末）；
- * - 配对段原位换 [锚点+写位]（锚点文本=批注组 markdown、refs=靶段块 id），配对批注不照抄；
- * - 其余非空块照抄（含 keep/未配对批注/无主靶段）——doExtract 渲染时统一挂 RECITE_KEEP
- *   （上下文块单一概念：不挂会被 readExtractDoc 误读成 writes 卷进对比）；
- * - 无主靶段照常显示不隐藏、不插写位；orphanCount 供「N 个靶还没有总结批注」提示。
- */
-export type TargetSpan =
-    | { kind: "copy"; blocks: ReciteBlock[] }
-    | { kind: "unit"; targets: ReciteBlock[]; notes: ReciteBlock[] };
-
-export function targetSpans(stream: ReciteBlock[]): { spans: TargetSpan[]; orphanCount: number } {
-    const s = stream.filter(b => b.markdown.trim()); // 空块滤除与整篇语义同源
-    // 靶段切分：滤空流上连续 isTarget 聚段（一次「这段练」多选/多块=一段；分两次打的相邻靶天然合并）
-    const segs: { start: number; end: number }[] = [];
-    for (let i = 0; i < s.length; i++) {
-        if (s[i].isTarget) {
-            const start = i;
-            while (i < s.length && s[i].isTarget) i++;
-            segs.push({ start, end: i - 1 });
-        }
-    }
-    // 配对：窗口 = (段末, 下一段首) / (末段末, 文末)，取窗口内第一个批注并向后续到批注组末
-    const paired = new Map<number, ReciteBlock[]>();
-    let orphanCount = 0;
-    segs.forEach((seg, gi) => {
-        const winEnd = gi + 1 < segs.length ? segs[gi + 1].start : s.length;
-        const notes: ReciteBlock[] = [];
-        for (let j = seg.end + 1; j < winEnd && s[j].isNote; j++) notes.push(s[j]);
-        if (notes.length) paired.set(gi, notes);
-        else orphanCount++;
-    });
-    // 整流：照抄段与 [锚点+写位] 单元按文档序排布；配对批注跳过（已变锚点本体）
-    const skipNote = new Set<string>();
-    paired.forEach(notes => notes.forEach(n => skipNote.add(n.id)));
-    const segOf: number[] = [];
-    segs.forEach((seg, gi) => { for (let j = seg.start; j <= seg.end; j++) segOf[j] = gi; });
-    const spans: TargetSpan[] = [];
-    let copyBuf: ReciteBlock[] = [];
-    const flush = () => {
-        if (copyBuf.length) spans.push({ kind: "copy", blocks: copyBuf });
-        copyBuf = [];
-    };
-    for (let j = 0; j < s.length; j++) {
-        const gi = segOf[j] ?? -1;
-        if (gi >= 0) {
-            if (!paired.has(gi)) copyBuf.push(s[j]); // 无主靶：照常照抄不隐藏
-            else if (j === segs[gi].end) {           // 配对段原位（段末）换 [锚点+写位]
-                flush();
-                spans.push({ kind: "unit", targets: s.slice(segs[gi].start, segs[gi].end + 1), notes: paired.get(gi) });
-            }
-        } else if (!skipNote.has(s[j].id)) {
-            copyBuf.push(s[j]); // keep/未配对批注/老原文：照抄挂 keep
-        }
-    }
-    flush();
-    return { spans, orphanCount };
 }
 
 /**
@@ -164,40 +95,54 @@ export async function findReciteChildDoc(parent: { box: string; path: string; hp
 }
 
 /**
- * 读抽取文档结构（垂直布局）：顶层块流扁平遍历，custom-recite-note 块为总结锚点开 entry，
- * 其后到下一个锚点间的非空块=该条复述（写位空块占位不进）。旧版文档（v1 上方空行 / v2 row-col）
- * 在此读法下 writes 读不出 → 点「重新写」即迁移（消息文案有提示）。
+ * 抽取文档读数归一（readExtractDoc 的纯函数核心，□2 抽出）：顶层块流（id+markdown+IAL）→
+ * entries。四个消费方（compare/diffCheck/判卷/提示词）全走 readExtractDoc 读数，在此一处
+ * 隔离展示层：keep（上下文复制）/hint（卷子里的未升格提示）/q-ctrl 控制块跳过；空锚点
+ * （RECITE_EMPTY_NOTE）noteMarkdown 归一空串——占位文案只是卷内视觉，判卷走纯默写。
  */
-export async function readExtractDoc(extractID: string): Promise<ExtractEntry[]> {
+export function extractEntries(blocks: { id: string; markdown: string; ial?: Record<string, string> }[]): ExtractEntry[] {
     const entries: ExtractEntry[] = [];
-    const children = await siyuan.getChildBlocks(extractID);
-    const rows = await siyuan.getRows(children.map(c => c.id), "markdown", true, [], true);
-    // IAL 同 identifyNotes 走 cache-first 属性 API（identifyNotes 注释同源）：抽取文档刚建
-    // 完立刻对比/判卷时，SQL ial 列可能还没索引到 note/keep 标记
-    const ials = await siyuan.batchGetBlockAttrs(children.map(c => c.id)).catch(() => null);
     let entry: ExtractEntry = null;
-    children.forEach((c, i) => {
-        const ial = ials?.[c.id] ?? {};
-        const markdown = rows[i]?.markdown ?? "";
-        // 上下文块（原文 keep 的复制，custom-recite-keep）：非锚点非复述，跳过——不进 writes，
-        // compare/diffCheck/判卷/提示词四消费方全走本函数读数，在此一处隔离
-        if (ial[RECITE_KEEP]) return;
-        // 单题对照控制块（□5 q-ctrl）：每题写位后的 UI 块，同在此一处隔离（围栏判据，
-        // 6811 实测 SQL markdown 首行即 ;;;sy-recite-plugin/q-ctrl）
+    blocks.forEach(b => {
+        const ial = b.ial ?? {};
+        const markdown = b.markdown ?? "";
+        // 上下文块（原文 keep 的复制）与提示块（未升格总结的复制）：非锚点非复述，跳过——
+        // 不进 writes，四消费方在此一处隔离；q-ctrl 控制块同判（围栏判据，6811 实测）；
+        // written（□3 温和退出标记）同判跳过——正常链路不进卷子（copyHTML 重建不带属性），
+        // 防御脏数据与 writeZone 判序同源
+        if (ial[RECITE_KEEP] || ial[RECITE_HINT] || ial[RECITE_WRITTEN]) return;
         if (isQCtrlMarkdown(markdown)) return;
         if (ial[RECITE_NOTE]) {
             entry = {
-                noteID: c.id,
-                noteMarkdown: markdown,
+                noteID: b.id,
+                noteMarkdown: ial[RECITE_EMPTY_NOTE] ? "" : markdown,
                 refs: (ial[RECITE_REFS] ?? "").split(",").filter(Boolean),
                 writes: [],
             };
             entries.push(entry);
         } else if (entry && markdown.trim()) {
-            entry.writes.push({ id: c.id, markdown });
+            entry.writes.push({ id: b.id, markdown });
         }
     });
     return entries;
+}
+
+/**
+ * 读抽取文档结构（垂直布局）：顶层块流扁平遍历，custom-recite-note 块为总结锚点开 entry，
+ * 其后到下一个锚点间的非空块=该条复述（写位空块占位不进）。旧版文档（v1 上方空行 / v2 row-col）
+ * 在此读法下 writes 读不出 → 点「重新写」即迁移（消息文案有提示）。
+ */
+export async function readExtractDoc(extractID: string): Promise<ExtractEntry[]> {
+    const children = await siyuan.getChildBlocks(extractID);
+    const rows = await siyuan.getRows(children.map(c => c.id), "markdown", true, [], true);
+    // IAL 同 identifyNotes 走 cache-first 属性 API（identifyNotes 注释同源）：抽取文档刚建
+    // 完立刻对比/判卷时，SQL ial 列可能还没索引到 note/keep 标记
+    const ials = await siyuan.batchGetBlockAttrs(children.map(c => c.id)).catch(() => null);
+    return extractEntries(children.map((c, i) => ({
+        id: c.id,
+        markdown: rows[i]?.markdown ?? "",
+        ial: ials?.[c.id] ?? undefined,
+    })));
 }
 
 /**
@@ -250,13 +195,13 @@ export function noteBlockAsHeading(div: HTMLElement, level: number = 6): HTMLEle
 }
 
 /**
- * 抽取：识别批注 → 删旧抽取子文档（连子树，对比文档随之消失）→ 建新抽取文档
- * （垂直练习单元：总结块 h2 标题块 + 其下写位空块，无原文——照着原文写复述等于抄答案，
- * DOM 事务直构）→ 打开。
- * 原文不进抽取文档，refs 溯源属性挂总结块上留给对比/判卷实时回查。
- * 不走 kramdown 整文解析（createDocWithMd 黑盒）：custom 属性直挂块、空块所见即所得、结构零魔法。
- * 期2 分叉：stream 有靶块（「这段练」）→ 节选语义（doExtractTargeted：整流照抄+靶段换
- * [锚点+写位]）；无靶 → 本函数整篇语义现状不动。
+ * 统一出卷（□2 出卷层，2026-09-13 仿写三角色战役）：doExtract 单一扫描语义——整篇/节选
+ * 分叉退役，extractSpans（extractCore，kernel 共用）是抽取文档构建蓝图唯一路径：
+ * 考核块（连续 target）聚段→段末原位换 [锚点+写位]（refs=段块 id，对比/判卷实时回查）；
+ * 段后紧邻提示块升格为锚点；无提示=空锚点占位（RECITE_EMPTY_NOTE，纯默写）照样出卷；
+ * 上下文块照抄（copyHTML 挂 keep）；未升格提示照抄+染色（copyHTML 挂 hint 新视觉）。
+ * 无考核段不出卷（提示改指「标记考核」——批注不再是出卷开关）。
+ * 老整篇文档（old+批注+无靶）在新语义下不出卷（受损），兼容三选一见 handoff □4。
  */
 export async function doExtract(plugin: Plugin, originID: string) {
     if (!originID) return;
@@ -267,48 +212,41 @@ export async function doExtract(plugin: Plugin, originID: string) {
         return;
     }
     const stream = await identifyNotes(originID);
-    debugLog("recite.identify", `doc=${originID} blocks=${stream.length} noteBlocks=${stream.filter(b => b.isNote).length} targets=${stream.filter(b => b.isTarget).length}`, "recite");
-    // 模式隐式路由（期2）：stream 有靶块 → 节选语义分叉；无靶 → 整篇语义现状不动
-    if (stream.some(b => b.isTarget)) {
-        await doExtractTargeted(plugin, originID, stream);
+    debugLog("recite.identify", `doc=${originID} blocks=${stream.length} summary=${stream.filter(b => b.role === "summary").length} targets=${stream.filter(b => b.isTarget).length} keeps=${stream.filter(b => b.isKeep).length}`, "recite");
+    const { spans, emptyNoteCount } = extractSpans(stream);
+    const say = (k: string, fb: string) => ((plugin as any)?.i18n?.[k] as string) || fb;
+    const unitCount = spans.filter(s => s.kind === "unit").length;
+    if (!unitCount) {
+        await siyuan.pushMsg(say("抽取无考核提示", "还没有标记考核内容：选中要练的块点浮条「这段练」"), 3000);
         return;
     }
-    const groups = groupNotes(stream);
-    if (!groups.length) {
-        await siyuan.pushMsg("未发现批注：仿写模式点亮后新插入的块才算批注", 3000);
-        return;
-    }
-    // 垂直练习单元：总结块（软换行 \n 连接为一块，改写 hN 标题块——级别跟设置项，挂 note/refs
-    // 属性）+ 其下一个空段块写位——点开即可落笔，无需手动回车。refs 留给对比/判卷实时回查，抽取文档里看不到原文。
-    // keep 上下文块（期1）：原文档 keep 块按文档序插进组前/文末——md2Divs 纯文本复制带格式，
-    // 每块挂 custom-recite-keep（readExtractDoc 据此跳过，不进复述）；抽取时快照、原文改了重抽才更新。
     const noteLevel = noteHeadingLevel((plugin as any).settingCfg);
-    const origins = originBlocksForGroups(stream, groups);
-    const keeps = keepBlocksForGroups(stream, groups);
-    const units = groups.flatMap((g, gi) => {
-        const md = g.blocks.map(b => b.markdown).join("\n");
+    const units = spans.flatMap(span => {
+        if (span.kind === "copy") return copyHTML(span.blocks, RECITE_KEEP);
+        if (span.kind === "hint") return copyHTML(span.blocks, RECITE_HINT);
+        // unit：升格提示=锚点文本（单行 heading 化接通大纲跳转/折叠）；空锚点=占位文案 heading
+        //（RECITE_EMPTY_NOTE 属性=纯默写题标记，readExtractDoc 出口归一空串——占位不漏下游）
+        if (!span.notes.length) {
+            const div = new DomParaBuilder(say("无提示锚点占位", "（无提示 · 凭记忆默写）")).build();
+            div.setAttribute(RECITE_NOTE, "1");
+            div.setAttribute(RECITE_REFS, span.targets.map(b => b.id).join(","));
+            div.setAttribute(RECITE_EMPTY_NOTE, "1");
+            return [noteBlockAsHeading(div, noteLevel).outerHTML, new DomParaBuilder().html()];
+        }
+        const md = span.notes.map(b => b.markdown).join("\n");
         const note = md2Divs(md, {
             [RECITE_NOTE]: "1",
-            [RECITE_REFS]: origins[gi].map(b => b.id).join(","),
+            [RECITE_REFS]: span.targets.map(b => b.id).join(","),
         } as AttrType);
-        // 单行题目块 → hN（接通官方大纲跳转/折叠，级别跟设置项默认 H6）；多行题保持段落，防内核 heading 单行序列化剥换行
         if (note[0] && noteFitsHeading(md)) noteBlockAsHeading(note[0], noteLevel);
-        return [...keepCopyHTML(keeps[gi]), ...note.map(n => n.outerHTML), new DomParaBuilder().html()];
-    }).concat(keepCopyHTML(keeps[keeps.length - 1])); // 尾部 keep 追加在抽取文档末尾
+        return [...note.map(n => n.outerHTML), new DomParaBuilder().html()];
+    });
+    debugLog("recite.extract", `origin=${originID} spans=${spans.length} units=${unitCount} emptyNotes=${emptyNoteCount}`, "recite");
     if (await rebuildExtractDoc(plugin, originID, units)) {
-        await siyuan.pushMsg(`抽取完成：${groups.length} 条批注`, 2000);
+        await siyuan.pushMsg(emptyNoteCount
+            ? say("抽取完成含默写", "抽取完成：{} 段练习（{} 段无提示，凭记忆默写）").replace("{}", String(unitCount)).replace("{}", String(emptyNoteCount))
+            : say("抽取完成", "抽取完成：{} 段练习").replace("{}", String(unitCount)), 3000);
     }
-}
-
-/**
- * 上下文块复制 HTML（期1 抽取共用层）：原文块 md2Divs 纯文本复制带格式，每块挂
- * custom-recite-keep（readExtractDoc 据此跳过，不进复述）；抽取时快照、原文改了重抽才更新。
- */
-function keepCopyHTML(blocks: ReciteBlock[]): string[] {
-    return blocks.flatMap(b => md2Divs(b.markdown).map(d => {
-        d.setAttribute(RECITE_KEEP, "1");
-        return d.outerHTML;
-    }));
 }
 
 /**
@@ -336,39 +274,16 @@ async function rebuildExtractDoc(plugin: Plugin, originID: string, units: string
 }
 
 /**
- * 节选语义抽取（期2「这段练」，2026-09-08）：targetSpans 切分整流——前文照抄 →
- * [锚点+写位] 原位换靶段 → 后文照抄；照抄块统一挂 RECITE_KEEP（上下文块单一概念，
- * readExtractDoc/对比/判卷过滤零分叉）；锚点 refs=靶段块 id（对比左栏实时回查原文）。
- * 全部靶无主（0 个练习单元）不建文档——与整篇语义「无批注不建」对齐，只提示。
- * 已知取舍（review P2-9 记录在案）：照抄保留原文块型——原文 heading 按原级进抽取文档，
- * 会主导其大纲/折叠层级（锚点默认 H6 可能居其下）；忠实语境优先，不动数据。
+ * 照抄块复制 HTML（统一出卷共用层）：原文块 md2Divs 纯文本复制带格式，每块挂指定标记
+ * ——copy span 挂 RECITE_KEEP（上下文语境，灰弱化）、hint span 挂 RECITE_HINT（卷子里的
+ * 提示块，琥珀染色）；readExtractDoc/writeZone/q-ctrl 都据此（或同判据）跳过，不进复述。
+ * 抽取时快照、原文改了重抽才更新。
  */
-async function doExtractTargeted(plugin: Plugin, originID: string, stream: ReciteBlock[]) {
-    const { spans, orphanCount } = targetSpans(stream);
-    const noteLevel = noteHeadingLevel((plugin as any).settingCfg);
-    const units = spans.flatMap(span => {
-        if (span.kind === "copy") return keepCopyHTML(span.blocks);
-        const md = span.notes.map(b => b.markdown).join("\n");
-        const note = md2Divs(md, {
-            [RECITE_NOTE]: "1",
-            [RECITE_REFS]: span.targets.map(b => b.id).join(","),
-        } as AttrType);
-        if (note[0] && noteFitsHeading(md)) noteBlockAsHeading(note[0], noteLevel);
-        return [...note.map(n => n.outerHTML), new DomParaBuilder().html()];
-    });
-    const unitCount = spans.filter(s => s.kind === "unit").length;
-    debugLog("recite.extract.targeted", `origin=${originID} spans=${spans.length} units=${unitCount} orphans=${orphanCount}`, "recite");
-    if (!unitCount) {
-        await siyuan.pushMsg(orphanCount > 1
-            ? `${orphanCount} 个靶还没有总结批注：在靶段后写好总结再抽取`
-            : "这个靶还没有总结批注：在靶段后写好总结再抽取", 3000);
-        return;
-    }
-    if (await rebuildExtractDoc(plugin, originID, units)) {
-        await siyuan.pushMsg(orphanCount
-            ? `抽取完成：${unitCount} 段练习；${orphanCount} 个靶还没有总结批注（该段原文已照常保留）`
-            : `抽取完成：${unitCount} 段练习`, 3000);
-    }
+function copyHTML(blocks: ReciteBlock[], attr: string): string[] {
+    return blocks.flatMap(b => md2Divs(b.markdown).map(d => {
+        d.setAttribute(attr, "1");
+        return d.outerHTML;
+    }));
 }
 
 /**

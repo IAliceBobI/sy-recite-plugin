@@ -10,7 +10,7 @@
 // 无效，两种 id 格式实测均被重置）——故控制块走「插后回填」拿真实锚点 id。
 import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
-import { RECITE_NOTE, RECITE_KEEP } from "./constants";
+import { RECITE_NOTE, RECITE_KEEP, RECITE_HINT, RECITE_WRITTEN } from "./constants";
 
 export const Q_CTRL_BLOCK_TYPE = "q-ctrl";
 export const Q_CTRL_FENCE = ";;;sy-recite-plugin/q-ctrl";
@@ -84,13 +84,14 @@ export function supportsQCtrlBlock(): boolean {
 }
 
 /**
- * 回填区间扫描纯函数（backfillQCtrlBlocks 核心，单测面）：顶层块的 note/keep 属性序列 →
- * 每题 [锚点id, 区间末块id]。区间末=锚点到下一锚点（或文末）之间最后一个非 keep 块——
- * 抽取时刻即写位（空写位是区间末块；多行题续行在锚点后不破坏判定）；keep 段在组前/文末
- * 属区间外不挪落点（判定顺序 keep 先，与 readExtractDoc 一致消灭未来分叉点，review P2-5）。
+ * 回填区间扫描纯函数（backfillQCtrlBlocks 核心，单测面）：顶层块的 note/keep/hint 属性序列 →
+ * 每题 [锚点id, 区间末块id]。区间末=锚点到下一锚点（或文末）之间最后一个非 keep/hint 块——
+ * 抽取时刻即写位（空写位是区间末块；多行题续行在锚点后不破坏判定）；keep 段与 hint（卷子里
+ * 的未升格提示，□2）在组前/组间/文末属区间外不挪落点（判定顺序 keep/hint 先，与
+ * readExtractDoc 一致消灭未来分叉点，review P2-5）。
  * 锚点后无普通块（理论不发生——units 每题带写位）跳过该题。
  */
-export function qCtrlAnchorTails(props: { id: string; note?: string | null; keep?: string | null }[]): [string, string][] {
+export function qCtrlAnchorTails(props: { id: string; note?: string | null; keep?: string | null; hint?: string | null; written?: string | null }[]): [string, string][] {
     const pairs: [string, string][] = [];
     let noteID: string | null = null;
     let tailID: string | null = null;
@@ -100,7 +101,7 @@ export function qCtrlAnchorTails(props: { id: string; note?: string | null; keep
         tailID = null;
     };
     props.forEach(p => {
-        if (p.keep) return;                    // keep：区间外不挪落点
+        if (p.keep || p.hint || p.written) return; // keep/hint/written：区间外不挪落点（三处同判）
         if (p.note) { flush(); noteID = p.id; } // 锚点：开新题（自己不算写位）
         else tailID = p.id;                     // 普通块（写位/复述/续行）：刷新区间末
     });
@@ -121,7 +122,7 @@ export async function backfillQCtrlBlocks(extractID: string): Promise<number> {
     if (!ials) return 0;
     const pairs = qCtrlAnchorTails(children.map(c => {
         const ial = ials[c.id] ?? {};
-        return { id: c.id, note: ial[RECITE_NOTE], keep: ial[RECITE_KEEP] };
+        return { id: c.id, note: ial[RECITE_NOTE], keep: ial[RECITE_KEEP], hint: ial[RECITE_HINT], written: ial[RECITE_WRITTEN] };
     }));
     const ops: IOperation[] = pairs.flatMap(([noteID, tailID]) =>
         siyuan.transInsertBlocksAfter([buildQCtrlBlockDOM(noteID)], tailID));

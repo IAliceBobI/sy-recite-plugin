@@ -334,8 +334,10 @@ body:not(.recite-unpaid)[data-recite-bg="custom"] {
 
 // ---- 项2：原文·仿写模式双色区分（付费态）----
 // 你的句 = 仿写模式（wysiwyg 由 highlight 加 .recite-practicing）下无 custom-recite-old 的顶层块
-// （进入仿写后用户新写/批注的句子，属性判据随块 IAL 走，渲染同帧生效）：accent 字色 + 浅底 + 左侧 3px 竖条
-body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]) {
+// （进入仿写后用户新写/批注的句子，属性判据随块 IAL 走，渲染同帧生效）：accent 字色 + 浅底 + 左侧 3px 竖条。
+// □1 三角色（2026-09-13）：挂 keep/靶的新写块排除出「你的句」染色——角色判定序里它们是
+// 上下文/考核（blockRole 同序），各自的标记规则自带视觉，不叠总结色
+body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target]) {
     color: var(--recite-accent);
     background-color: var(--recite-accent-soft);
     border-inline-start: 3px solid var(--recite-accent);
@@ -343,25 +345,21 @@ body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:
     padding-inline: 4px;
 }
 // 作者句 = 有 custom-recite-old 的原文块：中性弱化（轻微降不透明度），让「你的句」跳出来、
-// 不另加色（克制，避免两套颜色互相打架）；keep 块（被点名保留的原文）与靶块（圈定练的段）
-// 不进弱化集——各自的标记规则自带「跳出来」的竖线，压着 0.75 会互相抵消
-body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old]:not([custom-recite-keep]):not([custom-recite-target]) {
+// 不另加色（克制，避免两套颜色互相打架）；keep 块（含上下文认领——□4 起「设为上下文」对
+// 新写块挂 old，与存量原文同一视觉）与靶块不进弱化集的是靶——靶自带底+线压 0.75 会互相抵消
+body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old]:not([custom-recite-target]) {
     opacity: 0.75;
 }
 
-// ---- 期1 keep 上下文块（原文档侧，2026-09-08）----
-// 被点名「留作上下文」的原文块：左缘青绿细竖条（与「你的句」accent 竖线同构、换第二主题色
-// =「作者句中被点名保留的」）。免费功能免费视觉——不包 unpaid 门禁（unpaid 下双色染色退场
-// 但 keep 标记照常渲染：它标记的是数据语义「这块会复制进练习文档」）。wz-norule 竖线开关
-// 同族跟随（用户嫌竖线像中括号时一并退场）。
-.protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old][custom-recite-keep] {
-    border-inline-start: 3px solid var(--recite-yours);
-    border-radius: 4px;
-    padding-inline: 4px;
-}
-body[data-recite-wz-norule] .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old][custom-recite-keep] {
-    border-inline-start: none;
-    padding-inline: 0;
+// ---- 期1 keep 上下文块（原文档侧，2026-09-08；□1 泛化；□4 视觉语境化）----
+// keep=语境（「这块照抄进练习文档」），视觉向原文弱化对齐、竖线退役——□4 bear 反馈：新写
+// 块设上下文后仍带竖线标记，与「你的句」竖线形态撞（绿系皮肤下双胞胎），且语义上「当作
+// 原文」就不该保留「新写/被点名」的强调感。□4 起新写认领走挂 old（上方弱化规则），
+// 此规则只剩老 keep 数据与 MCP 点名场景的兜底；「上下文」钮点存量 keep 块=清标回纯 old。
+// 免费功能免费视觉——不包 unpaid 门禁的语义不变，但弱化与双色染色同族（unpaid 朴素退化
+// =不弱化），随族包门禁
+body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-keep]:not([custom-recite-old]):not([custom-recite-target]) {
+    opacity: 0.75;
 }
 
 // ---- 期2 靶段（原文档侧，「这段练」2026-09-08）----
@@ -381,6 +379,23 @@ body[data-recite-wz-norule] .protyle-wysiwyg.recite-practicing > div[data-node-i
     padding-inline: 0;
 }
 
+// ---- □3 written 温和退出标记（原文档侧，2026-09-13）：练习时写的字淡背景 ----
+// 温和退出但字留痕：挂 custom-recite-written 的顶层块染 faint accent 淡底（8%，比靶段
+// 12%/「你的句」14% 更弱——「退场后的余温」而非「在场的强调」；vision 评审 7% 小屏/低亮度
+// 有退化风险，提到 8% 留余量）。三语义：① 不限
+// .recite-practicing——标记的意义就是退出后回头看仍在（持久标记）；重进练习时让位
+// 「你的句」角色染色（written 块=总结身份），退出后又回来；② 包 unpaid 门禁（与双色
+// 区分同族——unpaid 朴素退化：字保留无淡标记）；③ wz-norule 开关跟随标记族（底退）。
+body:not(.recite-unpaid) .protyle-wysiwyg:not(.recite-practicing) > div[data-node-id][custom-recite-written="1"] {
+    background-color: color-mix(in srgb, var(--recite-accent) 8%, transparent);
+    border-radius: 4px;
+    padding-inline: 4px;
+}
+body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg:not(.recite-practicing) > div[data-node-id][custom-recite-written="1"] {
+    background-color: transparent;
+    padding-inline: 0;
+}
+
 // ---- 期1 上下文块（抽取文档侧）：原文 keep 的复制 ----
 // 语境陪衬：弱化灰 + 略小字号——不与锚点（accent 字色加粗）和写位（竖线+浅底）抢层次，
 // 「看的是语境、写的是复述」一眼分层。免费功能免费视觉，不包 unpaid 门禁。wysiwyg 挂
@@ -395,6 +410,29 @@ body[data-recite-wz-norule] .protyle-wysiwyg.recite-practicing > div[data-node-i
 body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] {
     color: var(--recite-accent);
     font-weight: 500;
+}
+
+// ---- 抽取文档中的提示块（□2 统一出卷）：未升格总结的照抄 ----
+// 卷子里的提示=参考材料（自写族琥珀标记，与上下文灰弱化、锚点字色加粗三级分层）：左竖线
+// +浅琥珀底、字色字重不变——「看的时候找得到、写的时候不打扰」。染色族包 unpaid 门禁
+// （朴素降级=照抄可见不染色）；免费逻辑零依赖（readExtractDoc 按 hint 属性隔离，与 CSS 无关）。
+body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-hint="1"] {
+    border-inline-start: 3px solid var(--recite-accent);
+    background-color: var(--recite-accent-soft);
+    border-radius: 4px;
+    padding-inline: 4px;
+}
+
+// ---- 空锚点（□2 纯默写题）：占位文案弱化 ----
+// 无提示考核段的锚点 heading 自带占位文案（数据层快照、readExtractDoc 出口归一空串），
+// 弱视觉=正常字色+斜体+降透明度。前缀 body 升特异性到 (0,3,2)——与上方 note 快照规则
+// 同级靠源顺序胜出（裸 (0,3,1) 会被 accent 字色压死，vision review P1 实锤），与真题目
+// （accent 字色加粗）一眼可辨。可用性标记不包 unpaid 门禁（正文色继承保证对比度）。
+body .protyle-wysiwyg div[custom-recite-note="1"][custom-recite-empty-note="1"] {
+    color: inherit;
+    font-weight: 400;
+    font-style: italic;
+    opacity: 0.75;
 }
 
 // ---- 项3：抽取文档·复述写作区（付费态）----
@@ -440,7 +478,7 @@ body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg div[data-node-i
     border-inline-start: none;
     padding-inline-start: 0;
 }
-body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]) {
+body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target]) {
     border-inline-start: none;
     padding-inline-start: 0;
 }
@@ -504,12 +542,12 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-cmp-card]::before {
 // 已批注句退柔和黄底（2026-08-25 反馈调柔：mark 原生 0.4 太亮刺眼，降透明度到 0.2 保「能分清
 // 标没标」底线；不用 --b3-protyle-inline-mark-background——部分主题该值恒 0.4 拉不柔），未批注句
 // 原样；作者句不弱化（免费态全文档一个视觉层级）
-body.recite-unpaid .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]) {
+body.recite-unpaid .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target]) {
     background-color: rgba(255, 208, 0, 0.2);
     border-radius: var(--b3-border-radius);
 }
 // 暗主题黄底对比更刺眼，再降一档
-html[data-theme-mode="dark"] body.recite-unpaid .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]) {
+html[data-theme-mode="dark"] body.recite-unpaid .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target]) {
     background-color: rgba(255, 208, 0, 0.13);
 }
 
@@ -716,13 +754,17 @@ html[data-theme-mode="dark"] .recite-floatbar {
 .recite-floatbar button:hover {
     transform: translateY(-1px);
 }
-// 破坏性/次要操作（删除/重新写）ghost 细边弱字，hover 边字转淡红（思源 error 色）
+// 次要操作（退出=温和语义）ghost 细边弱字，hover 中性提亮；破坏性操作（删除）挂
+// recite-btn-danger hover 才转淡红（思源 error 色）——三角色战役后退出不再危险示色
 .recite-floatbar button.recite-btn-ghost {
     background: transparent;
     color: var(--recite-fb-title);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-theme-on-surface) 28%, transparent);
 }
 .recite-floatbar button.recite-btn-ghost:hover {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-theme-on-surface) 45%, transparent);
+}
+.recite-floatbar button.recite-btn-ghost.recite-btn-danger:hover {
     color: var(--b3-theme-error);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-theme-error) 55%, transparent);
 }
@@ -782,6 +824,7 @@ html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin=
 body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar button {
     background: linear-gradient(135deg, #e6c079, #d4a960);
     color: #2a2b2e;
+    --recite-fb-btn-fg: #2a2b2e; // 高亮内环色跟字色走（浅金底白环 2:1 不可辨，vision P2）
 }
 body:not(.recite-unpaid)[data-recite-floatbar-skin="ink-mist"] .recite-floatbar button:hover {
     box-shadow: 0 4px 12px rgba(212, 169, 96, 0.45); // 金色投影
@@ -801,6 +844,7 @@ html[data-theme-mode="dark"] body:not(.recite-unpaid)[data-recite-floatbar-skin=
 body:not(.recite-unpaid)[data-recite-floatbar-skin="xuan"] .recite-floatbar button {
     background: linear-gradient(135deg, #e6c079, #d4a960);
     color: #3a2c18; // 深褐字
+    --recite-fb-btn-fg: #3a2c18; // 高亮内环色跟字色走（同 ink-mist）
 }
 body:not(.recite-unpaid)[data-recite-floatbar-skin="xuan"] .recite-floatbar button:hover {
     box-shadow: 0 4px 12px rgba(180, 140, 80, 0.4);
@@ -2126,4 +2170,22 @@ html[data-theme-mode="dark"] .recite-qctrl-btn { opacity: .8; }
         padding-bottom: 4px;
     }
     .recite-qctrl-panel__mine { padding-top: 6px; }
+}
+
+
+// ---- □1 三钮当前角色高亮（2026-09-13 三角色战役；review P1-2 修正位） ----
+// 选中块严格多数角色的钮点亮：按钮字色内描边环（accent 底上高对比）+ 外一圈 accent 光环。
+// 放文件尾 + 双类名提特异性 (0,3,2)：Pro 皮肤段的 button:hover box-shadow 是 (0,3,1) 且后置，
+// 规则放前面会被 hover 整条替换（内环光环同时消失，「当前角色」指示归零）；:hover 态显式
+// 叠加皮肤式投影，内环保住。只有三个角色钮挂本类（判定与高亮同序 blockRole）。
+body .recite-floatbar button.recite-btn-on.recite-btn-on {
+    box-shadow: inset 0 0 0 2px var(--recite-fb-btn-fg), 0 0 0 2.5px color-mix(in srgb, var(--recite-accent) 40%, transparent);
+}
+body .recite-floatbar button.recite-btn-on.recite-btn-on:hover {
+    box-shadow: inset 0 0 0 2px var(--recite-fb-btn-fg), 0 0 0 2.5px color-mix(in srgb, var(--recite-accent) 55%, transparent),
+        0 4px 12px color-mix(in srgb, var(--recite-accent) 30%, transparent);
+}
+// 移动端顶栏：btns 容器 overflow-x:auto 裁掉钮外元素的光环——顶栏态只留内描边环（(0,4,2) 压过上方通用态）
+body .recite-floatbar.recite-floatbar--topbar button.recite-btn-on.recite-btn-on {
+    box-shadow: inset 0 0 0 2px var(--recite-fb-btn-fg);
 }

@@ -1,12 +1,13 @@
 // recite MCP 工具实现（□3）：单工具 recite + action 枚举。查询免费（read_origin/
 // list_exercises/get_grade/pro_status/echo），build_drill=Pro（按能力收费不分通道，
-// 与 UI 的 AI 拆分同锁）。装配序列=□2 设计定稿：dry 校验零副作用 → 进仿写模式（仅未进时）
-// → 删旧 AI 锚点插新锚 → 抽取文档单事务重建；幂等=整场重建（对齐 aiSplit 重跑+doExtract
-// 单例删建既有语义）。
+// 与 UI 的 AI 拆分同锁）。装配序列：dry 校验零副作用 → 进仿写模式（仅未进时）→ 删旧
+// AI 锚点插新锚 → 节内打靶（锚点认领节标 R_TARGET，□2 统一出卷：锚点配考核段才成题）
+// → 抽取文档单事务重建（extractSpans 与前端共用）；幂等=整场重建（对齐 aiSplit 重跑+
+// doExtract 单例删建既有语义）。
 import { objectSchema, successResponse, errorResponse, wrapHandler, type ToolDefinition } from "./common";
 import * as api from "../api";
 import { checkRecitePro, proGuidance, readSettings } from "../activation";
-import { groupNotes, originBlocksForGroups, keepBlocksForGroups, noteFitsHeading, derivedTitle, noteHeadingLevel, type ReciteBlock } from "../../extractCore";
+import { extractSpans, contextBlocksToTarget, noteFitsHeading, derivedTitle, noteHeadingLevel, toReciteBlock, type ReciteBlock } from "../../extractCore";
 import { parseAiGradeContent } from "../../aiGradeBlock";
 import { paraHTML, emptyParaHTML, headingHTML } from "../blockHTML";
 
@@ -21,27 +22,30 @@ const R_NOTE = "custom-recite-note";
 const R_REFS = "custom-recite-refs";
 const R_AI = "custom-recite-ai";
 const R_TARGET = "custom-recite-target";
+const R_HINT = "custom-recite-hint";
+const R_EMPTY = "custom-recite-empty-note";
+const R_WRITTEN = "custom-recite-written";
 const EXTRACT_TITLE = "抽取";
+// 空锚点占位文案（kernel 无 i18n 通道——提示文案中文现状，同本文件 hint 字段）：落库纯视觉，
+// readExtractDoc 出口按 R_EMPTY 属性归一空串，判卷走纯默写
+const EMPTY_NOTE_TEXT = "（无提示 · 凭记忆默写）";
 const AI_GRADE_FENCE = ";;;sy-recite-plugin/ai-grade";
 const AI_SLUGS = ["recite", "imitate", "direction"];
 
 type Attrs = Record<string, string>;
 
-/** 读原文顶层流（文档序）：批注=无 old 标记且非空；AI 锚点单独归类；同 identifyNotes 判据 */
+/** 读原文顶层流（文档序）：□1 起统一 toReciteBlock 三角色判定（与前端 identifyNotes 同源）；AI 锚点单独归类 */
 async function readStream(docID: string): Promise<ReciteBlock[]> {
     const children = await api.getChildBlocks(docID);
     const rows = await api.rowsById(children.map(c => c.id), "markdown");
     const ials = await api.batchGetBlockAttrs(children.map(c => c.id)).catch(() => null);
     return children.map(c => {
         const ial: Attrs = ials?.[c.id] ?? {};
-        const markdown = rows.get(c.id)?.markdown ?? "";
-        return {
-            id: c.id,
-            markdown,
-            isNote: !ial[R_OLD] && !!markdown.trim(),
+        return toReciteBlock(c.id, rows.get(c.id)?.markdown ?? "", {
+            isOld: !!ial[R_OLD],
             isKeep: !!ial[R_KEEP],
             isTarget: !!ial[R_TARGET],
-        };
+        });
     });
 }
 
@@ -57,10 +61,11 @@ async function readOrigin(input: Record<string, any>) {
         const aiSlug = ials[b.id]?.[R_AI];
         let kind = "original";
         if (AI_SLUGS.includes(aiSlug)) kind = "ai-anchor";
-        else if (b.isTarget) kind = "target";
+        else if (b.role === "target") kind = "target";
         else if (!docAttrs[R_START]) kind = "original"; // 未进仿写模式：批注概念尚不存在，全显原文
-        else if (b.isNote) kind = "note";
-        else if (!b.markdown.trim()) kind = "empty";
+        else if (b.role === "summary") kind = "note";
+        else if (b.role === "none") kind = "empty";
+        else kind = b.isOld ? "original" : "context"; // 上下文角色：存量=原文；挂 keep 的新写块=用户点名进语境
         return {
             index: i + 1,
             id: b.id,
@@ -163,9 +168,10 @@ async function buildDrill(input: Record<string, any>) {
     const childIds = new Set(children.map(c => c.id));
     const rows = await api.rowsById(children.map(c => c.id), "markdown");
     const ials = await api.batchGetBlockAttrs(children.map(c => c.id)).catch(() => ({} as Record<string, Attrs>));
-    // 靶块文档走节选语义（前端 doExtractTargeted 分叉），kernel v1 不装配——原地拒绝
+    // 含手打靶块的文档不做 MCP 装配（装配=全新现场：考核布局由锚点认领节决定，与用户手打靶
+    // 语义交叠）——原地拒绝，请在原文档前端抽取
     if (children.some(c => ials[c.id]?.[R_TARGET])) {
-        return errorResponse("该文档含「这段练」靶块（节选语义），暂不支持 MCP 装配，请在原文档前端抽取");
+        return errorResponse("该文档已手打「这段练」考核段，暂不支持 MCP 装配（请清除靶标后重试，或在原文档前端抽取）");
     }
     const seen = new Set<string>();
     const anchors: { after: string; text: string }[] = [];
@@ -191,7 +197,9 @@ async function buildDrill(input: Record<string, any>) {
         }
         empties = children.slice(end).map(c => c.id);
         if (empties.length) await api.transactions(empties.map(id => ({ action: "delete", id })));
-        const remain = children.slice(0, end).map(c => c.id);
+        // written 块（前端温和退出标记的「练习时写的字」）跳过不打 old——保持总结身份、
+        // 练习连续（与前端 enterPractice 同语义，防两处漂移；多轮装配场景 written 块常在）
+        const remain = children.slice(0, end).filter(c => !ials[c.id]?.[R_WRITTEN]).map(c => c.id);
         if (remain.length) {
             await api.transactions(remain.map(id => ({ action: "setAttrs", id, data: JSON.stringify({ [R_OLD]: "1" }) })));
         }
@@ -248,7 +256,7 @@ async function buildDrill(input: Record<string, any>) {
     const stream: ReciteBlock[] = [];
     const pushAnchorsOf = (baseID: string) => {
         for (const a of anchorsByKey.get(baseID) ?? []) {
-            stream.push({ id: a.id, markdown: a.text, isNote: true });
+            stream.push(toReciteBlock(a.id, a.text, {})); // AI 锚点=批注（总结角色）
         }
     };
     for (const c of children) {
@@ -256,41 +264,56 @@ async function buildDrill(input: Record<string, any>) {
         const ial: Attrs = ials[c.id] ?? {};
         const markdown = rows.get(c.id)?.markdown ?? "";
         // 本调用进过模式 → 基线块全部刚打上 old 标（批注身份只剩新锚点）；未进则用干相属性
-        stream.push({
-            id: c.id,
-            markdown,
-            isNote: enteredPractice ? false : !ial[R_OLD] && !!markdown.trim(),
+        stream.push(toReciteBlock(c.id, markdown, {
+            isOld: enteredPractice ? !ial[R_WRITTEN] : !!ial[R_OLD],
             isKeep: !!ial[R_KEEP],
-        });
+        }));
         pushAnchorsOf(c.id);
     }
     // 挂在流首之前（after 指向首块前不存在——被重定向到 ""）的锚点兜底追加到流尾
-    (anchorsByKey.get("") ?? []).forEach(a => stream.push({ id: a.id, markdown: a.text, isNote: true }));
-    const groups = groupNotes(stream);
-    if (!groups.length) return errorResponse("锚点插入后未识别到批注（异常状态，请 read_origin 检查）");
-    const origins = originBlocksForGroups(stream, groups);
-    const keeps = keepBlocksForGroups(stream, groups);
+    (anchorsByKey.get("") ?? []).forEach(a => stream.push(toReciteBlock(a.id, a.text, {})));
+
+    // ── 节内打靶（□2 统一出卷：锚点要成题，须「考核段末后紧邻提示」配对）──
+    // 锚点认领节=文首到最后一个锚定块：节内 context 块（原文，含 keep）打 R_TARGET（锚点插
+    // 在锚定块紧后=段末后第一个块，配对成立）；手写批注不打（保持提示身份，卷里 hint 照抄）；
+    // 最后一个锚定块之后的尾部原文不认领（照抄进卷尾——旧整篇语义末组吞尾 refs 的 hack 退役）
+    const anchorAfterIDs = new Set([...anchorsByKey.keys()].filter(k => k));
+    const targetIDs = new Set(contextBlocksToTarget(stream, anchorAfterIDs));
+    if (targetIDs.size) {
+        await api.transactions([...targetIDs].map(id => ({
+            action: "setAttrs", id, data: JSON.stringify({ [R_TARGET]: "1", [R_KEEP]: "" }),
+        })));
+    }
+    const marked = stream.map(b => targetIDs.has(b.id)
+        ? { ...b, isTarget: true, role: "target" as const } : b);
+
+    // ── 统一装配（extractSpans 与前端 doExtract 共用一份，防两处漂移）──
+    const { spans, emptyNoteCount } = extractSpans(marked);
+    const unitCount = spans.filter(s => s.kind === "unit").length;
+    if (!unitCount) return errorResponse("认领节内没有可考核的原文块：锚点的 after 须指向原文块（指向总结/批注块认领不到考核内容）");
     const settings = await readSettings();
     const noteLevel = noteHeadingLevel(settings);
-    // units 与回显 id 的配对记录：note 单元需要二轮挂 note/refs 属性
-    const noteUnits: { refs: string }[] = [];
+    // units 与回显 id 的配对记录：二轮挂 note/refs/keep/hint（事务插入的块 id 恒被内核重生成）
+    type UnitAttr = { kind: "keep" } | { kind: "hint" } | { kind: "note"; refs: string; empty: boolean };
+    const noteUnits: (UnitAttr | null)[] = [];
     const units: string[] = [];
-    groups.forEach((g, gi) => {
-        for (const k of keeps[gi]) {
-            units.push(paraHTML(k.markdown, api.newNodeID()));
+    for (const span of spans) {
+        if (span.kind === "copy" || span.kind === "hint") {
+            for (const b of span.blocks) {
+                units.push(paraHTML(b.markdown, api.newNodeID()));
+                noteUnits.push(span.kind === "copy" ? { kind: "keep" } : { kind: "hint" });
+            }
+        } else {
+            // 空锚点（notes 空，防御形态）：占位文案 heading + R_EMPTY 标记——前端 readExtractDoc
+            // 出口归一空串，判卷走纯默写（与 doExtract 同数据契约）
+            const text = span.notes.map(b => b.markdown).join("\n") || EMPTY_NOTE_TEXT;
+            units.push(noteFitsHeading(text)
+                ? headingHTML(text, noteLevel, api.newNodeID())
+                : paraHTML(text, api.newNodeID()));
+            noteUnits.push({ kind: "note", refs: span.targets.map(b => b.id).join(","), empty: !span.notes.length });
+            units.push(emptyParaHTML(api.newNodeID()));
             noteUnits.push(null);
         }
-        const md = g.blocks.map(b => b.markdown).join("\n");
-        units.push(noteFitsHeading(md)
-            ? headingHTML(md, noteLevel, api.newNodeID())
-            : paraHTML(md, api.newNodeID()));
-        noteUnits.push({ refs: origins[gi].map(b => b.id).join(",") });
-        units.push(emptyParaHTML(api.newNodeID()));
-        noteUnits.push(null);
-    });
-    for (const k of keeps[keeps.length - 1]) {
-        units.push(paraHTML(k.markdown, api.newNodeID()));
-        noteUnits.push(null);
     }
 
     const originInfo = await api.getBlockInfo(originID);
@@ -316,24 +339,32 @@ async function buildDrill(input: Record<string, any>) {
     // 反序逐条 previousID=seed → 最终顺序=units 文档序；同事务删种子（insertUnitsDoc 同构）
     const ops: api.IOperation[] = units.slice().reverse().map(data => ({ action: "insert", data, previousID: seed }));
     if (seed) ops.push({ action: "delete", id: seed });
-    else ops.splice(0, ops.length, ...units.map(data => ({ action: "insert", data, parentID: extractID })));
+    else ops.splice(0, ops.length, ...units.slice().reverse().map(data => ({ action: "insert", data, parentID: extractID })));
     const echoed = await api.transactions(ops);
     // 回显 id 与 units 对位：echoed 按提交序（=units 反序）返回 insert op 的真实块 id
     const realIDs = echoed.slice(0, units.length).map(op => op.id ?? "");
     const ordered = realIDs.slice().reverse(); // 还原文档序
     const attrOps = [] as api.IOperation[];
-    noteUnits.forEach((nu, i) => {
-        if (nu && ordered[i]) {
-            attrOps.push({
-                action: "setAttrs", id: ordered[i],
-                data: JSON.stringify({ [R_NOTE]: "1", [R_REFS]: nu.refs }),
-            });
+    ordered.forEach((id, i) => {
+        const nu = noteUnits[i];
+        if (!nu || !id) return;
+        // keep/hint 照抄块挂各自标记（readExtractDoc/writeZone/q-ctrl 据此隔离，不进复述——
+        // 修复老装配 keep 照抄裸块被误读成 writes 卷进对比的既有 bug）；note 锚点挂 refs
+        //（+R_EMPTY 空锚点标记）
+        const attrs: Attrs = {};
+        if (nu.kind === "keep") attrs[R_KEEP] = "1";
+        else if (nu.kind === "hint") attrs[R_HINT] = "1";
+        else {
+            attrs[R_NOTE] = "1";
+            attrs[R_REFS] = nu.refs;
+            if (nu.empty) attrs[R_EMPTY] = "1";
         }
+        attrOps.push({ action: "setAttrs", id, data: JSON.stringify(attrs) });
     });
     if (attrOps.length) await api.transactions(attrOps);
     await api.setBlockAttrs(extractID, { [R_EXTRACT]: originID });
 
-    await siyuan.logger.info(`[kernel] build_drill origin=${originID} mode=${mode} inserted=${inserted.length} failed=${failed} skipped=${skipped} units=${groups.length} extract=${extractID} entered=${enteredPractice}`);
+    await siyuan.logger.info(`[kernel] build_drill origin=${originID} mode=${mode} inserted=${inserted.length} failed=${failed} skipped=${skipped} targets=${targetIDs.size} units=${unitCount} emptyNotes=${emptyNoteCount} extract=${extractID} entered=${enteredPractice}`);
     return successResponse({
         originID,
         extractID,
@@ -341,9 +372,11 @@ async function buildDrill(input: Record<string, any>) {
         anchorsInserted: inserted.length,
         anchorsFailed: failed,
         anchorsSkipped: skipped,
-        practiceUnits: groups.length,
+        targetsMarked: targetIDs.size,
+        practiceUnits: unitCount,
+        emptyNotes: emptyNoteCount,
         enteredPractice,
-        hint: "练习现场装配完成：抽取文档已重建，写位为空。对比/AI 判卷在前端抽取文档照常使用。",
+        hint: "练习现场装配完成：锚点认领节已标记考核段、抽取文档已重建，写位为空。对比/AI 判卷在前端抽取文档照常使用；点「重新写」可补齐每题的单题对照面板。",
     });
 }
 
@@ -356,10 +389,13 @@ function localTS(): string {
 const reciteDescription = [
     "仿写练习（读后重写训练）：读文档结构、查询练习与判卷数据、一键装配练习现场。",
     "典型流程：① read_origin 读原文顶层块流（含块 id 与既有锚点）→ 自行通读理解、按叙事节拍设计锚点",
-    "→ ② build_drill 传入锚点数组装配现场（原文进仿写模式+插锚点+重建抽取文档）→ 用户在抽取文档写复述",
-    "→ 前端对比/AI 判卷 → ③ get_grade 查判卷结果做精评。锚点文风三选一（mode）：recite=节拍名+关键词",
+    "→ ② build_drill 传入锚点数组装配练习现场（原文进仿写模式+锚点认领节自动标记考核段+重建抽取文档）",
+    "→ 用户在抽取文档写复述 → 前端对比/AI 判卷 → ③ get_grade 查判卷结果做精评。锚点文风三选一（mode）：recite=节拍名+关键词",
     "（不写完整句）；imitate=技法讲解；direction=剧情一句+情绪走向。查询全部免费；build_drill 是 Pro 能力，",
     "未激活时返回引导文案（可转述用户）。日期类参数支持 'today' 语义值。",
+    "read_origin 的 kind 词表：original=存量原文 / context=用户点名保留的新写块（照抄进卷不参与考核；",
+    "build_drill 装配时锚点认领节内的原文块（含 context）会被标记为考核段，介意者调整锚点位置）",
+    " / target=用户圈定的考核段 / note=用户写的总结 / ai-anchor=插件旧锚点 / empty=空块。",
 ].join("");
 
 export function createReciteTool(): ToolDefinition {

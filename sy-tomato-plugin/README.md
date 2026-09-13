@@ -4,7 +4,7 @@ The all-in-one productivity toolbox for SiYuan — one plugin slot for a whole n
 
 ## Highlights
 
-- 🧰 **All-in-one toolbox** — 15 domains, 40+ features: focus, reading, review, capture, references, visualization, AI. One install replaces a row of plugins
+- 🧰 **All-in-one toolbox** — 40+ features grouped by scenario: focus, reading, review, capture, references, visualization, AI. One install replaces a row of plugins
 - 🍅 **Status-bar Pomodoro** — one click to start; focus/break cycles rotate automatically, with configurable backgrounds and sounds
 - 🤖 **AI power** — knowledge-base Q&A grounded in your own notes, streaming answers with sources; annotation discussions can be saved as content blocks
 - 📖 **Reading input loop** — reading points remember where you stopped, annotations mark as you read, and what you read turns into review cards in one click
@@ -52,21 +52,37 @@ The all-in-one productivity toolbox for SiYuan — one plugin slot for a whole n
 ### 🗂 Doc Organization & Export
 
 - **Workspace export** — export your workspace as Markdown, with allow/deny lists and automatic incremental runs
-- **Document merging** — merge multiple documents in one click
-- **Prefix document tree** — organize the doc tree by title prefixes
+- **Document merging (Pro)** — merge multiple documents in one click
 - **DailyNote tools** — navigate between journals, review past days, move content in bulk
 
 ### 🤖 AI
 
 - **AI knowledge-base Q&A** — ask questions over your own notes, streaming answers with sources
-- **coze Q&A** — connect Doubao / coze agents
 
 > Plus a row of editor mini-tools: enhanced folding, multi-select, list tools, copy-as-image, document aliases… right in the context menu, no extra plugin slot needed.
+
+## Free vs Pro
+
+One rule of thumb: **everything you need to read, annotate, memorize and stay focused is free — the whole core loop, unlimited**. Pro adds what Pro is good at: automation that spares you repetitive clicks, bulk actions, and making the workspace yours.
+
+| Domain | Free | Pro adds |
+|---|---|---|
+| 🍅 Pomodoro | Timer, focus/break rotation, custom durations & sounds | Custom background image + opacity |
+| 📖 Annotations | All mark styles, panel, all four panel skins, light AI chat under annotations | Invite AI roles into discussions; compress a discussion into a note; collect annotations with sub-document recursion; locate references from the panel (first 3 free) |
+| 🃏 Flashcards | Create, review, priorities, per-document tab review, image cloze, broken-card cleanup | Spread remaining cards over the coming hours (configurable); auto-hide priority bars |
+| ⚡ Capture | Photo notes, quick notes, reading points | Cloud-sync conflict guard for photo notes; delete selection after note creation; draft flip |
+| 🔗 References | Sync blocks, bidirectional links, text-to-citation, bottom & database backlinks | Space-to-reference typing trigger; pinyin aliases; render refs as tags; embed bilinks; sync-block menu & origin links; ref-count backlink locate; jump-to-bottom button on the bottom backlink panel; list conversion with refs (first 3 free) |
+| 🧭 Visualization | Block graph (incl. click-to-jump), block editor, mind guides | Mind-wire line styles & relation colors |
+| 🗂 Export | Workspace export on demand, DailyNote tools | Scheduled incremental export; merge documents into one file; always jump to bottom when opening today's note |
+| 🎈 Floating ball | Jump to docs & keymaps from the ball | Extended list capacity |
+| 🤖 AI Q&A | Free, fully | — |
+
+**Pro is ¥72, one-time.** Purchase & activation: plugin settings → order → paste the redemption code back in settings — it binds to your SiYuan account automatically and recovers on any device where you log in with the same account.
 
 ## Getting Started
 
 1. After installing, look at the SiYuan status bar — click the tomato icon to start your first Pomodoro
-2. Open plugin settings (SiYuan Settings → Plugins → Tomato Toolbox) and tune any of the 15 domains to your liking
+2. Open plugin settings (SiYuan Settings → Plugins → Tomato Toolbox) and tune each domain to your liking
 3. No need to memorize the rest: search "Tomato" in the command palette, or browse the docs by use case
 
 ## Docs & Community
@@ -79,7 +95,7 @@ The all-in-one productivity toolbox for SiYuan — one plugin slot for a whole n
 - 📱 Scan to join: ![Group QR codes (left: QQ Channel, right: Feishu)](group-qr.png)
 - 🔓 [Open-source repo](https://github.com/IAliceBobI/sy-tomato-plugin) — what you see is what's compiled: built by GitHub Actions
 
-📊 SiYuan Marketplace: 136,000+ downloads · ★ 4.8
+📊 SiYuan Marketplace: 141,000+ downloads
 
 ## Support the Author
 

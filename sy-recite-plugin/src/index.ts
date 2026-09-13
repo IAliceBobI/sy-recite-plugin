@@ -23,8 +23,7 @@ import { RECITE_FLOAT_ICONS } from "./reciteIcons";
 import { doExtract, rewriteExtract } from "./extract";
 import { doCompare } from "./compare";
 import { copyPrompt } from "./promptCopy";
-import { toggleKeepBlocks } from "./keep";
-import { toggleTargetBlocks } from "./target";
+import { setBlocksRole } from "./role";
 import { registerAiGradeRender } from "./aiGradeRender";
 import { registerQCtrlRender, unloadQCtrlRender } from "./qCtrlRender";
 import { applyReciteTheme, applyReciteFloatbarSkin, seedFloatbarSkin, applyBgForMode, clearReciteBg, watchAppearance, applyWzVisuals } from "./theme";
@@ -139,13 +138,13 @@ export default class ThePlugin extends BaseTomatoPlugin {
         // （□33：langKey/默认键改从 RECITE_HOTKEYS 对象单源引用，langText 保持命令面板完整句）
         this.addCommand({
             langKey: RECITE_HOTKEYS.reciteTogglePractice.langKey,
-            langText: "仿写练习：进入/删除仿写模式（当前文档）",
+            langText: "仿写练习：进入/退出仿写模式（当前文档；退出=温和退出，写的字保留加淡标记）",
             hotkey: RECITE_HOTKEYS.reciteTogglePractice.m,
             callback: () => togglePractice(),
         });
         this.addCommand({
             langKey: RECITE_HOTKEYS.reciteExtract.langKey,
-            langText: "仿写练习：抽取批注到抽取文档",
+            langText: "仿写练习：抽取考核段到练习卷",
             hotkey: RECITE_HOTKEYS.reciteExtract.m,
             editorCallback: (protyle) => doExtract(this, protyle.block?.rootID),
         });
@@ -163,21 +162,21 @@ export default class ThePlugin extends BaseTomatoPlugin {
         });
         this.addCommand({
             langKey: RECITE_HOTKEYS.reciteRewrite.langKey,
-            langText: "仿写练习：重新写（删旧抽取连对比，按当前批注重建空抽取）",
+            langText: "仿写练习：重新写（删旧抽取连对比，按当前考核段重建空练习卷）",
             hotkey: RECITE_HOTKEYS.reciteRewrite.m,
             editorCallback: (protyle) => rewriteExtract(this, protyle.block?.rootID),
         });
         this.addCommand({
             langKey: RECITE_HOTKEYS.reciteKeep.langKey,
-            langText: "仿写练习：留作上下文/取消（选中块，抽取时复制进练习文档做卡面语境）",
+            langText: "仿写练习：留作上下文（选中块设为上下文，抽取时复制进练习文档做卡面语境）",
             hotkey: RECITE_HOTKEYS.reciteKeep.m,
-            editorCallback: (protyle) => toggleKeepBlocks(this, protyle),
+            editorCallback: (protyle) => setBlocksRole(this, protyle, "context"),
         });
         this.addCommand({
             langKey: RECITE_HOTKEYS.reciteTarget.langKey,
-            langText: "仿写练习：这段练/取消（选中块圈靶，段后写总结，抽取只练这段）",
+            langText: "仿写练习：这段练（选中块设为考核，段后留总结位，抽取只练这段）",
             hotkey: RECITE_HOTKEYS.reciteTarget.m,
-            editorCallback: (protyle) => toggleTargetBlocks(this, protyle),
+            editorCallback: (protyle) => setBlocksRole(this, protyle, "target"),
         });
 
         // 2026-09-10 撞键迁移（同 tomato index.ts 先例）：reciteTarget 原 ⌥⌘O 撞 tomato MindWire doc

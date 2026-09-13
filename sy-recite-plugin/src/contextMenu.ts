@@ -5,16 +5,14 @@ import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { toWin } from "../../sy-tomato-plugin/src/libs/winHotkey";
 import { Siyuan } from "../../sy-tomato-plugin/src/libs/utils";
 import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
-import { RECITE_START, RECITE_EXTRACT, RECITE_COMPARE, RECITE_HOTKEYS, RECITE_LACE, RECITE_KEEP, KEEP_MENU_KEY, RECITE_TARGET, TARGET_MENU_KEY } from "./constants";
+import { RECITE_START, RECITE_EXTRACT, RECITE_COMPARE, RECITE_HOTKEYS, RECITE_LACE, KEEP_MENU_KEY, TARGET_MENU_KEY, RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_WRITTEN } from "./constants";
 import { enterPractice, cleanPractice, reciteDoc } from "./statusBtn";
 import type { ReciteRole } from "./statusBtn";
 import { RECITE_LACES, LACE_MENU_KEY } from "./theme";
 import { doExtract } from "./extract";
 import { doCompare } from "./compare";
 import { copyPrompt } from "./promptCopy";
-import { toggleKeepBlocks } from "./keep";
-import { reciteSelection } from "./selection";
-import { toggleTargetBlocks } from "./target";
+import { setBlocksRole } from "./role";
 
 /**
  * 编辑器内容右键菜单入口（2026-08-25，照 tomato GraphBox.locateNodeMenu 惯例）：订阅
@@ -64,36 +62,35 @@ class ContextMenu {
         if (role === "origin") {
             // 原文档三入口：「抽取批注」与「重新写」同义（doExtract 单例删建：删旧抽取连对比后
             // 按当前批注重建——「重新写」是浮条在抽取/对比文档上的免导航说法，落在原文档即再抽取）；
-            // 删除仿写模式内部自带 confirm（与浮条「删除」一致）
+            // 删除仿写模式内部自带 confirm（与浮条「删除」一致）。□3 起该项不带 accelerator——
+            // ⌥⌘K（reciteTogglePractice）已改指温和退出，键提示挂在删除项上会误导按键
             item("抽取批注", "iconCopy", "reciteExtract", () => { void doExtract(this.plugin, docID); });
             item("重新写", "iconRedo", "reciteRewrite", () => { void doExtract(this.plugin, docID); });
-            item("删除仿写模式", "iconTrashcan", "reciteTogglePractice", () => { void cleanPractice(docID); });
-            // label 零请求判向（review P2-6 修正：判向跟动作作用域）——右键块在选中集内=动作
-            // 作用于整集→任一选中块带标记即显「取消」；不在选中集→只看右键块自身。
-            // □8 期1 review P1-1 修正：判向与动作同源化——直接用 reciteSelection 解析 toggle
-            // 将作用的块集（旧手写 `:scope > .protyle-wysiwyg-select` 单横线恒查空，□7 同族
-            // 漏网：块选集右键成员时标签显示打向、动作实际走清向，方向相反）
-            const markEls = reciteSelection(detail.protyle, blockEl).blocks;
-            const marked = (attr: string) => markEls.some(el => el?.getAttribute?.(attr));
-            // 「留作上下文」（期1，2026-09-08）：作用于选中块集（.protyle-wysiwyg-select）或右键
-            // 所在块，keep 块抽取时复制进练习文档做卡面语境（DOM 属性镜像随 IAL 走，渲染即带）；
-            // KEEP_MENU_KEY 开关默认开。免费功能无门禁——任意文档右键不出（只在仿写原文档），
-            // keep 打在非仿写文档无抽取链路无意义。
-            if (blockID && (this.plugin as any).settingCfg?.[KEEP_MENU_KEY] !== false) {
+            detail.menu.addItem({ label: "删除仿写模式", icon: "iconTrashcan", click: () => { void cleanPractice(docID); } });
+            // □1 三角色菜单项（2026-09-13 三角色战役）：三选一互斥设置替 toggle，「设为总结」
+            // 兼任取消（挂 keep 的新写块、认领存量原文都靠它）。开关沿用 KEEP/TARGET_MENU_KEY
+            // （默认开）；「设为总结」在两入口至少一个可见时出现——藏掉全部角色入口时单独
+            // 出现一个设置项是噪音。靶只打在仿写原文档（role 判定已在上方，非仿写无抽取链路）
+            const roleMenuOn = (key: string) => (this.plugin as any).settingCfg?.[key] !== false;
+            if (blockID && roleMenuOn(KEEP_MENU_KEY)) {
                 detail.menu.addItem({
-                    label: marked(RECITE_KEEP) ? this.plugin.i18n["取消留作上下文"] : this.plugin.i18n["留作上下文"],
+                    label: this.plugin.i18n["留作上下文"],
                     icon: "iconBookmark",
-                    click: () => { void toggleKeepBlocks(this.plugin, detail.protyle, blockEl as HTMLElement); },
+                    click: () => { void setBlocksRole(this.plugin, detail.protyle, "context", blockEl as HTMLElement); },
                 });
             }
-            // 「这段练」（期2，2026-09-08）：圈靶+段后插待填批注+光标落位，抽取切节选语义只练
-            // 这段。label 零请求判向同 keep；TARGET_MENU_KEY 开关默认开；靶只打在仿写原文档
-            // （同 keep 判定：非仿写文档无抽取链路无意义，且 toggleTargetBlocks 打向另有门禁）
-            if (blockID && (this.plugin as any).settingCfg?.[TARGET_MENU_KEY] !== false) {
+            if (blockID && roleMenuOn(TARGET_MENU_KEY)) {
                 detail.menu.addItem({
-                    label: marked(RECITE_TARGET) ? this.plugin.i18n["取消这段练"] : this.plugin.i18n["这段练"],
+                    label: this.plugin.i18n["这段练"],
                     icon: "iconReciteTarget",
-                    click: () => { void toggleTargetBlocks(this.plugin, detail.protyle, blockEl as HTMLElement); },
+                    click: () => { void setBlocksRole(this.plugin, detail.protyle, "target", blockEl as HTMLElement); },
+                });
+            }
+            if (blockID && (roleMenuOn(KEEP_MENU_KEY) || roleMenuOn(TARGET_MENU_KEY))) {
+                detail.menu.addItem({
+                    label: this.plugin.i18n["设为总结"],
+                    icon: "iconReciteSummary",
+                    click: () => { void setBlocksRole(this.plugin, detail.protyle, "summary", blockEl as HTMLElement); },
                 });
             }
         } else if (role === "extract") {
@@ -105,6 +102,21 @@ class ContextMenu {
         } else {
             // 普通文档：精确作用于右键文档（togglePractice 命令走 events.docID 最近交互文档）
             item("进入仿写模式", "iconEdit", "reciteTogglePractice", () => { void enterPractice(docID); });
+            // 清残留入口（□3 review P2-2）：思源复制/剪切保留 custom-* 属性，练习标记块粘到
+            // 别的文档=孤儿标记。old/keep/target 被 .recite-practicing 门控不可见，written 是
+            // 唯一非门控标记（退出后淡背景照渲染）——普通文档无任何清除通道，右键补一个：
+            // 命中块带任一仿写标记才出现（零请求直读 DOM，addItem 同步约束），空值写=删属性
+            if (blockID && [RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_WRITTEN].some(k => blockEl?.hasAttribute?.(k))) {
+                detail.menu.addItem({
+                    label: this.plugin.i18n["清除仿写标记"] || "清除仿写标记",
+                    icon: "iconReciteExit",
+                    click: () => {
+                        siyuan.setBlockAttrs(blockID, { [RECITE_OLD]: "", [RECITE_KEEP]: "", [RECITE_TARGET]: "", [RECITE_WRITTEN]: "" } as AttrType)
+                            .then(() => siyuan.pushMsg("已清除该块的仿写标记", 2500))
+                            .catch(() => { });
+                    },
+                });
+            }
         }
 
         // ---- 手动级装饰（□13 右键入口；2026-09-02 五款子菜单化，spec=docs/recite-block-lace-styles-spec.md）：

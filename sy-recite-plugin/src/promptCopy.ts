@@ -80,6 +80,9 @@ function toneLinesOf(tone: string | undefined): string[] {
 export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPose?: boolean): Promise<string> {
     const assoc = entries.map(e => isAssociation(e.noteMarkdown));
     const hasAssoc = assoc.some(Boolean);
+    // 空锚点题（□2 纯默写）：noteMarkdown 归一空串——rubric 加一行纯默写标准；普通文档
+    // prompt 保持逐字一致零回归（条件追加）
+    const hasEmptyNote = entries.some(e => !e.noteMarkdown.trim());
     const originsPerEntry = await Promise.all(
         entries.map((e, i) => (assoc[i] ? Promise.resolve([] as string[]) : fetchOriginMarkdown(e.refs))),
     );
@@ -117,6 +120,10 @@ export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPo
         "",
     ];
     const toneLines = toneLinesOf(tone);
+    if (hasEmptyNote) parts.splice(parts.length - 1, 0,
+        "- 纯默写级（笔记为空的题=无提示默写）：无笔记可对照，只按【原文】查遗漏、偏差与杜撰，",
+        "语义还原到位即好。",
+    );
     if (toneLines.length) parts.push(...toneLines, "");
     if (withPose) parts.push(...MISSED_PROMPT_LINES, ...POSE_PROMPT_LINES, "");
     entries.forEach((e, i) => {
@@ -136,7 +143,7 @@ export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPo
         parts.push(origin);
         parts.push("");
         parts.push("【我的笔记】");
-        parts.push(e.noteMarkdown);
+        parts.push(e.noteMarkdown || "（无提示：此题凭记忆默写）");
         parts.push("");
         parts.push("【我的复述】");
         parts.push(write || "（未仿写）");

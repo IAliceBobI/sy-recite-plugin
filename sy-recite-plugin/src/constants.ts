@@ -26,6 +26,26 @@ export const RECITE_AI = "custom-recite-ai";
 // （靶的存在本身就是模式声明，无显式档位）：整流照抄非靶块、靶段原位换 [锚点+写位]。
 // 与 RECITE_KEEP 同块互斥（打靶清 keep、打 keep 清靶）——靶=永藏换总结，keep=永显进卡面。
 export const RECITE_TARGET = "custom-recite-target";
+// 卷子里的提示块（□2 统一出卷，2026-09-13）：原文档未升格的总结块照抄进抽取文档时挂此
+// 属性——「卷子里的提示块」新视觉（琥珀族染色），readExtractDoc/writeZone/q-ctrl 与 keep
+// 同判跳过（展示层，不进 writes 不挪区间末）。与 RECITE_KEEP 的分野：keep=原文语境复制
+// （灰弱化），hint=用户写的提示（自写族醒目）——色系随「青绿=作者句标记族/琥珀=自写族」。
+export const RECITE_HINT = "custom-recite-hint";
+// 空锚点占位（□2 统一出卷）：无提示考核段照样出卷——锚点 heading 挂本属性=「无提示·纯默写
+// 题」，块内容是占位文案（纯视觉，语言=抽取时快照）；readExtractDoc 出口据属性把
+// noteMarkdown 归一为空串（占位文案不漏给下游——判卷走纯默写 rubric、联想判定天然不触发）。
+// 题目性质由属性定：用户手改占位文字仍判空题（要提示应回原文在考核段后写提示块）。
+export const RECITE_EMPTY_NOTE = "custom-recite-empty-note";
+// 温和退出标记（□3 退出层，2026-09-13）：「退出」时给练习期间写的块（later-written=无
+// old 的非空块）挂上——淡背景持久标记「这是仿写时写的」，练习标记全清、衍生文档保留；
+// 重进仿写 enterPractice 跳过 written 块不打 old（保持总结身份，练习连续）；「删除」
+// cleanPractice 连 written 一起清（恢复原状）。不进 blockRole 判定序（重进后 written 块
+// =无 old 非空=总结，天然正确）；正常链路不进抽取文档（copyHTML 纯文本重建不带属性），
+// readExtractDoc/writeZone 按本属性跳过只是脏数据防御。
+export const RECITE_WRITTEN = "custom-recite-written";
+// 仿写中 wysiwyg 染色类（highlight.ts 挂/摘，statusBtn exitPractice 同步摘——□3 防退出闪染）：
+// 收敛到 constants 单一事实源防两文件字面量漂移
+export const RECITE_PRACTICE_CLS = "recite-practicing";
 // keep 右键菜单入口开关（Settings 练习域，默认开）：关=右键菜单不出「留作上下文」项
 // （命令/浮条通道不设开关——同 laceMenuOn 只藏入口的语义）
 export const KEEP_MENU_KEY = "keepMenuOn";
@@ -52,7 +72,8 @@ export const RECITE_HOTKEYS = {
     reciteCompare: winHotkey("alt+ctrl+g", "reciteCompare", "iconReciteCompare"),
     reciteCopyPrompt: winHotkey("alt+ctrl+p", "reciteCopyPrompt", "iconReciteCopyPrompt"),
     reciteRewrite: winHotkey("alt+ctrl+c", "reciteRewrite", "iconReciteRewrite"),
-    // 期1 keep（2026-09-08）：H=Hold 保留（⌥⌘ 空闲字母 H/O/V/Y 内取，四插件+官方 keymap 查重无占用）
+    // 期1 keep（2026-09-08）：H=Hold 保留（09-13 复核更正：当初记 V/Y 查重无占用已过期——Y=tomato
+    // MindWire word 默认键、V=bear 本机自定义占用；后续 recite 若补键走 ⌥⇧⌘ 段，同 target 先例）
     reciteKeep: winHotkey("alt+ctrl+h", "reciteKeep", "iconBookmark"),
     // 期2 靶「这段练」（2026-09-08 定 O；09-10 挪 ⇧）：O=靶心圈。原 ⌥⌘O 撞 tomato MindWire doc（v5.7.8
     // 已发布）——当初字面 grep "alt+ctrl+o" 漏了 tomato 的 "ctrl+alt+o"（修饰键顺序不同），撞键查重必须
