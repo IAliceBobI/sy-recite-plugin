@@ -2,12 +2,12 @@
 // list_exercises/get_grade/pro_status/echo），build_drill=Pro（按能力收费不分通道，
 // 与 UI 的 AI 拆分同锁）。装配序列：dry 校验零副作用 → 进仿写模式（仅未进时）→ 删旧
 // AI 锚点插新锚 → 节内打靶（锚点认领节标 R_TARGET，□2 统一出卷：锚点配考核段才成题）
-// → 抽取文档单事务重建（extractSpans 与前端共用）；幂等=整场重建（对齐 aiSplit 重跑+
-// doExtract 单例删建既有语义）。
+// → 抽取文档重建（extractSpans 与前端共用；有旧=卷级原地更新保闪卡进度）；幂等=整场
+// 重建（对齐 aiSplit 重跑+doExtract 卷级原地更新既有语义，2026-09-14 起同款）。
 import { objectSchema, successResponse, errorResponse, wrapHandler, type ToolDefinition } from "./common";
 import * as api from "../api";
 import { checkRecitePro, proGuidance, readSettings } from "../activation";
-import { extractSpans, contextBlocksToTarget, noteFitsHeading, derivedTitle, noteHeadingLevel, toReciteBlock, type ReciteBlock } from "../../extractCore";
+import { extractSpans, contextBlocksToTarget, noteFitsHeading, derivedTitle, noteHeadingLevel, toReciteBlock, riffCardedIDs, unitReplaceOps, type ReciteBlock } from "../../extractCore";
 import { parseAiGradeContent } from "../../aiGradeBlock";
 import { paraHTML, emptyParaHTML, headingHTML } from "../blockHTML";
 
@@ -26,6 +26,9 @@ const R_HINT = "custom-recite-hint";
 const R_EMPTY = "custom-recite-empty-note";
 const R_WRITTEN = "custom-recite-written";
 const EXTRACT_TITLE = "抽取";
+// 快速卡组 id（=siyuan 包 Constants.QUICK_DECK_ID，20230218211946-2kw8jgx；kernel 侧无
+// 包常量通道本地声明同值——前端 FloatBar 制卡判态/摘卡同款）。摘卡传它=只摘快速卡组
+const QUICK_DECK_ID = "20230218211946-2kw8jgx";
 // 空锚点占位文案（kernel 无 i18n 通道——提示文案中文现状，同本文件 hint 字段）：落库纯视觉，
 // readExtractDoc 出口按 R_EMPTY 属性归一空串，判卷走纯默写
 const EMPTY_NOTE_TEXT = "（无提示 · 凭记忆默写）";
@@ -319,7 +322,11 @@ async function buildDrill(input: Record<string, any>) {
     const originInfo = await api.getBlockInfo(originID);
     const hpath = originInfo?.box ? await api.getHPathByID(originID, originInfo.box) : "";
     if (!originInfo?.box || !hpath) return errorResponse("未取到原文位置信息（请重试）");
-    // 旧抽取子文档单例删除（连对比子树）；同名占用递增后缀（findReciteChildDoc 同语义）
+    // ── 抽取文档重建：有旧=卷级原地更新（2026-09-14 闪卡继承，与前端 rebuildExtractDoc
+    // 同语义防分叉）——清空子块重插新单元，文档块 id 不变 → 文档级卡与 FSRS 进度自动在；
+    // 挂过卡的子块（用户手动加进抽取卷的卡；判卷块级卡在对比文档，其重建另有摘卡）先摘
+    // 快速卡组防孤儿；对比子文档不再连带删（自管重建，旧保留无害——判卷结果保留上一轮，
+    // 重新对比后覆盖）。无旧=建新（既有行为）。同名占用递增后缀 ──
     const files = await api.listDocsByPath(originInfo.box, originInfo.path);
     let oldID = "";
     let name = derivedTitle(EXTRACT_TITLE, originInfo.rootTitle ?? "");
@@ -333,16 +340,27 @@ async function buildDrill(input: Record<string, any>) {
         if (!occ || occ === oldID) break;
         name = `${derivedTitle(EXTRACT_TITLE, originInfo.rootTitle ?? "")}${i + 1}`;
     }
-    if (oldID) await api.removeDocByID(oldID);
-    const extractID = await api.createDocWithMd(originInfo.box, `${hpath}/${name}`, "");
-    const seed = (await api.getChildBlocks(extractID))[0]?.id;
-    // 反序逐条 previousID=seed → 最终顺序=units 文档序；同事务删种子（insertUnitsDoc 同构）
-    const ops: api.IOperation[] = units.slice().reverse().map(data => ({ action: "insert", data, previousID: seed }));
-    if (seed) ops.push({ action: "delete", id: seed });
-    else ops.splice(0, ops.length, ...units.slice().reverse().map(data => ({ action: "insert", data, parentID: extractID })));
-    const echoed = await api.transactions(ops);
-    // 回显 id 与 units 对位：echoed 按提交序（=units 反序）返回 insert op 的真实块 id
-    const realIDs = echoed.slice(0, units.length).map(op => op.id ?? "");
+    let extractID: string;
+    let echoed: api.IOperation[];
+    if (oldID) {
+        const oldChildren = await api.getChildBlocks(oldID);
+        const oldIals = await api.batchGetBlockAttrs(oldChildren.map(c => c.id)).catch(() => ({} as Record<string, Attrs>));
+        const carded = riffCardedIDs(oldChildren.map(c => c.id), oldIals, QUICK_DECK_ID);
+        if (carded.length) await api.removeRiffCards(carded, QUICK_DECK_ID);
+        // 单事务原子换卷：新单元锚首块插入+删全部旧子块（unitReplaceOps 与前端共用，
+        // reverse 保 units 文档序；空文档防御=parentID 头插）
+        echoed = await api.transactions(unitReplaceOps(units, oldChildren[0]?.id, oldID, oldChildren.map(c => c.id)));
+        extractID = oldID;
+        await syncExtractTitle(oldID, name); // 标题跟随（原文改名后重装配）
+    } else {
+        extractID = await api.createDocWithMd(originInfo.box, `${hpath}/${name}`, "");
+        const seed = (await api.getChildBlocks(extractID))[0]?.id;
+        // 同事务插单元+删种子（unitReplaceOps 与前端 insertUnitsDoc 共用）
+        echoed = await api.transactions(unitReplaceOps(units, seed, extractID, seed ? [seed] : []));
+    }
+    // 回显 id 与 units 对位：原地事务混有 delete op，按 action 过滤只取 insert 的真实块 id
+    //（回显按提交序=units 反序）；reverse 还原文档序
+    const realIDs = echoed.filter(op => op.action === "insert").map(op => op.id ?? "");
     const ordered = realIDs.slice().reverse(); // 还原文档序
     const attrOps = [] as api.IOperation[];
     ordered.forEach((id, i) => {
@@ -364,7 +382,7 @@ async function buildDrill(input: Record<string, any>) {
     if (attrOps.length) await api.transactions(attrOps);
     await api.setBlockAttrs(extractID, { [R_EXTRACT]: originID });
 
-    await siyuan.logger.info(`[kernel] build_drill origin=${originID} mode=${mode} inserted=${inserted.length} failed=${failed} skipped=${skipped} targets=${targetIDs.size} units=${unitCount} emptyNotes=${emptyNoteCount} extract=${extractID} entered=${enteredPractice}`);
+    await siyuan.logger.info(`[kernel] build_drill origin=${originID} mode=${mode} inserted=${inserted.length} failed=${failed} skipped=${skipped} targets=${targetIDs.size} units=${unitCount} emptyNotes=${emptyNoteCount} extract=${extractID} rebuild=${oldID ? "inPlace" : "create"} entered=${enteredPractice}`);
     return successResponse({
         originID,
         extractID,
@@ -376,7 +394,7 @@ async function buildDrill(input: Record<string, any>) {
         practiceUnits: unitCount,
         emptyNotes: emptyNoteCount,
         enteredPractice,
-        hint: "练习现场装配完成：锚点认领节已标记考核段、抽取文档已重建，写位为空。对比/AI 判卷在前端抽取文档照常使用；点「重新写」可补齐每题的单题对照面板。",
+        hint: "练习现场装配完成：锚点认领节已标记考核段、抽取文档已重建，写位为空。对比/AI 判卷在前端抽取文档照常使用；点「重新写」可补齐每题的单题对照面板。注意：本轮未重新对比前，get_grade 返回的是上一轮判卷结果。",
     });
 }
 
@@ -384,6 +402,16 @@ function localTS(): string {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+/** 原地更新后标题跟随：现名≠期望名（调用方已保证不撞名）时 rename——原删建路径自动
+ *  带新标题，保留文档本体后需显式跟（与前端 extract.ts syncExtractTitle 同语义） */
+async function syncExtractTitle(docID: string, wanted: string) {
+    if (!wanted) return;
+    const info = await api.getBlockInfo(docID).catch(() => null);
+    if (info?.box && info.path && info.rootTitle !== wanted) {
+        await api.renameDoc(info.box, info.path, wanted);
+    }
 }
 
 const reciteDescription = [

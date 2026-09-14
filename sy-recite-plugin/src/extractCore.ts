@@ -236,3 +236,30 @@ export function noteHeadingLevel(cfg: any): number {
     const n = Math.round(Number(cfg?.noteHeadingLevel));
     return Number.isFinite(n) && n >= 1 && n <= 6 ? n : 6;
 }
+
+/**
+ * 筛挂了指定卡组的块 id（抽取文档原地重插前的孤儿卡清理目标，2026-09-14 闪卡继承）：
+ * 判据=IAL custom-riff-decks 逗号列表含 deckID（getRiffCardsByBlockIDs 对无卡块也回
+ * 占位行，不可作判据——FloatBar 制卡判态同注）。文档级卡挂文档块（不在子块流里），
+ * 由「文档 id 不变」天然继承，不经此函数。前端 replaceUnitsInPlace 与 kernel
+ * buildDrill 共用一份，防两处漂移。
+ */
+export function riffCardedIDs(ids: string[], ials: Record<string, Record<string, string>> | null | undefined, deckID: string): string[] {
+    const RIFF_DECKS = "custom-riff-decks";
+    return ids.filter(id => (ials?.[id]?.[RIFF_DECKS] ?? "").split(",").includes(deckID));
+}
+
+/**
+ * 卷面单事务编排（新建与原地重插共用，2026-09-14 闪卡继承）：units 锚 seed 之后插入
+ * ——insert op 同锚顺序发落库倒序，reverse 后落库=传入文档序；无 seed（空文档）兜底
+ * parentID 头插 reverse 保序。deleteIDs（新建=种子空块；原地=全部旧子块）concat 在
+ * inserts 后——事务 ops 顺序执行，失败整体回滚不留半成品。前端与 kernel 共用一份
+ * （op 形态纯 JSON，两侧 IOperation 结构同构），防漂移从注释承诺变结构保证。
+ */
+export type UnitOp = { action: "insert" | "delete"; data?: string; previousID?: string; parentID?: string; id?: string };
+export function unitReplaceOps(units: string[], seed: string | null | undefined, docID: string, deleteIDs: string[]): UnitOp[] {
+    const inserts: UnitOp[] = seed
+        ? units.slice().reverse().map(data => ({ action: "insert", data, previousID: seed }))
+        : units.slice().reverse().map(data => ({ action: "insert", data, parentID: docID }));
+    return inserts.concat(deleteIDs.map(id => ({ action: "delete", id })));
+}

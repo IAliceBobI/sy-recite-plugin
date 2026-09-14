@@ -29,6 +29,9 @@ export const RECITE_FLOAT_ICONS = `
 <symbol id="iconReciteExit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
 <!-- □5 单题对照（2026-09-08）：左右双栏+中缝=单题「原文 vs 复述」就地对照（iconReciteCompare 双栏矩形族的单页迷你变体） -->
 <symbol id="iconReciteQctrl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M12 5v14"/><path d="M6.5 11.5l1.8-2 1.7 3.5"/><path d="M14.5 12.5h3.2"/></symbol>
+<!-- □5 单题清空（2026-09-14）：斜置橡皮+底线=擦掉本题重写——轻重语言与「删除」垃圾桶
+     一眼辨（iconReciteExit 同款取舍：单题清空是轻操作，整卷重建走「重新写」） -->
+<symbol id="iconReciteClear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.4 5.4c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
 <!-- 顶栏设置双页对照（topbar-logo 战役 2026-09-08，返工一期旋钮）：左右两页=原文/习作对照，
      仿写核心语义的 logo 化标识。二期取证修正：官方顶栏生态=24vb / stroke 1.7u / round cap·join /
      fill:none 细线稿（litheness icon.js 231/234 同规格）——一期 32vb 粗剪影（环壁 2.2 倍官方线宽）

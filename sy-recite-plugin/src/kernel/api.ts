@@ -104,6 +104,17 @@ export async function getHPathByID(id: string, notebook: string): Promise<string
   return await call("/api/filetree/getHPathByID", { id, notebook });
 }
 
+/** 摘指定卡组的卡（抽取文档原地重插前清孤儿卡，2026-09-14 闪卡继承）；deckID 传快速
+ *  卡组只摘该组——用户手动加进其他卡组的卡不动（前端 FloatBar 制卡同语义） */
+export async function removeRiffCards(blockIDs: string[], deckID: string): Promise<unknown> {
+  if (!blockIDs?.length) return null;
+  return call("/api/riff/removeRiffCards", { deckID, blockIDs });
+}
+
+export async function renameDoc(notebook: string, path: string, title: string): Promise<void> {
+  await call("/api/filetree/renameDoc", { notebook, path, title });
+}
+
 
 /**
  * 思源式块 id：yyyymmddhhmmss-xxxxxxx（14 位时间戳+随机 7 位 [0-9a-z]，内核 IsNodeIDPattern

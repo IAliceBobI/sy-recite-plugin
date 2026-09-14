@@ -2120,6 +2120,27 @@ html[data-theme-mode="dark"] .recite-qctrl-btn { opacity: .8; }
 @media (pointer: coarse) {
     .recite-qctrl-btn { height: 24px; padding: 0 9px; opacity: .8; }
 }
+// □5 双钮并排（2026-09-14 单题清空）：对照+清空同排挂 custom-block__content，钮间
+// 6px（append 无文本节点，兄弟选择器补隙——不包 wrapper 保持 DOM 平，closePanelOf
+// 的 querySelector(".recite-qctrl-btn") 首配仍=对照钮）
+.recite-qctrl-btn + .recite-qctrl-btn { margin-left: 6px; }
+// 清空=破坏性动作的轻量警示色（hover 才显，平时与对照钮同灰不打扰——push 哲学：
+// 常态不施压，指上才告知后果）。error 直挂浅底仅 ~3.6:1（aigrade poor 徽章同坑）：
+// 浅色 75% 混黑、暗色 60% 混白（同族先例修法）
+.recite-qctrl-btn.recite-qctrl-clear:hover {
+    color: color-mix(in srgb, var(--b3-theme-error) 75%, #000);
+    border-color: color-mix(in srgb, var(--b3-theme-error) 55%, transparent);
+}
+html[data-theme-mode="dark"] .recite-qctrl-btn.recite-qctrl-clear:hover {
+    color: color-mix(in srgb, var(--b3-theme-error) 60%, #fff);
+}
+// 触屏常显弱警示（review P2：触屏无 hover 通道，「指上才告知后果」不可达——清空是
+// 不进 undo 栈的破坏性动作，给一档混灰的哑光暖色常显，克制不施压）
+@media (pointer: coarse) {
+    .recite-qctrl-btn.recite-qctrl-clear {
+        color: color-mix(in srgb, var(--b3-theme-error) 55%, var(--b3-theme-on-surface-light, #999));
+    }
+}
 // 坏 JSON 占位（渲染层容错）
 .recite-qctrl-broken {
     padding: 2px 0;
@@ -2128,12 +2149,12 @@ html[data-theme-mode="dark"] .recite-qctrl-btn { opacity: .8; }
 }
 // 对照面板：宽屏左右两栏（左原文弱化灰、右复述正常）+ 栏标签行；窄屏（容器查询，编辑器
 // 分屏下面板自身宽度才是真宽度）自动上下堆叠。临时态不做块——切文档/重载随宿主卸载自动消。
+// 面板=容器（container-type）、__cols=两栏 flex 层——容器查询只命中后代，方向规则必须
+// 靶 __cols（早期版本靶面板自身永不上屏，窄屏「方向没翻底线先出」混合态，09-14 修复）。
 .recite-qctrl-panel {
     position: relative;
     z-index: 10;
     container-type: inline-size;
-    display: flex;
-    gap: 0;
     margin: 2px 0 6px;
     padding: 6px 0;
     box-sizing: border-box;
@@ -2142,6 +2163,12 @@ html[data-theme-mode="dark"] .recite-qctrl-btn { opacity: .8; }
     background: var(--b3-theme-surface);
     font-size: 13px;
     line-height: 1.6;
+}
+.recite-qctrl-panel__cols {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 0;
 }
 .recite-qctrl-panel__origin,
 .recite-qctrl-panel__mine {
@@ -2163,7 +2190,7 @@ html[data-theme-mode="dark"] .recite-qctrl-btn { opacity: .8; }
 .recite-qctrl-panel__body { word-break: break-word; }
 // 窄屏：两栏上下堆叠，弱化竖线改横线；上下栏补呼吸感（vision P2-3，堆叠缝 ~5px 偏紧）
 @container (max-width: 560px) {
-    .recite-qctrl-panel { flex-direction: column; }
+    .recite-qctrl-panel__cols { flex-direction: column; }
     .recite-qctrl-panel__origin {
         border-right: none;
         border-bottom: 1px solid var(--b3-border-color);

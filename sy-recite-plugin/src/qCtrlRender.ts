@@ -13,7 +13,7 @@ import { md2Divs } from "../../sy-tomato-plugin/src/libs/sydom";
 import { fetchOriginMarkdown, isAssociation } from "./extract";
 import { reciteIcon } from "./reciteIcons";
 import { RECITE_NOTE, RECITE_KEEP, RECITE_REFS } from "./constants";
-import { Q_CTRL_BLOCK_TYPE, isQCtrlHost, parseQCtrlContent, markQCtrlPlugin, type CustomBlockPlugin, type QCtrlData } from "./qCtrlBlock";
+import { Q_CTRL_BLOCK_TYPE, clearQCtrlRegion, isQCtrlHost, parseQCtrlContent, markQCtrlPlugin, type CustomBlockPlugin, type QCtrlData } from "./qCtrlBlock";
 
 let i18nRef: Record<string, string> | undefined;
 const say = (k: string, fallback: string): string => i18nRef?.[k] || fallback;
@@ -62,7 +62,11 @@ function closePanelOf(host: HTMLElement) {
 }
 
 function renderCtrl(element: HTMLElement, content: string): (() => void) | undefined {
-    const host = element.closest<HTMLElement>("[data-node-id]");
+    // 宿主=custom 块壳按 data-type 定位：fresh 载入壳带 data-node-id，但「重新写」原地重
+    // 插后 backfill 事务经 ws 上屏的壳不带（op HTML 无 data-node-id，reload 才补，3.8.x
+    // 实测 09-14）——按 [data-node-id] 找会爬穿壳误中 .protyle 级（wysiwyg 随之 null →
+    // 「找不到锚点」假报），data-type 两路恒在
+    const host = element.closest<HTMLElement>('[data-type="NodeCustomBlock"]');
     if (!host) return;
     const data = parseQCtrlContent(content);
     if (!data) {
@@ -86,7 +90,28 @@ function renderCtrl(element: HTMLElement, content: string): (() => void) | undef
             void openPanel(host, data);
         }
     });
-    element.append(btn);
+    // □5 单题清空（2026-09-14 bear 点名）：对照钮旁一键清掉本题复述重写——整卷「重新写」
+    // 不加 confirm 的既有语义一致（API 事务不进 ⌘Z undo 栈，误触走文档历史兜底）。先收
+    // 对照面板（右栏是清空前的实时快照，留着误导）
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "recite-qctrl-btn recite-qctrl-clear";
+    clear.innerHTML = `${reciteIcon("iconReciteClear", 12)}<span>${say("清空", "清空")}</span>`;
+    clear.addEventListener("click", async () => {
+        if (clear.dataset.busy) return; // 连点防抖：事务在途不重入
+        clear.dataset.busy = "1";
+        closePanelOf(host);
+        debugLog("recite.q_ctrl", `clear_click note=${data.noteID.slice(-8)}`, "recite");
+        try {
+            const n = await clearQCtrlRegion(data.noteID);
+            if (n < 0) void siyuan.pushMsg(say("清空失败", "清空失败，请重试"), 2500).catch?.(() => {});
+            else if (n === 0) void siyuan.pushMsg(say("本题还没写", "这一题还没有写内容"), 2500).catch?.(() => {});
+            else void siyuan.pushMsg(say("已清空本题", "已清空本题，重新写吧"), 2500).catch?.(() => {});
+        } finally {
+            delete clear.dataset.busy;
+        }
+    });
+    element.append(btn, clear);
     // dispose（事务/切页签触发）：活面板随宿主一起收
     return () => closePanelOf(host);
 }
@@ -111,8 +136,14 @@ async function openPanel(host: HTMLElement, data: QCtrlData): Promise<void> {
     const panel = document.createElement("div");
     panel.className = "recite-qctrl-panel";
     const assoc = isAssociation(anchor.textContent ?? "");
-    panel.append(buildCol("recite-qctrl-panel__origin", say("原文", "原文"), null));
-    panel.append(buildCol("recite-qctrl-panel__mine", say("我的复述", "我的复述"), collectMine(anchor)));
+    // 两栏包进 __cols 层（窄屏堆叠修复，09-14 vision）：容器查询只命中后代——@container
+    // 规则靶面板自身（flex-direction）永不上屏、靶栏的 border 规则上屏=「方向没翻底线先
+    // 出」混合态。方向/分栏规则全改靶 __cols（面板=容器、cols=后代，恒命中）
+    const cols = document.createElement("div");
+    cols.className = "recite-qctrl-panel__cols";
+    cols.append(buildCol("recite-qctrl-panel__origin", say("原文", "原文"), null));
+    cols.append(buildCol("recite-qctrl-panel__mine", say("我的复述", "我的复述"), collectMine(anchor)));
+    panel.append(cols);
     host.after(panel);
     host.querySelector(".recite-qctrl-btn")?.setAttribute("aria-expanded", "true");
     debugLog("recite.q_ctrl", `open note=${data.noteID.slice(-8)} assoc=${assoc}`, "recite");
@@ -130,7 +161,7 @@ async function openPanel(host: HTMLElement, data: QCtrlData): Promise<void> {
     // 左栏异步填充。联想题=题目本身，不依赖 IAL——同步直填（review P2-4：免 getBlockAttrs
     // 往返白等一拍，且联想语义两数据源〔DOM 文本/SQL markdown〕在 isAssociation 剥 heading
     // 前缀后判据一致）
-    const originBody = panel.firstElementChild?.lastElementChild;
+    const originBody = panel.querySelector<HTMLElement>(".recite-qctrl-panel__origin .recite-qctrl-panel__body");
     if (!originBody) return;
     const fill = (els: HTMLElement[]) => {
         originBody.replaceChildren(); // 清「回查原文…」占位

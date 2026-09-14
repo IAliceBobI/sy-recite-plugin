@@ -1,13 +1,13 @@
-import type { Plugin } from "siyuan";
+import { Constants, getAllEditor, type Plugin } from "siyuan";
 import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { OpenSyFile2 } from "../../sy-tomato-plugin/src/libs/navUtils";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { DomParaBuilder, md2Divs } from "../../sy-tomato-plugin/src/libs/sydom";
 import { RECITE_START, RECITE_EXTRACT, RECITE_NOTE, RECITE_REFS, RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_HINT, RECITE_EMPTY_NOTE, RECITE_WRITTEN, RECITE_COMPARE, EXTRACT_TITLE } from "./constants";
-import { backfillQCtrlBlocks, isQCtrlMarkdown } from "./qCtrlBlock";
+import { backfillQCtrlBlocks, isQCtrlMarkdown, parseQCtrlContent } from "./qCtrlBlock";
 // 结构层纯函数在 extractCore.ts（与 kernel 侧共用一份，2026-09-09 recite MCP □3 抽出）
 import {
-    extractSpans, noteFitsHeading, derivedTitle, noteHeadingLevel, toReciteBlock,
+    extractSpans, noteFitsHeading, derivedTitle, noteHeadingLevel, toReciteBlock, riffCardedIDs, unitReplaceOps,
 } from "./extractCore";
 import type { ReciteBlock } from "./extractCore";
 
@@ -156,20 +156,50 @@ export async function fetchOriginMarkdown(refs: string[]): Promise<string[]> {
 }
 
 /**
+ * 删/清衍生文档子块前，摘挂快速卡组卡的子块防孤儿（2026-09-14 闪卡继承）：抽取卷
+ * 子块上的卡=用户原生菜单手动加的（判卷块级卡在对比文档——aiGradeRender 按 blockID
+ * 制卡挂那里，对比重建同用本函数）。内核删块不清理 deck 数据（惰性过滤），显式清
+ * 干净防 3.9.0 riff v2 重写风险。判卡走 IAL 直读（索引延迟假旧值禁 SQL）；
+ * batchGetBlockAttrs 整体失败兜底=按无卡处理（孤儿由内核惰性过滤兜底）。返回摘卡数。
+ */
+export async function unCardChildren(docID: string): Promise<number> {
+    const children = await siyuan.getChildBlocks(docID);
+    const ids = children.map(c => c.id);
+    const ials = await siyuan.batchGetBlockAttrs(ids).catch(() => null);
+    const carded = riffCardedIDs(ids, ials, Constants.QUICK_DECK_ID);
+    if (carded.length) {
+        const r = await siyuan.removeRiffCards(carded, Constants.QUICK_DECK_ID);
+        if (!r) debugLog("recite.extract", `riff remove no-echo blocks=${carded.length}（惰性过滤兜底）`, "recite");
+    }
+    return carded.length;
+}
+
+/**
  * 建空文档并单事务插入练习单元 + 打文档属性，返回新文档 id。
- * 空 markdown 建文档自带一个种子空段块：单元锚定它之后插入（transInsertBlocksAfter 自带
- * reverse 保文档序），同事务删除种子——原子成型，失败不留半成品。
+ * 空 markdown 建文档自带一个种子空段块：单元锚定它之后插入，同事务删除种子。
  */
 export async function insertUnitsDoc(box: string, hpath: string, units: string[], attrs: AttrType): Promise<string> {
     const docID = await siyuan.createDocWithMd(box, hpath, "");
     const seed = (await siyuan.getChildBlocks(docID))[0]?.id;
-    const ops = (seed
-        ? siyuan.transInsertBlocksAfter(units, seed)
-        // 无种子兜底：parentID 插入实测为头插，reverse 后依次头插 = 保持传入文档序
-        : units.slice().reverse().map(data => ({ action: "insert", data, parentID: docID } as IOperation)))
-        .concat(siyuan.transDeleteBlocks(seed ? [seed] : []));
-    await siyuan.transactions(ops);
+    await siyuan.transactions(unitReplaceOps(units, seed, docID, seed ? [seed] : []));
     await siyuan.setBlockAttrs(docID, attrs);
+    return docID;
+}
+
+/**
+ * 卷级原地更新（闪卡继承，2026-09-14）：旧抽取文档不再删建——单事务清空子块重插新
+ * 单元，文档块 id 不变 → IAL custom-riff-decks 不变 → 文档级卡与 FSRS 进度零搬运自动
+ * 在（进度语义=卷级：改原文重出题、复习轮次延续，bear 拍板）。挂过卡的子块先摘快速
+ * 卡组防孤儿。文档属性不动；对比子文档不连带删（自管重建，旧保留无害）。返回文档 id
+ * （即入参），事务失败返回 null（调用方提示，勿进控制块回填与成功 toast——否则用户
+ * 看到的「成功」其实是上轮旧卷）。已知取舍：摘卡与换卷事务非原子（事务回滚时子块卡
+ * 已摘、块还在）——窗口极窄且仅子块级卡受影响，文档级卡不经此路。
+ */
+export async function replaceUnitsInPlace(docID: string, units: string[]): Promise<string | null> {
+    const children = await siyuan.getChildBlocks(docID);
+    await unCardChildren(docID);
+    const ret = await siyuan.transactions(unitReplaceOps(units, children[0]?.id, docID, children.map(c => c.id)));
+    if (!ret) return null;
     return docID;
 }
 
@@ -250,10 +280,54 @@ export async function doExtract(plugin: Plugin, originID: string) {
 }
 
 /**
- * 抽取文档单例重建共用尾段（整篇/节选两路径共享）：box/路径/标题全走按 id 直查通道
- * （getBlockInfo/getHPathByID 直读文件树）——SQL 有索引延迟，原文刚改名时会拿旧路径旧标题，
- * 把抽取文档建进幽灵文件夹。删旧（连带其对比子文档）→ 建新（单事务原子成型）。标题带原文标题后缀。
- * 返回 false=定位失败已提示（调用方跳过完成 toast），成功则已打开新文档。
+ * 原地重插后修本机已开视图（按钮叠影修复，2026-09-14）：内核对 NodeCustomBlock 的
+ * insert 事务回显 HTML 不带 data-node-id（普通块带，09-14 6809 三步实测），已开页签经
+ * ws 回声上屏的 q-ctrl 壳因此无 id——下轮「重新写」的 delete 回声按 [data-node-id=id]
+ * 查 DOM 删不掉它们（盘已删、视觉残留叠影，reload 才恢复）。修法双通道：
+ * ① 主通道=rootID 匹配的编辑器整建 reload（从盘重渲染，历史残留/多窗口一并清场）。
+ *   getAllEditor() 返回 Protyle 类实例——自有字段恰为 {version, protyle}（Object.keys
+ *   只见这两键），reload 等 API 在原型上：typeof 须在实例本体 ed 上探测；ed.protyle 是
+ *   内层 IProtyle（block/element 在那层、任何版本都无 reload）——测错层会误诊「无此
+ *   方法」（reasoning-glm review P1，2023-06 e6f727b96 起 reload 恒在）。tab.model 三层
+ *   爬同环境恒空勿用。
+ * ② 兜底（理论保留）=壳补真 id：backfill 事务响应 doOperations[].id 即各壳盘 id（与
+ *   pairs 的 noteID 同序），按壳 data-content 里的 noteID 对位补 data-node-id，下一轮
+ *   delete 回声恢复可删。延迟 400ms 让本轮 insert 回声先落 DOM。
+ */
+function reloadOpenViews(docID: string, shells: [string, string][]) {
+    const idOf = new Map(shells);
+    setTimeout(() => {
+        let reloaded = 0, patched = 0;
+        try {
+            for (const ed of getAllEditor() as any[]) {
+                const inner = ed?.protyle;
+                const rootID = inner?.block?.rootID ?? ed?.block?.rootID;
+                if (rootID !== docID) continue;
+                if (typeof ed?.reload === "function") {
+                    ed.reload(false);
+                    reloaded++;
+                    continue;
+                }
+                (inner?.element ?? ed?.element)?.querySelectorAll?.('[data-type="NodeCustomBlock"]:not([data-node-id])')?.forEach(s => {
+                    const noteID = parseQCtrlContent(s.getAttribute("data-content") ?? "")?.noteID ?? "";
+                    const id = idOf.get(noteID);
+                    if (id) {
+                        s.setAttribute("data-node-id", id);
+                        patched++;
+                    }
+                });
+            }
+        } catch { /* getAllEditor 早期可空——本轮不修，下轮重写自愈 */ }
+        debugLog("recite.extract", `reload views doc=${docID.slice(-8)} reloaded=${reloaded} patched=${patched}`, "recite");
+    }, 400);
+}
+
+/**
+ * 抽取文档单例重建共用尾段：box/路径/标题全走按 id 直查通道（getBlockInfo/getHPathByID
+ * 直读文件树）——SQL 有索引延迟，原文刚改名时会拿旧路径旧标题，把抽取文档建进幽灵文件
+ * 夹。有旧文档=卷级原地更新（闪卡继承，replaceUnitsInPlace）+ 标题跟随；无旧文档（首次
+ * 抽取）建新走 insertUnitsDoc（单事务原子成型），行为不变。标题带原文标题后缀。
+ * 返回 false=定位失败已提示（调用方跳过完成 toast），成功则已打开文档。
  */
 async function rebuildExtractDoc(plugin: Plugin, originID: string, units: string[]): Promise<boolean> {
     const info = await siyuan.getBlockInfo(originID);
@@ -263,14 +337,40 @@ async function rebuildExtractDoc(plugin: Plugin, originID: string, units: string
         return false;
     }
     const old = await findReciteChildDoc({ box: info.box, path: info.path, hpath }, derivedTitle(EXTRACT_TITLE, info.rootTitle), RECITE_EXTRACT, originID);
-    if (old.id) await siyuan.removeDocByIDSiyuan(old.id);
-    const extractID = await insertUnitsDoc(info.box, old.hpath, units, { [RECITE_EXTRACT]: originID } as AttrType);
-    // □5 控制块回填：事务插入的块 id 一律被内核重生成，前向引用拿不到——文档建成读
+    let extractID: string | null = null;
+    if (old.id) {
+        extractID = await replaceUnitsInPlace(old.id, units);
+        if (!extractID) {
+            await siyuan.pushMsg("卷面重建失败，请重试", 2500);
+            return false;
+        }
+        await syncExtractTitle(old.id, old.hpath);
+    } else {
+        extractID = await insertUnitsDoc(info.box, old.hpath, units, { [RECITE_EXTRACT]: originID } as AttrType);
+    }
+    // □5 控制块回填：事务插入的块 id 一律被内核重生成，前向引用拿不到——文档建成后读
     // 真实锚点 id 后二轮事务插控制块（失败=无按钮不伤练习结构，重抽即恢复）
-    const qUnits = await backfillQCtrlBlocks(extractID);
-    debugLog("recite.extract", `origin=${originID} extract=${extractID} unitDOM=${units.length} qCtrl=${qUnits} deletedOld=${old.id ?? "-"}`, "recite");
+    const qPairs = await backfillQCtrlBlocks(extractID);
+    // 原地更新才需要修视图：旧卷 ws 上屏壳无 id，delete 回声删不掉（见 reloadOpenViews）；
+    // 首次抽取是全新页签从盘渲染，壳 fresh 带 id 无此问题
+    if (old.id) reloadOpenViews(extractID, qPairs);
+    debugLog("recite.extract", `origin=${originID} extract=${extractID} unitDOM=${units.length} qCtrl=${qPairs.length} rebuild=${old.id ? `inPlace(${old.id})` : "create"}`, "recite");
     await OpenSyFile2(plugin, extractID, "front");
     return true;
+}
+
+/**
+ * 原地更新后标题跟随：旧路径靠删建自动带新标题，保留文档本体后原文改名会让标题陈旧
+ * ——现名 ≠ 期望名（findReciteChildDoc 算的 hpath 尾段，已保证不撞名）时 rename 跟随。
+ * box/path 走 getBlockInfo 直读文件树（renameDocByID 内部过 SQL 有索引延迟，不用）。
+ */
+async function syncExtractTitle(docID: string, wantedHpath: string) {
+    const wanted = wantedHpath.split("/").pop() ?? "";
+    if (!wanted) return;
+    const info = await siyuan.getBlockInfo(docID).catch(() => null);
+    if (info?.box && info.path && info.rootTitle !== wanted) {
+        await siyuan.renameDoc(info.box, info.path, wanted);
+    }
 }
 
 /**
@@ -297,10 +397,10 @@ export async function findDerivedDocID(originID: string): Promise<string | null>
 }
 
 /**
- * 重新写：抽取/对比文档浮条入口——复用 doExtract 的单例删建（删当前抽取文档连对比子树 →
- * 按原文当前批注重建全新空抽取），复述清零重新练习；与在原文档再点一次「抽取」完全同义，
- * 只是免导航回原文档。改过总结后再点，新抽取自然反映改动。不加 confirm——与再点「抽取」
- * 的既有语义一致（复述删了可从回收站找回）。
+ * 重新写：抽取/对比文档浮条入口——复用 doExtract 的抽取文档重建（原地清空子块重插新
+ * 单元：文档 id 不变=闪卡与进度继承，对比文档不连带删），复述清零重新练习；与在原文档
+ * 再点一次「抽取」完全同义，只是免导航回原文档。改过总结后再点，新抽取自然反映改动。
+ * 不加 confirm——与再点「抽取」的既有语义一致。
  */
 export async function rewriteExtract(plugin: Plugin, extractID: string) {
     if (!extractID) return;

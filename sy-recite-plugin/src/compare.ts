@@ -5,7 +5,7 @@ import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { DomSuperBlockBuilder, DomParaBuilder, md2Divs } from "../../sy-tomato-plugin/src/libs/sydom";
 import type { DomBuilder } from "../../sy-tomato-plugin/src/libs/sydom";
 import { RECITE_EXTRACT, RECITE_COMPARE, RECITE_CMP_CARD, RECITE_NOTE, COMPARE_TITLE } from "./constants";
-import { readExtractDoc, fetchOriginMarkdown, findReciteChildDoc, insertUnitsDoc, derivedTitle, isAssociation, noteBlockAsHeading, noteHeadingLevel } from "./extract";
+import { readExtractDoc, fetchOriginMarkdown, findReciteChildDoc, insertUnitsDoc, unCardChildren, derivedTitle, isAssociation, noteBlockAsHeading, noteHeadingLevel } from "./extract";
 
 /**
  * 题目单行化：批注 markdown 的 \n 拼为空格——对比文档每题进 h2 的前提。
@@ -97,9 +97,14 @@ export async function doCompare(plugin: Plugin, extractID: string) {
     }
     // 标题后缀同抽取文档：原文标题（从抽取文档 IAL 回溯原文，不解析抽取文档自己的标题——命名方案会改）
     const origin = await siyuan.getBlockInfo(attrs[RECITE_EXTRACT]);
-    // 单例：已存在（我们的）则删除重建——仿写改了再点「对比」即刷新（单事务原子成型）
+    // 单例：已存在（我们的）则删除重建——仿写改了再点「对比」即刷新（单事务原子成型）。
+    // 删前先摘挂卡子块的快速卡组卡防孤儿：判卷块级卡正挂在这里（aiGradeRender 按 blockID
+    // 制卡进对比文档），裸删=孤儿 deck 数据残留（闪卡继承战役 review P1-1 补口）
     const old = await findReciteChildDoc({ box: info.box, path: info.path, hpath }, derivedTitle(COMPARE_TITLE, origin?.rootTitle), RECITE_COMPARE, extractID);
-    if (old.id) await siyuan.removeDocByIDSiyuan(old.id);
+    if (old.id) {
+        await unCardChildren(old.id);
+        await siyuan.removeDocByIDSiyuan(old.id);
+    }
     const cmpID = await insertUnitsDoc(info.box, old.hpath, units, { [RECITE_COMPARE]: extractID } as AttrType);
     debugLog("recite.compare", `extract=${extractID} compare=${cmpID} entries=${entries.length}`, "recite");
     await siyuan.pushMsg(`对比文档已生成（${entries.length} 题）`, 2000);

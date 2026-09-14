@@ -282,7 +282,7 @@
                 {:else if id === "general"}
                     <RecConfGeneral {plugin}></RecConfGeneral>
                 {:else if id === "mcp"}
-                    <McpPromo></McpPromo>
+                    <McpPromo plugin="recite"></McpPromo>
                 {/if}
             {/snippet}
             {#if searchKey}
