@@ -2,16 +2,19 @@ import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { DomParaBuilder } from "../../sy-tomato-plugin/src/libs/sydom";
 import { NewNodeID } from "../../sy-tomato-plugin/src/libs/globals";
-import { RECITE_START, RECITE_OLD, RECITE_KEEP, RECITE_TARGET } from "./constants";
+import { RECITE_START, RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_WRITTEN } from "./constants";
 import { reciteSelection, selectionDiag } from "./selection";
 
 /**
- * 三钮互斥设置统一入口（□1 标记层，2026-09-13 仿写三角色战役）：浮条「上下文/这段练/
+ * 三钮互斥设置统一入口（□1 标记层，2026-09-13 仿写三角色战役）：浮条「原文/这段练/
  * 总结」三钮 + 右键菜单 + 命令三通道共用的角色设置执行，替掉 keep.ts/target.ts 的
- * 「再点取消」toggle 语义——三钮单选切换，「总结」兼任取消（bear 拍板）。
- * - 设上下文 = 语境认领（□4 bear 反馈修正）：新写块挂 old（「这段字从此当作原文」——只挂
- *   keep 会在三条链上都不按原文走：视觉仍带竖线标记、删除练习被当批注删、温和退出被
- *   written 标；与「设总结=清 old」互为镜像）；存量块清 keep/靶回默认语境；
+ * 「再点取消」toggle 语义——三钮单选切换（2026-09-15 roleswap：全转移矩阵自由可逆
+ * 的可达性一直都在，改动只是把「原文」这个落点在词汇上显式化；「总结」不再是取消
+ * 的暗示位——回原文点「原文」钮，bear 拍板「可以互改、来回改」）。
+ * - 设原文（角色键仍为 context，内部角色模型不动）= 存量块清 keep/靶回纯原文
+ *   （target→原文 的正路，此前藏在「上下文」一词里用户找不到）；新写块挂 old 认领
+ *   （「这段字从此当作原文」——只挂 keep 会在三条链上都不按原文走：视觉仍带竖线标记、
+ *   删除练习被当批注删、温和退出被 written 标；与「设总结=清 old」互为镜像）；
  * - 设考核 = 挂靶清 keep + 段后空总结位幂等补插（已有不重复插）+ 光标落位；
  * - 设总结 = 清 keep/靶/old（存量认领：「这段字从此当作我写的」，与 AI 锚点 R_OLD=""
  *   同源手法；空值写=删属性，对未挂者是 no-op；对上下文认领块=回退为新写）。
@@ -23,9 +26,12 @@ export type SettableRole = "context" | "target" | "summary";
 /** 三钮互斥写值（纯函数，单测在 tests/unit/roleModel.test.ts；isOld=块当前存量身份） */
 export function attrsForRole(role: SettableRole, isOld = false): AttrType {
     if (role === "context")
+        // 认领分支（!isOld）顺手清 WRITTEN（review P2-4）：温和退出挂的「练习期间写的」淡底
+        // 与「从此当作原文」语义矛盾（退出后淡底照渲染），认领即转正清痕；存量分支无 WRITTEN
+        // 面（written 块重进时 enterPractice 跳过打 old，永不入 isOld 集）
         return isOld
             ? { [RECITE_KEEP]: "", [RECITE_TARGET]: "" } as AttrType
-            : { [RECITE_OLD]: "1", [RECITE_KEEP]: "", [RECITE_TARGET]: "" } as AttrType;
+            : { [RECITE_OLD]: "1", [RECITE_KEEP]: "", [RECITE_TARGET]: "", [RECITE_WRITTEN]: "" } as AttrType;
     if (role === "target") return { [RECITE_TARGET]: "1", [RECITE_KEEP]: "" } as AttrType;
     return { [RECITE_KEEP]: "", [RECITE_TARGET]: "", [RECITE_OLD]: "" } as AttrType;
 }
@@ -48,9 +54,13 @@ function emptyNoteSlotAfter(el: HTMLElement): HTMLElement | null {
 
 /** 顺手清离靶方向的空总结位（已填保留——它是内容，删不删归用户）；返回清掉的块数 */
 async function removeEmptyNoteSlots(els: HTMLElement[]): Promise<number> {
+    // null 防护先滤后读（bear 09-15 实报修复）：emptyNoteSlotAfter 对「段末后不是空总结位」
+    // （已写内容/直接跟原文块/文末）恒返 null——原写法 filter(Boolean) 排在 map 后，null 先进
+    // map 读 getAttribute 即炸 TypeError，离靶方向整条链瘫痪（靶都清不掉）
     const ids = els
         .filter((el, i) => el && (i === els.length - 1 || els[i + 1] !== el.nextElementSibling))
         .map(emptyNoteSlotAfter)
+        .filter((el): el is HTMLElement => !!el)
         .map(el => el.getAttribute("data-node-id"))
         .filter(Boolean) as string[];
     if (ids.length) await siyuan.deleteBlocks(ids);
@@ -127,12 +137,13 @@ async function doSetBlocksRole(plugin: any, protyle: any, role: SettableRole, bl
     const n = String(ids.length);
     const msg = (key: string, fallback: string) => (plugin?.i18n?.[key] || fallback).replace("{}", n);
     if (role === "context") {
-        // 认领口径两态（镜像 summary 的 hadOld 先例）：选中集含新写块=认领（当作原文），
-        // 全存量=清标回默认语境
+        // 原文口径两态（2026-09-15 roleswap 战役：钮名「上下文」改「原文」——□2 统一出卷后
+        // 非靶块全照抄，「点名语境」语义已消融，本方向的落点就是「这块是原文」）：选中集含
+        // 新写块=认领（你写的字从此当作原文），全存量=清靶/点名标记回原文
         const hadClaim = !!ials && ids.some(id => ials[id] && !ials[id][RECITE_OLD]);
         await siyuan.pushMsg(hadClaim
-            ? msg("已留上下文认领", "已留 {} 块作上下文：新写的字从此当作原文（照抄进卷、退出与删除都按原文走）")
-            : msg("已留作上下文", "已留 {} 块作上下文：抽取时会复制进练习文档"), 2500);
+            ? msg("已认领原文", "已把 {} 块认领为原文：照抄进卷、退出与删除都按原文走")
+            : msg("已恢复原文", "已把 {} 块恢复为原文：考核/点名标记已清"), 2500);
     } else if (role === "target") {
         await siyuan.pushMsg(msg("已标靶", "已圈 {} 块为「这段练」：段后已留总结位，抽取只练这段"), 2500);
     } else {

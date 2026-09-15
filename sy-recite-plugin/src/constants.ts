@@ -46,7 +46,7 @@ export const RECITE_WRITTEN = "custom-recite-written";
 // 仿写中 wysiwyg 染色类（highlight.ts 挂/摘，statusBtn exitPractice 同步摘——□3 防退出闪染）：
 // 收敛到 constants 单一事实源防两文件字面量漂移
 export const RECITE_PRACTICE_CLS = "recite-practicing";
-// keep 右键菜单入口开关（Settings 练习域，默认开）：关=右键菜单不出「留作上下文」项
+// 设为原文右键入口开关（Settings 练习域，默认开；roleswap 2026-09-15 随钮更名）：关=右键菜单不出「设为原文」项
 // （命令/浮条通道不设开关——同 laceMenuOn 只藏入口的语义）
 export const KEEP_MENU_KEY = "keepMenuOn";
 // 靶右键菜单入口开关（同 keepMenuOn 语义，默认开）

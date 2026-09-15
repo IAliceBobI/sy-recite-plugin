@@ -67,14 +67,16 @@ class ContextMenu {
             item("抽取批注", "iconCopy", "reciteExtract", () => { void doExtract(this.plugin, docID); });
             item("重新写", "iconRedo", "reciteRewrite", () => { void doExtract(this.plugin, docID); });
             detail.menu.addItem({ label: "删除仿写模式", icon: "iconTrashcan", click: () => { void cleanPractice(docID); } });
-            // □1 三角色菜单项（2026-09-13 三角色战役）：三选一互斥设置替 toggle，「设为总结」
-            // 兼任取消（挂 keep 的新写块、认领存量原文都靠它）。开关沿用 KEEP/TARGET_MENU_KEY
-            // （默认开）；「设为总结」在两入口至少一个可见时出现——藏掉全部角色入口时单独
-            // 出现一个设置项是噪音。靶只打在仿写原文档（role 判定已在上方，非仿写无抽取链路）
+            // □1 三角色菜单项（2026-09-13 三角色战役）：三选一互斥设置替 toggle，回原文走
+            // 「设为原文」（roleswap 2026-09-15：原「留作上下文」——□2 统一出卷后非靶块全
+            // 照抄，本方向落点=回原文/认领为原文，词不达意是 bear「改不回原文」体感主因）。
+            // 开关沿用 KEEP/TARGET_MENU_KEY（默认开）；「设为总结」在两入口至少一个可见时
+            // 出现——藏掉全部角色入口时单独出现一个设置项是噪音。靶只打在仿写原文档
+            // （role 判定已在上方，非仿写无抽取链路）
             const roleMenuOn = (key: string) => (this.plugin as any).settingCfg?.[key] !== false;
             if (blockID && roleMenuOn(KEEP_MENU_KEY)) {
                 detail.menu.addItem({
-                    label: this.plugin.i18n["留作上下文"],
+                    label: this.plugin.i18n["设为原文"] || "设为原文",
                     icon: "iconBookmark",
                     click: () => { void setBlocksRole(this.plugin, detail.protyle, "context", blockEl as HTMLElement); },
                 });

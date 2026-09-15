@@ -17,7 +17,8 @@ export const RECITE_FLOAT_ICONS = `
 <symbol id="iconReciteSplit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l7.8-7.8"/><path d="M14.6 2.8l1.1 2.7 2.7 1.1-2.7 1.1-1.1 2.7-1.1-2.7-2.7-1.1 2.7-1.1z"/><path d="M19.7 14.3l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></symbol>
 <symbol id="iconReciteSpin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></symbol>
 <symbol id="iconReciteClose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
-<!-- 期1 留作上下文（2026-09-08）：书签=保留语义，与右键菜单官方 iconBookmark 同语言 -->
+<!-- 期1 原文钮（2026-09-08 立；roleswap 2026-09-15 更名「上下文」→「原文」）：书签=收存回原文
+     语义，与右键菜单官方 iconBookmark 同语言（更名后视觉延续不换形） -->
 <symbol id="iconReciteKeep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4.6L5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
 <!-- 期2 这段练（2026-09-08）：靶心准星=圈定练习语义，与快捷键 ⌥⌘⇧O（O=靶圈；09-10 加 ⇧ 避撞 MindWire doc）同助记 -->
 <symbol id="iconReciteTarget" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.6"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></symbol>

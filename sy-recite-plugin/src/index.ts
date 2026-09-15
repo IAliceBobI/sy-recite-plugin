@@ -168,7 +168,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
         });
         this.addCommand({
             langKey: RECITE_HOTKEYS.reciteKeep.langKey,
-            langText: "仿写练习：留作上下文（选中块设为上下文，抽取时复制进练习文档做卡面语境）",
+            langText: "仿写练习：设为原文（存量块清「这段练/总结」标记回原文；你写的块认领为原文照抄进练习文档）",
             hotkey: RECITE_HOTKEYS.reciteKeep.m,
             editorCallback: (protyle) => setBlocksRole(this, protyle, "context"),
         });

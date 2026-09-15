@@ -361,9 +361,11 @@
                     <span class="recite-topbar-sep" aria-hidden="true"></span>
                 {/if}
                 <!-- □1 三角色钮（2026-09-13 三角色战役）：三选一互斥设置替「再点取消」toggle，
-                     「总结」兼任取消；钮亮=选中块当前角色（严格多数，判定/高亮同序 blockRole）。
+                     钮亮=选中块当前角色（严格多数，判定/高亮同序 blockRole）。roleswap 2026-09-15：
+                     「上下文」更名「原文」——数据落点本就是「这块是原文」（存量清靶回原文/新写认领），
+                     词汇显式化让「改回原文」的路可见（bear 拍板全矩阵可互改来回改）。
                      作用对象=当前编辑器选中块集（Ctrl+点击多选/移动端选块三钮） -->
-                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "context"} aria-label={plugin.i18n["上下文浮条提示"] || "设为上下文：抽取时原样照抄进练习卷\n与「这段练」「总结」三选一，钮亮=当前角色"} onclick={() => onSetRole("context")}>{@html reciteIcon("iconReciteKeep")}<span class="recite-btn-text">{t("上下文")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "context"} aria-label={plugin.i18n["原文浮条提示"] || "设为原文：存量块清除「这段练/总结」标记回到原文\n你写的字则认领为原文（照抄进卷、退出与删除都按原文走）\n与「这段练」「总结」三选一，钮亮=当前角色"} onclick={() => onSetRole("context")}>{@html reciteIcon("iconReciteKeep")}<span class="recite-btn-text">{t("原文")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "target"} aria-label={plugin.i18n["靶浮条提示"] || "设为考核（这段练）：抽取只练这段，其余照抄做语境\n段后留有总结位，落笔即配对成题"} onclick={() => onSetRole("target")}>{@html reciteIcon("iconReciteTarget")}<span class="recite-btn-text">{t("这段练")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "summary"} aria-label={plugin.i18n["总结浮条提示"] || "设为总结：当作自己写的提示，抽取时作为题目\n选中块是存量原文时一并认领（清原文标记）"} onclick={() => onSetRole("summary")}>{@html reciteIcon("iconReciteSummary")}<span class="recite-btn-text">{t("总结")}</span></button>
                 <!-- □3 退出两档（2026-09-13）：轻「退出」（字保留+淡标记）与重「删除」（彻底抹）

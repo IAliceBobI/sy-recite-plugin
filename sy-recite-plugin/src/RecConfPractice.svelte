@@ -33,8 +33,8 @@
         plugin.saveData(STORAGE_SETTINGS, plugin.settingCfg);
     }
 
-    // 上下文右键入口开关（期1，2026-09-08）：缺省判 `!== false` 同 wzRuleOn（默认开）；
-    // contextMenu 构建时读同键判显隐
+    // 设为原文右键入口开关（期1，2026-09-08；roleswap 2026-09-15 随钮更名）：缺省判
+    // `!== false` 同 wzRuleOn（默认开）；contextMenu 构建时读同键判显隐
     // svelte-ignore state_referenced_locally
     let keepMenuOn = $state(plugin.settingCfg?.[KEEP_MENU_KEY] !== false);
     function onToggleKeepMenu(e: Event) {
@@ -213,10 +213,10 @@
     </select>
 </div>
 
-<!-- 上下文右键入口（期1，默认开）：关=右键菜单不出「留作上下文」项；命令/浮条通道不受
-     影响（同 laceMenuOn 只藏入口语义），已留的 keep 块照常生效 -->
+<!-- 设为原文右键入口（期1，默认开）：关=右键菜单不出「设为原文」项；命令/浮条通道不受
+     影响（同 laceMenuOn 只藏入口语义），已认领的原文块照常生效（roleswap 2026-09-15 更名） -->
 <div class="rs-setting-row settingBox">
-    <label class="rs-setting-label b3-tooltips b3-tooltips__n" for="recite-keep-menu-switch" aria-label={plugin.i18n.上下文入口说明}>{plugin.i18n.上下文入口}</label>
+    <label class="rs-setting-label b3-tooltips b3-tooltips__n" for="recite-keep-menu-switch" aria-label={plugin.i18n.原文入口说明}>{plugin.i18n.原文入口}</label>
     <input
         id="recite-keep-menu-switch"
         type="checkbox"
