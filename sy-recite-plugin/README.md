@@ -55,29 +55,22 @@ Details — every recite-bar button explained, with full examples: plugin settin
 
 ## Free vs Pro
 
-One rule of thumb: **the full practice loop is free — marking, extraction, compare, dictation check, association, and AI grading included, no limits**. Pro is the one automation you'd otherwise do by hand, plus decorating the room you practice in.
+One rule of thumb: **the full practice loop is free — marking, target practice, extraction, compare, dictation check, association and AI grading included, no limits, no second-class citizen**. Pro adds two things: the automation that starts you off, and decorating the room you practice in.
 
 | Domain | Free | Pro adds |
 |---|---|---|
-| 🎯 Practice loop | Marking, target practice, extraction, per-item compare, dictation check, association practice | — |
-| 🤖 AI grading | Free, fully — grading and the prompt | — |
-| ✂️ AI Split | — | AI reads the piece and drops anchor notes at narrative beats |
-| 🎨 Appearance | Glazed Amber & Eye-Care themes, Parchment / Eye-Care backgrounds, Dawn & Bamboo-Slips bars, Shiba Doudou & Snow Bunny pets | 4 more themes; 4 more backgrounds incl. custom image; 6 more bar skins; 3 decorative sets; in-doc tint / snapshot / compare-card visuals; 3 Pro pet looks + tone-reactive emotes |
+| 🎯 Practice loop | Mark & tint, target practice with kept context, extraction, per-item compare & clear, compare document, dictation check, association practice, flashcard companion | — |
+| 🤖 AI grading | Grading (multi-standard templates + three grader tones) and the prompt copy — free, fully | — |
+| ✂️ AI Split | — | AI reads the piece and drops anchor notes at narrative beats (recite / imitation / direction, three flavors); MCP assembly of a full drill by AI |
+| 🎨 Themes | Glazed Amber (default) & Eye-Care Sage | Celadon Ink, Pine-Smoke Violet, Cherry Dusk, Misty Snow; three decorative sets: Sunny Kitty, Celadon Rabbit, Nocturne |
+| 🖼 Backgrounds | None / Parchment / Eye-Care; paper dyes the whole window, live texture-strength slider | Rough Kraft, Linen Texture, Grid Paper; Custom Image (one per light/dark mode, panels get a translucent veil) |
+| 🎀 Bar skins | Dawn Note & Bamboo Slips | Ink-Jade Mist (frosted glass), Xuan Paper, Scalloped Frill, Fretwork Trim, Gilded Edge, Vermilion Rule (double rules + red seal) |
+| 🐾 Grading pets | Shiba Doudou & Snow Bunny (clickable) | Spirit Xiaopan, Owl Professor Boshi, Little Dino Douya (each with its own transformation show); two tone-reactive emotes |
+| ✨ Practice visuals | Marked sentences on a soft yellow tint | Theme-tinted marks; extract snapshots carry the marks; compare cards get a finishing border |
 
-**The free version covers the full practice loop — no second-class citizen**: marking, target practice with kept context, extraction, per-item compare, comparison, dictation check, association practice, AI grading and the grading prompt all work, with no limits on runs or documents.
+Three independent axes — themes, backgrounds and bar skins mix freely: nine themes, seven backgrounds, eight bar skins, any combination. Light and dark modes each keep their own background; pick "None" to restore native SiYuan completely. The room you practice in every day is the one you chose — start free and get comfortable, then spend a coffee's worth to make it look the way you like.
 
-**AI Split is the one Pro-gated feature; AI grading stays free**: when you don't know where to start, let it read the piece and drop anchor notes at narrative beats (see Features). The button stays visible before activation and prompts when clicked.
-
-**Pro (¥10, one-time purchase) = AI Split + decorating your practice room the way you like it**:
-
-- **Nine theme skins** to swap at will — the default Glazed Amber keeps a warm glow; the free Eye-Care Sage pairs a low-saturation green palette with the eye-care background for long writing sessions; Celadon Ink brings calm, Pine-Smoke Violet elegance, Cherry Dusk tenderness, Misty Snow clarity
-- **A separate background axis, freely combined with any theme** — a global background library with seven options: None / Parchment (cream aged paper, free default) / Eye Care (matte sage paper, free), plus Rough Kraft, Linen Texture, Grid Paper and Custom Image (Pro: any picture of yours tiles the whole window, panels get an automatic translucent veil to stay readable, and you can assign one image for light and one for dark mode). Paper backgrounds dye the entire window — top bar, side panels, status bar and editor all share the same sheet — instead of repainting a small patch. Light and dark modes each keep their own background: toggling SiYuan's appearance swaps to the one you picked for that mode. A texture-strength slider tunes the paper grain live (free); choose None to restore native SiYuan completely
-- **Eight recite-bar skins on their own axis, mixable with any theme** — the free Bamboo Slips is a stationery-flavored starter; Pro adds Ink-Jade Mist (frosted glass), Xuan Paper, Scalloped Frill (scallop-tooth drape on the lower edge), Fretwork Trim (outer waves, inner fret), Gilded Edge (four-way gilded highlights) and Vermilion Rule (double vermilion rules like a letter pad, with a red seal in the top-right corner)
-- **Three decorative skin sets** redecorate the whole palette and add lace to the compare cards: Sunny Kitty (warm gold-orange), Celadon Rabbit (ink-wash vertical lace), Nocturne (gilt meets ink-jade)
-- **Grading pets** — Shiba Doudou and Snow Bunny Xuetuan keep you company on the recite bar for free; the three Pro looks — Spirit Xiaopan (click: full-body wing-spread transformation), Owl Professor Boshi (click: pages fly, tassel swings), Little Dino Douya (click: puffed cheeks, tiny fireballs) — plus the two tone-reactive emotes (gentle-praise cheering paw / strict-criticism arms-akimbo glare) are Pro
-- Marked sentences take on the theme tint, extract snapshots carry the marks, compare cards get a finishing border — the room you practice in every day is the one you chose. On the free plan marked sentences sit on a soft yellow tint, still unmistakable at a glance — start free and get comfortable, then spend a coffee's worth to make it look the way you like
-
-Purchase & activation: plugin settings → order on Taobao → support sends a redemption code → paste it back in settings to activate; it binds to your SiYuan account automatically. On a new device, log in with the same account and click "Recover activation code".
+**Pro is ¥10, one-time** — Progressive Learning Pro holders get this plugin's Pro automatically, no extra purchase. Purchase & activation: plugin settings → order on Taobao → support sends a redemption code → paste it back in settings to activate; it binds to your SiYuan account automatically. On a new device, log in with the same account and click "Recover activation code".
 
 ## Install & Requirements
 

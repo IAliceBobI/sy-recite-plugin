@@ -254,14 +254,15 @@ export async function doExtract(plugin: Plugin, originID: string) {
     const units = spans.flatMap(span => {
         if (span.kind === "copy") return copyHTML(span.blocks, RECITE_KEEP);
         if (span.kind === "hint") return copyHTML(span.blocks, RECITE_HINT);
-        // unit：升格提示=锚点文本（单行 heading 化接通大纲跳转/折叠）；空锚点=占位文案 heading
-        //（RECITE_EMPTY_NOTE 属性=纯默写题标记，readExtractDoc 出口归一空串——占位不漏下游）
+        // unit：升格提示=锚点文本（单行 heading 化接通大纲跳转/折叠）；空锚点=空段落
+        //（RECITE_EMPTY_NOTE 属性=纯默写题标记，readExtractDoc 出口归一空串——占位不漏下游；
+        // 2026-09-15 起不落占位文案：锚点空段+写位空段相邻，写位有 writeZone 竖线可辨）
         if (!span.notes.length) {
-            const div = new DomParaBuilder(say("无提示锚点占位", "（无提示 · 凭记忆默写）")).build();
+            const div = new DomParaBuilder().build();
             div.setAttribute(RECITE_NOTE, "1");
             div.setAttribute(RECITE_REFS, span.targets.map(b => b.id).join(","));
             div.setAttribute(RECITE_EMPTY_NOTE, "1");
-            return [noteBlockAsHeading(div, noteLevel).outerHTML, new DomParaBuilder().html()];
+            return [div.outerHTML, new DomParaBuilder().html()];
         }
         const md = span.notes.map(b => b.markdown).join("\n");
         const note = md2Divs(md, {

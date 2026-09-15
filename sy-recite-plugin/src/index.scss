@@ -423,16 +423,13 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-hint="1"] {
     padding-inline: 4px;
 }
 
-// ---- 空锚点（□2 纯默写题）：占位文案弱化 ----
-// 无提示考核段的锚点 heading 自带占位文案（数据层快照、readExtractDoc 出口归一空串），
-// 弱视觉=正常字色+斜体+降透明度。前缀 body 升特异性到 (0,3,2)——与上方 note 快照规则
-// 同级靠源顺序胜出（裸 (0,3,1) 会被 accent 字色压死，vision review P1 实锤），与真题目
-// （accent 字色加粗）一眼可辨。可用性标记不包 unpaid 门禁（正文色继承保证对比度）。
+// ---- 空锚点（□2 纯默写题）：锚点行整行隐藏（2026-09-15）----
+// 无提示考核段不落占位文案，锚点空段落库只承数据结构（refs 回查/题目边界/writeZone 开区
+// 全挂它身上）——视觉整行收掉防多占一行距，题目边界由 q-ctrl 按钮行与写位竖线承载；
+// 老卷占位文案 heading 同判（empty 属性），新老卷视觉统一。前缀 body 升特异性防被上方
+// note 快照规则反向覆盖。不包 unpaid 门禁：隐藏是结构语义非装饰，免费/Pro 一致。
 body .protyle-wysiwyg div[custom-recite-note="1"][custom-recite-empty-note="1"] {
-    color: inherit;
-    font-weight: 400;
-    font-style: italic;
-    opacity: 0.75;
+    display: none;
 }
 
 // ---- 项3：抽取文档·复述写作区（付费态）----

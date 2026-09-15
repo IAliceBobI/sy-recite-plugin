@@ -81,7 +81,6 @@
   "留作上下文": "Keep as Context",
   "上下文": "Context",
   "上下文浮条提示": "Set as context: copied as-is into the practice sheet on extract\nNewly written text is claimed as original from then on (kept on exit & wipe like original)\nOne of Context / Drill / Summary; lit button = current role",
-  "无提示锚点占位": "(No hint · write from memory)",
   "抽取无考核提示": "No drill sections marked yet: select the blocks to practice and hit the floatbar Drill button",
   "抽取完成": "Extracted: {} practice sections",
   "抽取完成含默写": "Extracted: {} practice sections ({} with no hint - pure recall)",

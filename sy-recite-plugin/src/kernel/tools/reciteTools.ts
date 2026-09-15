@@ -29,9 +29,6 @@ const EXTRACT_TITLE = "抽取";
 // 快速卡组 id（=siyuan 包 Constants.QUICK_DECK_ID，20230218211946-2kw8jgx；kernel 侧无
 // 包常量通道本地声明同值——前端 FloatBar 制卡判态/摘卡同款）。摘卡传它=只摘快速卡组
 const QUICK_DECK_ID = "20230218211946-2kw8jgx";
-// 空锚点占位文案（kernel 无 i18n 通道——提示文案中文现状，同本文件 hint 字段）：落库纯视觉，
-// readExtractDoc 出口按 R_EMPTY 属性归一空串，判卷走纯默写
-const EMPTY_NOTE_TEXT = "（无提示 · 凭记忆默写）";
 const AI_GRADE_FENCE = ";;;sy-recite-plugin/ai-grade";
 const AI_SLUGS = ["recite", "imitate", "direction"];
 
@@ -307,12 +304,15 @@ async function buildDrill(input: Record<string, any>) {
                 noteUnits.push(span.kind === "copy" ? { kind: "keep" } : { kind: "hint" });
             }
         } else {
-            // 空锚点（notes 空，防御形态）：占位文案 heading + R_EMPTY 标记——前端 readExtractDoc
-            // 出口归一空串，判卷走纯默写（与 doExtract 同数据契约）
-            const text = span.notes.map(b => b.markdown).join("\n") || EMPTY_NOTE_TEXT;
-            units.push(noteFitsHeading(text)
-                ? headingHTML(text, noteLevel, api.newNodeID())
-                : paraHTML(text, api.newNodeID()));
+            // 空锚点（notes 空，防御形态）：空段落 + R_EMPTY 标记，不落占位文案（2026-09-15
+            // 与前端 doExtract 同步）——前端 readExtractDoc 出口按 R_EMPTY 归一空串，判卷走
+            // 纯默写（与 doExtract 同数据契约）；有提示走 heading/段落二选一
+            const text = span.notes.map(b => b.markdown).join("\n");
+            units.push(!span.notes.length
+                ? emptyParaHTML(api.newNodeID())
+                : noteFitsHeading(text)
+                    ? headingHTML(text, noteLevel, api.newNodeID())
+                    : paraHTML(text, api.newNodeID()));
             noteUnits.push({ kind: "note", refs: span.targets.map(b => b.id).join(","), empty: !span.notes.length });
             units.push(emptyParaHTML(api.newNodeID()));
             noteUnits.push(null);
