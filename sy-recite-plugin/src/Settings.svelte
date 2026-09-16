@@ -151,6 +151,26 @@
         }
     }
 
+    // □15 ① IME 合成期门控（番茄同款）：受控 value 替代 bind:value——合成期 input（拼音
+    // 中间态）不进 searchKey，聚合视图不误开、全列不闪「无命中」。compositionend 兜底：
+    // Chrome 末笔 input 先于 compositionend 且 isComposing=true 被上面跳过，上屏值在此
+    // 同步；Safari 末笔 input isComposing=false 走主路，此处重放同值幂等
+    async function applySearch(v: string): Promise<void> {
+        searchKey = v;
+        try {
+            localStorage.setItem(SearchKeyItemKey, searchKey);
+        } catch { /* 隐私模式等场景静默（四家统一守卫，review P2-3） */ }
+        const entering = !!searchKey && !searching;
+        const leaving = !searchKey && searching;
+        searching = !!searchKey;
+        // 空→非空跳变须等聚合视图挂载再过滤（同分支跳变 tick 只是空冲刷）
+        await tick();
+        searchSettings(settingsDiv, searchKey);
+        if (searchKey) updateNavHits();
+        else navHits = {};
+        if (entering || leaving) scrollPanelTop();
+    }
+
     // 照 openHelpDialog 接线模式（Dialog + DestroyManager + mount Help），help.json 为
     // 自写单一对象（非按飞书 token 索引的快照表），hint/linkText 覆盖默认飞书口径
     function openHelp() {
@@ -238,19 +258,12 @@
         <input
             class="b3-text-field"
             placeholder={plugin.i18n.搜索配置}
-            bind:value={searchKey}
-            oninput={async () => {
-                localStorage.setItem(SearchKeyItemKey, searchKey);
-                const entering = !!searchKey && !searching;
-                const leaving = !searchKey && searching;
-                searching = !!searchKey;
-                // 空→非空跳变须等聚合视图挂载再过滤（同分支跳变 tick 只是空冲刷）
-                await tick();
-                searchSettings(settingsDiv, searchKey);
-                if (searchKey) updateNavHits();
-                else navHits = {};
-                if (entering || leaving) scrollPanelTop();
+            value={searchKey}
+            oninput={(e) => {
+                if (e instanceof InputEvent && e.isComposing) return;
+                void applySearch(e.currentTarget.value);
             }}
+            oncompositionend={(e) => void applySearch(e.currentTarget.value)}
         />
     </div>
 
