@@ -1,49 +1,28 @@
 // 划线总览（anno-round2 □3，B 案）：全书划线+批注总览的数据层。
-// 上半=纯函数（mark 区间解析 / 片归属 / 条目合并 / 分组与色筛选），零 siyuan 依赖，
+// 上半=纯函数（彩字区间解析 / 片归属 / 条目合并 / 分组与色筛选），零 siyuan 依赖，
 // tests/unit/annoOverview.test.ts 锁定契约；下半=取数编排（resolveOverviewScope）。
-// 数据源双份：官方高亮 mark（kramdown `==…=={: style="background-color: var(--b3-font-backgroundN);"}`
-// ——6811 实测 blocks.markdown LIKE 可命中；无色 mark 无 style IAL 不可靠命中，不进总览〔已知限制〕）
+// 数据源双份：带底色彩字（annocolor □1 扩源——A 面板一步上色 span/语义样式/mark 叠样式
+// 三通道全认，形态清单+真实样本=tests/unit/annoColorFixtures.ts；默认色 mark 无 style IAL
+// 不可靠命中、纯字体色/自定义 hex/自定义样式 v1 不认〔边界〕）
 // + 批注属性（custom-tomato-annotations，annoPanelFromRows 同源）。
-// 颜色通道唯一=mark 区间反查（markVarOfAnchor 同族），entry.color 建链未写恒缺省不作依据。
+// 颜色通道唯一=彩字区间反查（收集链 markVarOfAnchor 同族，归一函数共用），
+// entry.color 建链未写恒缺省不作依据。
 import { parseAnnotations, ANNO_HREF_PREFIX, type TomatoAnnotation } from "./annotationsAttr";
 import { hostQuoteText } from "./annoCollect";
 import { MarkKey, PDIGEST_CTIME, TEMP_CONTENT } from "./gconst";
+// 彩字色源机器下沉 annoColorVar（annocolor □3：收集链同源消费防循环）；此处 re-export
+// 维持历史 import 路径（libs 桶惯例）
+export {
+    bgVarOfStyle,
+    markVarCss,
+    markVarOfAnchor,
+    normalizeBgVar,
+    parseColorIntervals,
+    type MarkInterval,
+} from "./annoColorVar";
+import { parseColorIntervals } from "./annoColorVar";
 
 // ---------------- 纯函数区 ----------------
-
-/** kramdown 内一条官方划线区间：净化文本 + 色变量 + 区间内批注锚 id 集 */
-export interface MarkInterval {
-    text: string;
-    markVar: string;
-    annoIDs: string[];
-}
-
-/** mark 区间整体（含 IAL 后缀）正则：内层禁 `==`（kramdown 里 == 即闭合，出现=跨区间吞并，
- *  会把前面无色 mark 的文本卷进有色区间）；style 形态来自 getBlockKramdown/blocks.markdown
- *  实测（6811）。无 style 的 mark（默认色）故意不匹配——SQL 通道本就筛不到它们。 */
-const MARK_RE = /==((?:[^=]|=(?!=))*)==\{: style="background-color: var\((--b3-font-background\d+)\);"\}/g;
-// 锚 id 字符集同 annoKramdown.stripAllAnnoLinks（[0-9a-zA-Z-]+）；前缀无正则元字符直拼。
-// 文本段容 ] 转义形态（Lute 对 [a\]b](#…) 的输出，reasoning review P1-1）：裸 ] 提前断配
-// 会让锚区间解不出→色丢+重复卡+残渣三联缺陷；捕获后去转义还原显示文本
-const ANCHOR_RE = new RegExp(`\\[((?:[^\\\\\\]]|\\\\.)*)\\]\\(${ANNO_HREF_PREFIX}([0-9a-zA-Z-]+)\\)`, "g");
-const unescapeKramdownText = (t: string) => t.replace(/\\(.)/g, "$1");
-
-/** 提取块 kramdown 的全部官方划线区间（文档序）：剥锚链接得净化文本、锚 id 收进 annoIDs */
-export function parseMarkIntervals(kramdown: string | null | undefined): MarkInterval[] {
-    if (!kramdown) return [];
-    const out: MarkInterval[] = [];
-    MARK_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = MARK_RE.exec(kramdown)) != null) {
-        const inner = m[1];
-        const annoIDs: string[] = [];
-        ANCHOR_RE.lastIndex = 0;
-        let a: RegExpExecArray | null;
-        while ((a = ANCHOR_RE.exec(inner)) != null) annoIDs.push(a[2]);
-        out.push({ text: unescapeKramdownText(inner.replace(ANCHOR_RE, (_m, t: string) => t)), markVar: m[2], annoIDs });
-    }
-    return out;
-}
 
 export interface PieceMarkInfo {
     bookID: string;
@@ -83,10 +62,17 @@ export interface OverviewItem {
     kind: "anno" | "mark";
     /** 宿主块（跳转定位用） */
     hostID: string;
+    /** 跨块批注全部宿主（首宿主=hostID；annofix-0918 □2 收集保真——选择集链按宿主序列
+     *  拉结构化引文）；单块条目缺省（hostID 即全部） */
+    hostIDs?: string[];
     /** 所在文档（root，分组键） */
     docID: string;
     /** 划线色变量；缺=无色（未划线的批注） */
     markVar?: string;
+    /** 所属二级标题（最近上级 h2 文本；缺=无 h2 不分节）——anno-fix □4 */
+    section?: string;
+    /** 所属 h2 块 id（节身份判据：书内同名 h2 文本判据会误并，reasoning review P2-1） */
+    sectionID?: string;
     /** 卡面引文：sel.txt 快照 > mark 区间文本 > 宿主净化 */
     quote: string;
     entry?: TomatoAnnotation;
@@ -94,19 +80,22 @@ export interface OverviewItem {
     order: number;
 }
 
-/** 批注行（attributes 联查：id=宿主块 / v=属性串 / r=root / md=宿主 kramdown 供色与引文反查） */
+/** 批注行（attributes 联查：id=宿主块 / v=属性串 / r=root / md=宿主 kramdown 供色与引文反查 /
+ *  p=parent_id（祖先链归并判据，anno-fix-0917 □2） */
 export interface OverviewAnnoRow {
     id: string;
     v: string | null;
     r: string;
     md?: string | null;
+    p?: string | null;
 }
 
-/** mark 行（LIKE 命中块：r=root / md=宿主 kramdown） */
+/** mark 行（LIKE 命中块：r=root / md=宿主 kramdown / p=parent_id） */
 export interface OverviewMarkRow {
     id: string;
     r: string;
     md: string | null;
+    p?: string | null;
 }
 
 /**
@@ -119,24 +108,39 @@ export function overviewItemsFromRows(annoRows: OverviewAnnoRow[], markRows: Ove
     const items: OverviewItem[] = [];
     const seen = new Set<string>();
     const byBlock = new Map<string, { docID: string; kd: string }>();
+    // 宿主序列先全量收集再产出（collectGroups 双遍同款——首见即产出会把后续宿主漏出
+    // hostIDs；到达序，收集链 annotateHostInfo 内部按文档序重排）
+    const hostsOfAnno = new Map<string, string[]>();
+    const parsedAnnos: { r: OverviewAnnoRow; intervals: ReturnType<typeof parseColorIntervals>; entries: TomatoAnnotation[] }[] = [];
     for (const r of annoRows ?? []) {
         if (r?.id == null || r.id === "") continue;
         byBlock.set(r.id, { docID: typeof r.r === "string" ? r.r : "", kd: typeof r.md === "string" ? r.md : "" });
-        const intervals = parseMarkIntervals(r.md);
-        for (const entry of parseAnnotations(r.v)) {
+        const intervals = parseColorIntervals(r.md);
+        const entries = parseAnnotations(r.v);
+        for (const entry of entries) {
+            const hs = hostsOfAnno.get(entry.id) ?? [];
+            hs.push(r.id);
+            hostsOfAnno.set(entry.id, hs);
+        }
+        parsedAnnos.push({ r, intervals, entries });
+    }
+    for (const { r, intervals, entries } of parsedAnnos) {
+        for (const entry of entries) {
             if (seen.has(entry.id)) continue;
             seen.add(entry.id);
             const hit = intervals.find((iv) => iv.annoIDs.includes(entry.id));
             const quote = entry.sel?.txt || hit?.text || (r.md ? hostQuoteText(r.md) : "");
+            const hosts = hostsOfAnno.get(entry.id) ?? [r.id];
             const it: OverviewItem = {
                 key: `anno:${entry.id}`,
                 kind: "anno",
-                hostID: r.id,
+                hostID: hosts[0],
                 docID: byBlock.get(r.id)!.docID,
                 quote,
                 order: 0,
                 entry,
             };
+            if (hosts.length > 1) it.hostIDs = hosts;
             if (hit) it.markVar = hit.markVar;
             items.push(it);
         }
@@ -145,9 +149,26 @@ export function overviewItemsFromRows(annoRows: OverviewAnnoRow[], markRows: Ove
         if (r?.id == null || r.id === "" || byBlock.has(r.id)) continue;
         byBlock.set(r.id, { docID: typeof r.r === "string" ? r.r : "", kd: r.md ?? "" });
     }
+    // 祖先链归并（anno-fix-0917 □2）：划线真宿主=最深层块；li/列表容器/sb 等祖先块的
+    // markdown 字面含子树划线副本（LIKE 同步命中）——命中行集内，祖先是任一行 parent 链
+    // 上可达者的块不参与纯划线提取（保最深）。判据=parent 链非「文本+色指纹」，不误杀
+    // 用户真在两处划同文本的合法重复；anno 卡走属性通道不受影响。p 缺席（列缺席/旧形态）
+    // =零归并。hops 上限防脏环（buildHostRanks 同款先例）。
+    const parentOf = new Map<string, string>();
+    for (const r of annoRows ?? []) if (r?.id && r.p) parentOf.set(r.id, r.p);
+    for (const r of markRows ?? []) if (r?.id && r.p) parentOf.set(r.id, r.p);
+    const redundant = new Set<string>();
+    for (const [bid] of byBlock) {
+        let cur = parentOf.get(bid) ?? "";
+        for (let hops = 0; cur && hops < 64; hops++) {
+            if (byBlock.has(cur)) redundant.add(cur);
+            cur = parentOf.get(cur) ?? "";
+        }
+    }
     for (const [blockID, info] of byBlock) {
+        if (redundant.has(blockID)) continue;
         let idx = 0;
-        for (const iv of parseMarkIntervals(info.kd)) {
+        for (const iv of parseColorIntervals(info.kd)) {
             if (iv.annoIDs.length > 0) continue;
             // 残渣防线：区间文本含锚 href 子串=疑似未识别锚（未来 kramdown 形态变体），
             // 宁缺勿脏——出卡会把锚语法裸露进卡面/收集产物（reasoning review P1-1 半边）
@@ -210,7 +231,8 @@ export function groupOverviewItems(items: OverviewItem[], metas: DocMeta[]): Ove
     return groups;
 }
 
-/** 色筛选 chips：value=markVar 或 ""（无色）；--b3-font-backgroundN 按数字序、无色垫尾 */
+/** 色筛选 chips：value=markVar 或 ""（无色）；色板 --b3-font-backgroundN 按数字序 →
+ *  自定义字面色值（hex/rgb，□5 起）字母序 → 无色垫尾 */
 export function colorChipsOf(items: OverviewItem[]): { value: string; count: number }[] {
     const byVar = new Map<string, number>();
     for (const it of items) {
@@ -219,11 +241,11 @@ export function colorChipsOf(items: OverviewItem[]): { value: string; count: num
     }
     const num = (v: string) => {
         const m = v.match(/--b3-font-background(\d+)/);
-        return m ? Number(m[1]) : 0;
+        return m ? Number(m[1]) : Infinity;
     };
     return [...byVar.entries()]
         .map(([value, count]) => ({ value, count }))
-        .sort((a, b) => (a.value === "" ? 1 : b.value === "" ? -1 : num(a.value) - num(b.value)));
+        .sort((a, b) => (a.value === "" ? 1 : b.value === "" ? -1 : num(a.value) - num(b.value) || (a.value < b.value ? -1 : 1)));
 }
 
 /** 色筛选：active 空/null=全部；含 "" 表无色档 */
@@ -269,13 +291,51 @@ async function fetchMetas(bookID: string): Promise<DocMeta[]> {
     return metas;
 }
 
+/** 宿主 → 最近上级 h2 块 id（含自身，anno-fix □4 微信读书式分节）：只认 h2（陆杰口径
+ *  「只需要二级标题」，h1/h3 不分节）。返回**块 id** 非 text——节身份判据用 id（书内
+ *  多篇同名 h2「小结」类常见，文本判据在色筛选后会同名误并，reasoning review P2-1）。
+ *  parentOf/h2Text 来自 buildHostRanks 的全树一趟 SQL；cache 跨宿主复用（同链祖先结果
+ *  回填，均摊低）。null=链上无 h2（不分节）；空内容 h2 不认（无信息，有意行为）。
+ *  导出供单测；hops 上限防脏环自指。 */
+export function sectionUpOf(
+    hostID: string,
+    parentOf: Map<string, string>,
+    h2Text: Map<string, string>,
+    cache?: Map<string, string | null>,
+): string | null {
+    const path: string[] = [];
+    let cur = hostID;
+    let result: string | null = null;
+    for (let hops = 0; cur && hops < 64; hops++) {
+        if (cache) {
+            const cached = cache.get(cur);
+            if (cached !== undefined) {
+                result = cached;
+                break;
+            }
+        }
+        if (h2Text.has(cur)) {
+            result = cur;
+            break;
+        }
+        path.push(cur);
+        cur = parentOf.get(cur) ?? "";
+    }
+    if (cache) for (const p of path) cache.set(p, result);
+    return result;
+}
+
 /** 阅读序 rank：getChildBlocks 顶层序（真序唯一通道）+ parent 链上爬兜底（嵌套块归其
- *  顶层祖先序，SQL 行序兜底稳）；单文档失败=空表（调用方退行序）。rank=顶层 idx。 */
+ *  顶层祖先序，SQL 行序兜底稳）；单文档失败=空表（调用方退行序）。rank=顶层 idx。
+ *  □4 扩展：同一趟全树 SQL 顺产 sections（宿主→最近上级 h2 块 id）+h2Text（id→标题文本）。
+ *  content 列 case when 收窄（reasoning review P2-2：巨书 50000 行只为提 h2，payload 3~5 倍放大）。 */
 async function buildHostRanks(
     roots: string[],
     hostDoc: Map<string, string>,
-): Promise<Map<string, number>> {
+): Promise<{ ranks: Map<string, number>; sections: Map<string, string>; h2Text: Map<string, string> }> {
     const ranks = new Map<string, number>();
+    const sections = new Map<string, string>();
+    const h2Text = new Map<string, string>();
     const tops = new Map<string, string[]>();
     const needRoots = [...new Set(hostDoc.values())].filter((r) => roots.includes(r));
     await mapLimit(needRoots, 4, async (root) => {
@@ -289,12 +349,19 @@ async function buildHostRanks(
     const inList = needRoots.map((r) => `'${r}'`).join(",");
     const parentOf = new Map<string, string>();
     if (hostDoc.size > 0) {
-        const rows = (await siyuan.sql(`select id, parent_id from blocks where root_id in (${inList}) limit 50000`)) ?? [];
-        for (const r of rows as { id?: string; parent_id?: string | null }[]) {
-            if (r?.id) parentOf.set(r.id, r.parent_id ?? "");
+        const rows = (await siyuan.sql(`select id, parent_id,
+            case when type = 'h' and subtype = 'h2' then content else '' end as content
+            from blocks where root_id in (${inList}) limit 50000`)) ?? [];
+        for (const r of rows as { id?: string; parent_id?: string | null; content?: string }[]) {
+            if (!r?.id) continue;
+            parentOf.set(r.id, r.parent_id ?? "");
+            if (r.content) h2Text.set(r.id, r.content); // 空 content h2 不认（有意：无信息）
         }
     }
+    const secCache = new Map<string, string | null>();
     for (const [hostID, docID] of hostDoc) {
+        const secID = sectionUpOf(hostID, parentOf, h2Text, secCache);
+        if (secID) sections.set(hostID, secID);
         const topIds = tops.get(docID);
         if (!topIds) continue; // 块 root 不在元集（已删/跨库）→ miss 垫尾
         let cur: string = hostID;
@@ -307,13 +374,16 @@ async function buildHostRanks(
             cur = parentOf.get(cur) ?? "";
         }
     }
-    return ranks;
+    return { ranks, sections, h2Text };
 }
 
-// type != 'c'：代码块里粘的字面 kramdown 形态（教程/帮助文档）不出假划线卡（review P2）
-const MARK_SQL = (inList: string) => `select id, root_id as r, markdown as md from blocks
-    where root_id in (${inList}) and type != 'c'
-    and markdown like '%==%{: style="background-color: var(--b3-font-background%' limit 20000`;
+// type != 'c'：代码块里粘的字面 kramdown 形态（教程/帮助文档）不出假划线卡（review P2）。
+// 宽锚 `background-color:`（treemap □5 反哺：旧双锚〔色板变量+inline-builtin，annocolor □1
+// 主实例实证 57 块全命中〕是新锚子串——自定义 hex/rgb 块 8 条落无色分组的陆杰实锤病灶在
+// SQL 层，宽锚后块进得来）。多命中块解析不出区间=自然无害（normalizeBgVar 边界拦下）。
+const COLOR_SQL_WHERE = `markdown like '%background-color:%'`;
+const MARK_SQL = (inList: string) => `select id, root_id as r, markdown as md, parent_id as p from blocks
+    where root_id in (${inList}) and type != 'c' and (${COLOR_SQL_WHERE}) limit 20000`;
 
 /**
  * 种子 → 总览数据：bookID 直查书+片集；docID 先判片归属（是片→所在书，否则单文档域）。
@@ -341,10 +411,10 @@ export async function resolveOverviewScope(seed: { bookID?: string; docID?: stri
     let scopeName = "";
     if (roots.length > 0) {
         const annoRows = roots.length === 1
-            ? ((await siyuan.sql(`select a.block_id as id, a.value as v, b.root_id as r, b.markdown as md
+            ? ((await siyuan.sql(`select a.block_id as id, a.value as v, b.root_id as r, b.markdown as md, b.parent_id as p
                 from attributes a join blocks b on b.id = a.block_id
                 where a.name = '${ANNOTATIONS_ATTR}' and b.root_id = '${roots[0]}' limit 10000`)) ?? [])
-            : ((await siyuan.sql(`select a.block_id as id, a.value as v, b.root_id as r, b.markdown as md
+            : ((await siyuan.sql(`select a.block_id as id, a.value as v, b.root_id as r, b.markdown as md, b.parent_id as p
                 from attributes a join blocks b on b.id = a.block_id
                 where a.name = '${ANNOTATIONS_ATTR}' and b.root_id in (${inList}) limit 10000`)) ?? []);
         const markRows = (await siyuan.sql(MARK_SQL(inList))) ?? [];
@@ -353,8 +423,16 @@ export async function resolveOverviewScope(seed: { bookID?: string; docID?: stri
         for (const r of [...(annoRows as OverviewAnnoRow[]), ...(markRows as OverviewMarkRow[])]) {
             if (r?.id) hostDoc.set(r.id, r.r);
         }
-        const ranks = await buildHostRanks(roots, hostDoc);
+        const { ranks, sections, h2Text } = await buildHostRanks(roots, hostDoc);
         items = assignOverviewOrder(items, (h) => ranks.get(h) ?? -1);
+        // □4 分节回填（节身份=sectionID，文本仅展示——同名 h2 不误并；阅读序组内聚簇，UI 按 id 变化插节头）
+        for (const it of items) {
+            const h2ID = sections.get(it.hostID);
+            if (h2ID) {
+                it.sectionID = h2ID;
+                it.section = h2Text.get(h2ID) ?? "";
+            }
+        }
         // 书文档已删时兜底取 point 最小片名（metas 无序，盲取 metas[0] 是随机片名——review P2）
         scopeName = metas.find((m) => m.isBook)?.name
             || [...metas].sort((a, b) => (a.point ?? Infinity) - (b.point ?? Infinity))[0]?.name

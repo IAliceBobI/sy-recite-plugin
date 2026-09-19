@@ -40,7 +40,8 @@ import { DestroyManager } from "./libs/destroyer";
 import { loadCss } from "./cssStyle";
 import { tomatoClock } from "./TomatoClock";
 import { toolbarBox } from "./ToolbarBox";
-import { cardBox } from "./CardBox";
+import { cardBox, CardBox用选中的行创建超级块超级块制卡取消制卡 } from "./CardBox";
+import { installReadonlyHotkeyBridge, uninstallReadonlyHotkeyBridge } from "./libs/readonlyHotkey";
 import { cpBox } from "./CpBox";
 import { pairBarBox } from "./PairBarBox";
 import { backLinkBottomBox } from "./BackLinkBottomBox";
@@ -58,7 +59,7 @@ import { OpenAIClient, buildMessages, appendChunk, stripThinkTag, getOfficialCon
 import { imgBox } from "./ImgBox";
 import { fastNoteBox } from "./FastNoteBox";
 import * as plugin from "siyuan";
-import { addSelectionBtnsDesktop, addSelectionBtnsMobile, aiBoxCheckbox, aiBoxMenuShow, aiBoxPrompts, aiPanelCheckbox, agentMaxTurns, agentReviewEdit, agentReviewRunJs, agentKnowledgeDocs, agentSkillDocs, agentHistoryMsgs, agentDocSnapshotLimit, punctTidyEnable, punctTidyExtRules, punctTidyCustomMap, auto_card_priority, avoiding_cloud_synchronization_conflicts, awaysExitFocusStore, back_link_concept_fold, back_link_copy, back_link_dailynote_off, back_link_default_off, back_link_embed, back_link_goto_bottom_btn, back_link_max_size, back_link_mention_count, back_link_move_here, back_link_move_to_dailynote, back_link_move_with_backlink, back_link_passup_heading, back_link_passup_quote, back_link_passup_super, back_link_protyle_height, back_link_ref, back_link_refresh_off, back_link_remove_refs, bk_refresh_interval_sec, bk_visible_only, bigReloadTopbar, back_link_show_path, back_link_follow_width, backLinkBottomBoxCheckbox, bk启用禁用文档的底部反链menu, card_priority_slider_hide, card_priority_stopBtn_hide, cardBoxAddConcepts, cardBoxCheckbox, cardBoxReviewDocMenu, refCleanMenu, cardBoxSpradEvenlyPostpone, cardBoxDelayDays, cardBoxDeleteNoConfirm, cardBoxSuperCard, cardPriorityBoxAutoHide, cardPriorityBoxCheckbox, cardPriorityBoxPostponeCardMenu, cardPriorityBoxPriorityMenu, cardPriBarPos, cardPriorityBoxSpradDelayMenu, commentBoxAddFlashCard, commentBoxAnnoBg, commentBoxAnnoDraftNotebook, commentBoxAnnoLineType, commentBoxAnnoMarkStyle, commentBoxBackwardRef, commentBoxAnnotations, commentBoxCheckbox, commentBoxForwardRef, commentBoxAnnoUnderlineThickness, commentBoxMaxProtyleHeight, commentBoxMenu, commentBoxAnnoToolbar, commentBoxShowID, commentBoxStaticOutlink, commentBoxPanelSkin, commentBoxAnnoEditorMode, commentBoxAnnoEditorFontSize, commentBoxAnnoViewFontSize, commentBoxVirtualRef,  cssFlashThoughts, cssHomeEndIconLeft, cssListBackgound, cssNattyList, cssRefAsTags, cssRefEffect, cssRefSquareBrackets, cssRefStyle, cssShowFlashCardBlank, cssShowHomeEndIcon, cssShowMemo, uiCleanTabClose, uiCleanTabBarBtns, uiCleanTopbarStatus, uiCleanEmptyHelp, uiCleanDocTreeBadge, uiCleanDocTreeCompact, dailyNoteBoxCheckbox, dailyNoteCopyAnchorText, dailyNoteCopyFlashCard, dailyNoteCopyFragment, dailyNoteCopyInsertPR, dailyNoteCopyMenu, dailyNoteCopyShowPath, dailyNoteCopySimple, dailyNoteCopyUpdateBG, dailyNoteCopyUseRef, dailyNoteGoToBottom, dailyNoteGoToBottomMenu, dailyNoteMoveToBottom, dailyNotetopbarleft, dailyNotetopbarright, flashThoughtsBlurClose, dailyNoteReviewTopbar, quickNoteCheckbox, quickNoteOpenMode, quickNoteRect, dbBkBoxCheckbox, dbBkBoxHideDatetime, dbBkBoxMaxBacklinkSize, dbBkBoxRefreshMenu, dbBkBoxMenuTools, dont_break_list, fastNoteBoxAdd2Flashcard, fastNoteBoxCheckbox, fastNoteBoxDelAfterCreating, fastNoteBoxDisableBK, flash_thoughts_2_top, flash_thoughts_target_file, flashThoughtUseDialog, shorthandRelayEnabled, graphAddTopbarIcon, graphBoxCheckbox, graphDefaultExpandLevel, graphDefaultLayout, graphHideStructEdges, graphMaxAllBlocks, graphMaxPBlocks, graph定位到图中的节点Menu, graph打开块关系图Menu, imgBoxCheckbox, imgBoxShowMenu, imgOverlayCheckbox, keepLazyLoadStore, linkBoxAttrIconOnHide, linkBoxBilinkMenu,  linkBoxLnkTitle,  linkBoxSyncBlockAuto, linkBoxSyncScanDeep, linkBoxSyncRemapChildID, linkBoxSyncHref, linkBoxSyncRef, linkBoxUseLnkOrRef, pairBarEnabled, pairBarDefaultFunc, pairBarLastFunc, pairBarLastSrcID, pairBarEntryHotkey, pairBarEntryIconMenu, pairBarEntryMenu, pairBarEntryStatus, listBoxCheckbox, mindWireCheckbox, mindWireColorfull, mindWireDocMenu, mindWireDynamicLine, mindWireEnable, mindWireGlobalMenu, mindWireLine, mindWireStarRefOnly, mindWireWordWire, readingFloatBar, readingFloatBallHidden, readingAdd2Card, readingFloatBallPos, readingPointPerDoc, mixBoxCheckbox, mixBoxPinyin, noteBoxAllKinds, noteBoxCheckbox, noteBoxMobileSync, readingAddDeleteMenu, readingAddJumpMenu, readingAddRPmenu, readingPointBoxCheckbox, readingShowAllFolders, readingStatusBar, readingTopBar, showDocAttrs, spaceRefEnabled, spaceRefLinkType, storeCopyStdMD, storeFillMemoMenu, storeInsertXml, storeMergeDoc, storeMoveDocContentHere, storeNoteBox_fastnote, storeNoteBox_keep, storeNoteBox_noteAreaText, storeNoteBox_pin, storeNoteBox_recentText, storeNoteBox_selectedNotebook, storeNoteBox_selectedNoteType, storeOpenRefsClick, storeOpenRefsMenu, storeRefreshStaticBkLnk, tag2RefBoxCheckbox, tag2RefSearchLnk, tag2RefSearchRef, tag_to_ref_add_card, tag_to_ref_add_pinyin, tomato_clocks, tomato_clocks_change_bg, tomato_clocks_change_bg_dark, tomato_clocks_force_dialog, tomato_clocks_force_notice, tomato_clocks_opacity, tomato_clocks_position_right, tomato_clocks_loop, tomato_clocks_break, tomato_clocks_notice, tomato_clocks_focus, tomato_microbreak, tomato_microbreak_min, tomato_microbreak_max, tomato_microbreak_duration, tomato_microbreak_dialog, tomato_microbreak_notice, tomato_microbreak_notification, tomatoClockCheckbox, copyIdCheckbox, foldCmdCheckbox, toolbarEN2CHBtn, toolbarlocatedoc, toolbarrefreshVr, toolbarspacerepeat, toolbarTidy, userID, userToken, licenseCloudSynced, annoCollectScope, annoCollectDest, annoCollectTargetDoc, annoCollectAnchor, annoCollectColor, annoAutoArchive, mindWireWidth, cssSuperBlockBorder, cardPrioritySetPriInterval, foldTypes, foldTypesSuperBlock, foldTypesBLOCKQUOTE, foldTypesNODE_LIST, foldTypesNODE_TABLE, foldTypesNODE_HEADING, tomato_clocks_audio, exportPath, exportIntervalSec, exportCleanFiles, markdownExportBoxCheckbox, exportWhiteList, exportBlackList, hiddenMenuItems, commandToggles, markdownExportPics, exportCleanPath, exportIntervalSecOn, exportCleanFilesOn, floatingballEnable, floatingballDocList, floatingballKeyboardList, floatingballBallList, floatingballDocMenu, prefixArticlesEnable, prefixArticlesMenu, dailyNoteMoveLeaveLnk, prefixArticlesSoftLimit, fastNoteBoxDocPrefix, floatingballDocTabMenu, floatingballDocOpenBottom, prefixArticlesTagsShow, prefixArticlesTagsGroup, exportPathWin, knowledgeBoxCheckbox, knowledgeMenu, exportFilesMenu, knowledgeAutoSyncMin, zhipuApiKey, zhipuKbName, cardBoxSettingsShow, cardBoxCardtab, card_refresh_visible_only, foldTypesNODE_listITEM, deleteBlocksMenu, toolbarTidyExt, superRefBoxCheckBox, superRefBoxGlobalFixMenu, superRefBoxGlobalLnkMenu, blockEditorMenu, blockEditorBox, qeFloatBall, exportWL4All, getNavSourceBlock, navSourceBlock, refEffectFromLegacy } from "./libs/stores";import { dbBkBox } from "./DbBkBox";
+import { addSelectionBtnsDesktop, addSelectionBtnsMobile, aiBoxCheckbox, aiBoxMenuShow, aiBoxPrompts, aiPanelCheckbox, agentMaxTurns, agentReviewEdit, agentReviewRunJs, agentKnowledgeDocs, agentSkillDocs, agentHistoryMsgs, agentDocSnapshotLimit, punctTidyEnable, punctTidyExtRules, punctTidyCustomMap, auto_card_priority, avoiding_cloud_synchronization_conflicts, awaysExitFocusStore, back_link_concept_fold, back_link_copy, back_link_dailynote_off, back_link_default_off, back_link_embed, back_link_goto_bottom_btn, back_link_max_size, back_link_mention_count, back_link_move_here, back_link_move_to_dailynote, back_link_move_with_backlink, back_link_passup_heading, back_link_passup_quote, back_link_passup_super, back_link_protyle_height, back_link_ref, back_link_refresh_off, back_link_remove_refs, bk_refresh_interval_sec, bk_visible_only, bigReloadTopbar, back_link_show_path, back_link_follow_width, backLinkBottomBoxCheckbox, bk启用禁用文档的底部反链menu, card_priority_slider_hide, card_priority_stopBtn_hide, cardBoxAddConcepts, cardBoxCheckbox, cardBoxReviewDocMenu, refCleanMenu, cardBoxSpradEvenlyPostpone, cardBoxDelayDays, cardBoxDeleteNoConfirm, cardBoxSuperCard, cardPriorityBoxAutoHide, cardPriorityBoxCheckbox, cardPriorityBoxPostponeCardMenu, cardPriorityBoxPriorityMenu, cardPriBarPos, cardPriorityBoxSpradDelayMenu, commentBoxAddFlashCard, commentBoxAnnoBg, commentBoxAnnoDraftNotebook, commentBoxAnnoLineType, commentBoxAnnoMarkStyle, commentBoxBackwardRef, commentBoxAnnotations, commentBoxCheckbox, commentBoxForwardRef, commentBoxAnnoUnderlineThickness, commentBoxMaxProtyleHeight, commentBoxMenu, commentBoxAnnoToolbar, commentBoxShowID, commentBoxStaticOutlink, commentBoxPanelSkin, commentBoxAnnoEditorMode, commentBoxAnnoEditorFontSize, commentBoxAnnoViewFontSize, commentBoxAnnoReplyFontSize, commentBoxAnnoQuoteFontSize, commentBoxVirtualRef,  cssFlashThoughts, cssHomeEndIconLeft, cssListBackgound, cssNattyList, cssRefAsTags, cssRefEffect, cssRefSquareBrackets, cssRefStyle, cssShowFlashCardBlank, cssShowHomeEndIcon, cssShowMemo, uiCleanTabClose, uiCleanTabBarBtns, uiCleanTopbarStatus, uiCleanEmptyHelp, uiCleanDocTreeBadge, uiCleanDocTreeCompact, dailyNoteBoxCheckbox, dailyNoteCopyAnchorText, dailyNoteCopyFlashCard, dailyNoteCopyFragment, dailyNoteCopyInsertPR, dailyNoteCopyMenu, dailyNoteCopyShowPath, dailyNoteCopySimple, dailyNoteCopyUpdateBG, dailyNoteCopyUseRef, dailyNoteGoToBottom, dailyNoteGoToBottomMenu, dailyNoteMoveToBottom, dailyNotetopbarleft, dailyNotetopbarright, flashThoughtsBlurClose, dailyNoteReviewTopbar, quickNoteCheckbox, quickNoteOpenMode, quickNoteRect, dbBkBoxCheckbox, dbBkBoxHideDatetime, dbBkBoxMaxBacklinkSize, dbBkBoxRefreshMenu, dbBkBoxMenuTools, dont_break_list, fastNoteBoxAdd2Flashcard, fastNoteBoxCheckbox, fastNoteBoxDelAfterCreating, fastNoteBoxDisableBK, flash_thoughts_2_top, flash_thoughts_target_file, flashThoughtUseDialog, shorthandRelayEnabled, graphAddTopbarIcon, graphBoxCheckbox, graphDefaultExpandLevel, graphDefaultLayout, graphHideStructEdges, graphMaxAllBlocks, graphMaxPBlocks, graph定位到图中的节点Menu, graph打开块关系图Menu, imgBoxCheckbox, imgBoxShowMenu, imgOverlayCheckbox, keepLazyLoadStore, linkBoxAttrIconOnHide, linkBoxBilinkMenu,  linkBoxLnkTitle,  linkBoxSyncBlockAuto, linkBoxSyncScanDeep, linkBoxSyncRemapChildID, linkBoxSyncHref, linkBoxSyncRef, linkBoxUseLnkOrRef, pairBarEnabled, pairBarDefaultFunc, pairBarLastFunc, pairBarLastSrcID, pairBarEntryHotkey, pairBarEntryIconMenu, pairBarEntryMenu, pairBarEntryStatus, listBoxCheckbox, mindWireBlockWire, mindWireCheckbox, mindWireColorfull, mindWireDocMenu, mindWireDynamicLine, mindWireEnable, mindWireGlobalMenu, mindWireHoverBar, mindWireLine, mindWireStarRefOnly, mindWireWordWire, readingFloatBar, readingFloatBallHidden, readingAdd2Card, readingFloatBallPos, readingPointPerDoc, mixBoxCheckbox, mixBoxPinyin, noteBoxAllKinds, noteBoxCheckbox, noteBoxMobileSync, readingAddDeleteMenu, readingAddJumpMenu, readingAddRPmenu, readingPointBoxCheckbox, readingShowAllFolders, readingStatusBar, readingTopBar, showDocAttrs, spaceRefEnabled, spaceRefLinkType, storeCopyStdMD, storeFillMemoMenu, storeInsertXml, storeMergeDoc, storeMoveDocContentHere, storeNoteBox_fastnote, storeNoteBox_keep, storeNoteBox_noteAreaText, storeNoteBox_pin, storeNoteBox_recentText, storeNoteBox_selectedNotebook, storeNoteBox_selectedNoteType, storeOpenRefsClick, storeOpenRefsMenu, storeRefreshStaticBkLnk, tag2RefBoxCheckbox, tag2RefSearchLnk, tag2RefSearchRef, tag_to_ref_add_card, tag_to_ref_add_pinyin, tomato_clocks, tomato_clocks_change_bg, tomato_clocks_change_bg_dark, tomato_clocks_force_dialog, tomato_clocks_force_notice, tomato_clocks_opacity, tomato_clocks_position_right, tomato_clocks_loop, tomato_clocks_break, tomato_clocks_notice, tomato_clocks_focus, tomato_microbreak, tomato_microbreak_min, tomato_microbreak_max, tomato_microbreak_duration, tomato_microbreak_dialog, tomato_microbreak_notice, tomato_microbreak_notification, tomatoClockCheckbox, copyIdCheckbox, foldCmdCheckbox, toolbarEN2CHBtn, toolbarlocatedoc, toolbarrefreshVr, toolbarspacerepeat, toolbarTidy, userID, userToken, licenseCloudSynced, annoCollectScope, annoCollectDest, annoCollectTargetDoc, annoCollectAnchor, annoCollectColor, annoAutoArchive, mindWireWidth, cssSuperBlockBorder, cardPrioritySetPriInterval, foldTypes, foldTypesSuperBlock, foldTypesBLOCKQUOTE, foldTypesNODE_LIST, foldTypesNODE_TABLE, foldTypesNODE_HEADING, tomato_clocks_audio, exportPath, exportIntervalSec, exportCleanFiles, markdownExportBoxCheckbox, exportWhiteList, exportBlackList, hiddenMenuItems, commandToggles, markdownExportPics, exportCleanPath, exportIntervalSecOn, exportCleanFilesOn, floatingballEnable, floatingballDocList, floatingballKeyboardList, floatingballBallList, floatingballDocMenu, prefixArticlesEnable, prefixArticlesMenu, dailyNoteMoveLeaveLnk, prefixArticlesSoftLimit, fastNoteBoxDocPrefix, floatingballDocTabMenu, floatingballDocOpenBottom, prefixArticlesTagsShow, prefixArticlesTagsGroup, exportPathWin, knowledgeBoxCheckbox, knowledgeMenu, exportFilesMenu, knowledgeAutoSyncMin, zhipuApiKey, zhipuKbName, cardBoxSettingsShow, cardBoxCardtab, card_refresh_visible_only, foldTypesNODE_listITEM, deleteBlocksMenu, toolbarTidyExt, superRefBoxCheckBox, superRefBoxGlobalFixMenu, superRefBoxGlobalLnkMenu, blockEditorMenu, blockEditorBox, qeFloatBall, exportWL4All, getNavSourceBlock, navSourceBlock, refEffectFromLegacy, settingsSaveAllowed, back_link_float, back_link_float_ball_stay, graphShowNumbers, graph标记此块Menu, graphBlockMarkBar } from "./libs/stores";import { dbBkBox } from "./DbBkBox";
 import { graphBox } from "./GraphBox";
 import { resetKey, verifyKeyTomato, lastVerifyResult } from "./libs/user";
 import { commentBox } from "./CommentBox";
@@ -77,7 +78,7 @@ import { pruneStaleCommandToggles } from "./libs/commandGroups";
 import { mindWire } from "./MindWire";
 import { winHotkey } from "./libs/winHotkey";
 import { markdownExportBox } from "./MarkdownExportBox";
-import { loadFloatingBall } from "./FloatingBall";
+import { loadFloatingBall, sweepFloatingBalls } from "./FloatingBall";
 import { setGlobal } from "stonev5-utils";
 import { initPrefixArticles, prefixArticlesOnunload } from "./PrefixArticles";
 import { initKnowledgeBox, knowledgeBoxOnunload } from "./KnowledgeBox";
@@ -143,6 +144,8 @@ function loadStore(plugin: BaseTomatoPlugin) {
     quickNoteOpenMode.load(plugin);
     quickNoteRect.load(plugin);
     mindWireWordWire.load(plugin);
+    mindWireBlockWire.load(plugin);
+    mindWireHoverBar.load(plugin);
     markdownExportPics.load(plugin);
     exportCleanPath.load(plugin);
     exportCleanFilesOn.load(plugin);
@@ -242,6 +245,9 @@ function loadStore(plugin: BaseTomatoPlugin) {
     graphMaxPBlocks.load(plugin);
     graphMaxAllBlocks.load(plugin);
     graphHideStructEdges.load(plugin);
+    graphShowNumbers.load(plugin);
+    graph标记此块Menu.load(plugin);
+    graphBlockMarkBar.load(plugin);
     graphDefaultExpandLevel.load(plugin);
     graphDefaultLayout.load(plugin);
     tomatoClockCheckbox.load(plugin);
@@ -323,6 +329,8 @@ function loadStore(plugin: BaseTomatoPlugin) {
     copyIdCheckbox.load(plugin);
     foldCmdCheckbox.load(plugin);
     back_link_goto_bottom_btn.load(plugin);
+    back_link_float.load(plugin);
+    back_link_float_ball_stay.load(plugin);
     back_link_concept_fold.load(plugin);
     back_link_copy.load(plugin);
     back_link_move_to_dailynote.load(plugin);
@@ -399,6 +407,8 @@ function loadStore(plugin: BaseTomatoPlugin) {
     commentBoxAnnoEditorMode.load(plugin);
     commentBoxAnnoEditorFontSize.load(plugin);
     commentBoxAnnoViewFontSize.load(plugin);
+    commentBoxAnnoReplyFontSize.load(plugin);
+    commentBoxAnnoQuoteFontSize.load(plugin);
 
     storeNoteBox_selectedNoteType.load(plugin, plugin.settingCfg);
     storeNoteBox_keep.load(plugin, plugin.settingCfg);
@@ -428,7 +438,29 @@ export default class ThePlugin extends BaseTomatoPlugin {
 
         this.clean()
 
-        this.taskCfg = this.loadData(STORAGE_SETTINGS).then(async cfg => {
+        // □5 review P2-6：首发 loadData 也吞 reject——垂死代 410 会把 taskCfg 打挂截断 onload 链
+        this.taskCfg = this.loadData(STORAGE_SETTINGS).catch(() => undefined).then(async cfg => {
+            // □1 annofeed0917（陆杰 09-17 反复失效反馈）：loadData 取数失败不 reject 而是
+            // resolve 缓存空串（内核 API.ts 实锤：fetchPost 错误回调 resolve this.data[name]，
+            // 首读=""），重装卸载窗口内核忙时瞬态失败会把整份设置打成 {} 全默认——批注总开关
+            // 默认 false=面板/渲染链整族静默蒸发（用户形态：侧边栏丢失+快捷键无批注+锚点
+            // 裸露原始串）。非对象读数按 150/400/1000ms 退避重试（review P2-5：内核忙窗口
+            // 可能长于单次 300ms），重试本身吞 reject（review P2-1：垂死代 loadData 410
+            // reject 会把 taskCfg 打挂截断 onload 链）；三连仍非对象才认默认并打点留痕。
+            if (!utils.isObject(cfg)) {
+                for (const delay of [150, 400, 1000]) {
+                    debugLog("onload-chain", `settings 读数非对象（${typeof cfg}：${String(cfg).slice(0, 60)}），${delay}ms 后重试`);
+                    await new Promise(r => setTimeout(r, delay));
+                    cfg = await this.loadData(STORAGE_SETTINGS).catch(() => undefined);
+                    if (utils.isObject(cfg)) break;
+                }
+                if (!utils.isObject(cfg)) {
+                    debugLog("onload-chain", "settings 重试三连仍非对象——落全默认启动（批注等功能将静默关闭），排查 data/storage/petal/sy-tomato-plugin/tomato-settings.json");
+                }
+            }
+            // □5 annofeed0917（□1 review P2-2 放大器收口）：装载成败标志——false 代（全默认启动）
+            // 的整份保存会被 guardSaveSettings 拦下，防内存默认值覆盖盘上真设置
+            this.settingsLoadedOk = utils.isObject(cfg);
             this.settingCfg = cfg;
             if (!utils.isObject(this.settingCfg)) {
                 this.settingCfg = {} as TomatoSettings;
@@ -512,6 +544,36 @@ export default class ThePlugin extends BaseTomatoPlugin {
     }
 
     private blockIconEventBindThis = this.blockIconEvent.bind(this);
+
+    /** □5 annofeed0917：设置装载成败（taskCfg then 定值；false=瞬态全默认代，保存须过闸） */
+    settingsLoadedOk = true;
+
+    /** □5 annofeed0917（□1 review P2-2 收口）：保存链守卫——读取曾失败的那代（settingsLoadedOk=false，
+     *  内存 cfg 为全默认）在用户点「保存」时，先复读盘（□5 review P2-1：150/400/1000ms 同款退避，
+     *  单发会被与装载期同款的瞬态空串击穿）：盘上真设置对象在世=拦截本次整份保存（防默认值覆盖
+     *  真值）并就地热更自愈（syncSettingsFromDisk 灌回真值+刷 store——review P1-2：重开面板即真值态）；
+     *  盘上无有效对象（真·全新/损坏）=放行建立基线并转正标志。两保存链（Setting confirmCallback /
+     *  IndexConf save）+UpgradeBar onActivated 共用；65+ 单键写面走 settingFactory.write 的
+     *  mergedSaveKey 合并通道（review P1-1，不硬拦单键意图）。 */
+    async guardSaveSettings(): Promise<boolean> {
+        if (this.settingsLoadedOk) return true;
+        let disk: unknown;
+        for (const delay of [0, 150, 400, 1000]) {
+            if (delay) await new Promise(r => setTimeout(r, delay));
+            disk = await this.loadData(STORAGE_SETTINGS).catch(() => undefined);
+            if (disk !== null && typeof disk === "object" && !Array.isArray(disk)) break;
+            debugLog("settings-guard", `复读盘非对象（${typeof disk}），退避后重试`);
+        }
+        if (settingsSaveAllowed(false, disk)) {
+            debugLog("settings-guard", "读取曾失败且盘上无有效设置对象——放行本次保存作基线");
+            this.settingsLoadedOk = true;
+            return true;
+        }
+        debugLog("settings-guard", `读取曾失败且盘上真设置在世（${Object.keys(disk as object).length} 键）——已拦截本次保存，就地热更自愈`);
+        await syncSettingsFromDisk(this, STORAGE_SETTINGS).catch(() => undefined);
+        siyuan.pushMsg(tomatoI18n.设置读取异常未保存);
+        return false;
+    }
 
     private openSettings() {
         const dm = new DestroyManager();
@@ -621,6 +683,11 @@ export default class ThePlugin extends BaseTomatoPlugin {
     }
 
     async onload() {
+        // readonlyfix □8：只读态快捷键兜底桥推广——白名单只收制卡一条（拍板清单；LinkBox/
+        // MixBox/CommentBox 等其余 editorCallback 命令族未审计，留在只读态照旧死）。首行
+        // 安装语义同 progressive □5：handler LIVE 读 plugin.commands（制卡功能关=命令缺席=
+        // 自动无命中），后续步骤抛错桥仍在。
+        installReadonlyHotkeyBridge(this, { langKeys: [CardBox用选中的行创建超级块超级块制卡取消制卡.langKey] });
         this.addIcons(ICONS);
         events.onload(this);
         tomatoI18n.init();
@@ -639,6 +706,8 @@ export default class ThePlugin extends BaseTomatoPlugin {
 
         this.setting = new Setting({
             confirmCallback: async () => {
+                // □5 保存守卫：瞬态全默认代防覆盖盘上真设置（拦下时提示重开面板）
+                if (!(await this.guardSaveSettings())) return;
                 // await 落盘再热更：saveData 异步写被抢跑会掐断，文件保持旧值；
                 // □3 与钩子/自绘面板保存链同款（diskBefore 通道+结构性键判定，见 IndexConf save）
                 const diskBefore = await this.loadData(STORAGE_SETTINGS);
@@ -692,6 +761,18 @@ export default class ThePlugin extends BaseTomatoPlugin {
         // 集中于此顺序注册；onLayoutReady 只剩账号验证簇+布局轻活。各 Box 的「配置已到
         // 走同步/未到走异步」双路竞态消化已全部 flatten 退役（onload 体直接执行）
         await this.taskCfg;
+        // 半死插件防线（09-17 陆杰「功能丢失」实锤）：onload 链任一环抛错=断点后全部
+        // 功能静默蒸发（loader 只 console.error 不中断，链无重试；断链形态=「批注/思维
+        // 导线不在运行，重启插件恢复」）。per-Box 吞错+Loki 打点：单 Box 崩只丢自己，
+        // 链继续。与 QuickNote 的 languages 注册守卫互为双保险（本次触发面已根治，此处
+        // 兜住其余任何单点——设置读取、上游 API、未来新 Box 的未知炸点）。
+        const boxStep = async (name: string, fn: () => unknown) => {
+            try {
+                await fn();
+            } catch (e) {
+                debugLog("onload-chain", `Box ${name} onload 抛错（已隔离，链继续）：${(e as Error)?.stack ?? e}`);
+            }
+        };
         // 购买弹框命令入口（阶段 1.5）：老用户/已激活用户可随时通过命令面板回顾购买页；
         // featgate □1 试点：恒注册命令迁 gatedAddCommand（commandToggles 关=不注册）。
         // ⚠时序红线（review P0）：读 store 的条件注册必须在本行 await 之后——loadStore
@@ -719,15 +800,17 @@ export default class ThePlugin extends BaseTomatoPlugin {
         }
         initPrefixArticles();
         initKnowledgeBox();
-        tomatoClock.onload(this);
-        dailyNoteBox.onload(this);
-        toolbarBox.onload(this);
-        noteBox.onload(this);
-        quickNoteBox.onload(this);
-        readingPointBox.onload(this);
-        graphBox.onload(this);
-        commentBox.onload(this);
-        agentBox.onload(this);
+        await boxStep("clock", () => tomatoClock.onload(this));
+        await boxStep("dailyNote", () => dailyNoteBox.onload(this));
+        await boxStep("toolbar", () => toolbarBox.onload(this));
+        await boxStep("note", () => noteBox.onload(this));
+        await boxStep("quickNote", () => quickNoteBox.onload(this));
+        await boxStep("readingPoint", () => readingPointBox.onload(this));
+        await boxStep("graph", () => graphBox.onload(this));
+        // commentBox 原专用 try-catch（annofeed0917 □1，打点后 rethrow）收编进 boxStep：
+        // 吞错继续——commentBox 崩不再拖死其后全部 Box（批注域自身降级，打点仍在）
+        await boxStep("comment", () => commentBox.onload(this));
+        await boxStep("agent", () => agentBox.onload(this));
 
         // 大刷新（2026-09-06 seller 迁入）：整页硬刷新（window.location.reload，统一战役前
         // seller 顶栏钮的原始形态）。插件重载统一战役的「插件语境=插件级重载」不适用——本钮
@@ -766,6 +849,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
         });
 
         loadCss();
+        debugLog("onload-chain", "loadCss 完（CSS 已注入）");
         getNavSourceBlock()
         awaysExitFocusStore.load(this);
         // 批注草稿存放笔记本默认值注入（未配置→系统日记本，仅内存不落盘；不阻塞启动）
@@ -791,42 +875,49 @@ export default class ThePlugin extends BaseTomatoPlugin {
             }
         });
 
-        await schedule.onload();
-        await cardBox.onload(this);
-        await cardPriorityBox.onload(this);
-        await cpBox.onload(this);
-        await linkBox.onload(this);
-        refCleanBox.onload(this);
-        await pairBarBox.onload(this);
-        await imgOverlayBox.onload(this);
-        await backLinkBottomBox.onload(this);
-        await mixBox.onload(this);
-        await tag2RefBox.onload(this)
-        await spaceRefBox.onload();
-        await listBox.onload(this);
-        await aiBox.onload(this);
-        await mindWire.onload(this);
-        await markdownExportBox.onload();
-        await imgBox.onload(this);
-        await fastNoteBox.onload(this);
-        await dbBkBox.onload(this);
-        await getDocTracer()
-        await superRefBox.onload()
-        await blockEditor.onload()
-        punctTidyBox.onload();
+        await boxStep("schedule", () => schedule.onload());
+        await boxStep("cardBox", () => cardBox.onload(this));
+        await boxStep("cardPriority", () => cardPriorityBox.onload(this));
+        await boxStep("cp", () => cpBox.onload(this));
+        await boxStep("link", () => linkBox.onload(this));
+        await boxStep("refClean", () => refCleanBox.onload(this));
+        await boxStep("pairBar", () => pairBarBox.onload(this));
+        await boxStep("imgOverlay", () => imgOverlayBox.onload(this));
+        await boxStep("backLinkBottom", () => backLinkBottomBox.onload(this));
+        await boxStep("mix", () => mixBox.onload(this));
+        await boxStep("tag2Ref", () => tag2RefBox.onload(this));
+        await boxStep("spaceRef", () => spaceRefBox.onload());
+        await boxStep("list", () => listBox.onload(this));
+        await boxStep("ai", () => aiBox.onload(this));
+        await boxStep("mindWire", () => mindWire.onload(this));
+        await boxStep("markdownExport", () => markdownExportBox.onload());
+        await boxStep("img", () => imgBox.onload(this));
+        await boxStep("fastNote", () => fastNoteBox.onload(this));
+        await boxStep("dbBk", () => dbBkBox.onload(this));
+        await boxStep("docTracer", () => getDocTracer());
+        await boxStep("superRef", () => superRefBox.onload());
+        await boxStep("blockEditor", () => blockEditor.onload());
+        await boxStep("punctTidy", () => punctTidyBox.onload());
         // featgate □6（review P2-B）：Box 链收尾清 commandToggles 陈旧键（退役命令残留，
         // 防 langKey 复用被静默禁用）——onload 期执行保证，不依赖用户访问「命令开关」域
         pruneStaleCommandToggles();
     }
 
     onunload() {
+        uninstallReadonlyHotkeyBridge(this); // readonlyfix □8：兜底桥拆卸（首行——纯拆卸零依赖，后面步骤抛错不致泄漏监听器）
+        debugLog("onload-chain", "onunload 开始（拆链）");
         events.clearDebounce();
+        // fballfeedback □4b：悬浮球域收场——此前 onunload 摘了 20 个域唯独漏了球域，
+        // 重载卸载期球 DOM+DM 键全量残留=幽灵球温床（FloatingBall.ts sweepFloatingBalls 注释）
+        sweepFloatingBalls();
         settingsPanelCloser?.();   // 开着的设置面板整链收尾（Dialog+Svelte 树+tip）
         // □3 划线总览：禁用（非 reload）时拆在场浮层+摘桥——渐进右键不残留旧代闭包
         teardownAnnoOverview();
         // 卸载即摘底部反链 DOM（面板容器+入口条）；旧实例轮询 interval 依 running()
         // 判活下个 tick 自清（□10 评审 P2：disable 后无 onload，残留=死面板）
         utils.removeBkDomResidue();
+        // 悬浮反链收尾（球/面板 unmount+状态栏钮 remove+statusBarIcons splice）
+        backLinkBottomBox.onunload();
         annotations.unload();
         commentBox.onunload();
         quickNoteBox.onunload();

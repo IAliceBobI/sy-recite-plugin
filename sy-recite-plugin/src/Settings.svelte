@@ -207,7 +207,7 @@
         });
     }
 
-    // □3 帮助菜单（header 单 iconHelp 入口）：使用说明/更新日志/开源仓库/关于（isMe，
+    // □3 帮助菜单（header 单 iconHelp 入口）：使用说明/更新日志/源码仓库/关于（isMe，
     // helpMenu 内聚）；原页脚三按钮与 dev-row 全部收编于此
     function onHelpMenuBtn(e: MouseEvent) {
         openHelpMenu(e, {
@@ -319,7 +319,7 @@
         </div>
     </div>
 
-    <!-- □3：页脚三按钮（使用说明/更新日志/开源仓库）与 dev-row 取消激活收编进 header
+    <!-- □3：页脚三按钮（使用说明/更新日志/源码仓库）与 dev-row 取消激活收编进 header
          帮助菜单；仿写保存语义=即时生效，无 footer，仅留一行说明收底 -->
     <div class="rs-instant-note">{plugin.i18n.改动即时生效}</div>
 </div>

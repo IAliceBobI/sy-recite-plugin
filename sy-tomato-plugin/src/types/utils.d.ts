@@ -91,6 +91,8 @@ type TomatoSettings = {
     mindWireDynamicLine: boolean,
     mindWireCheckbox: boolean,
     mindWireWordWire: boolean,
+    mindWireBlockWire: boolean,
+    mindWireHoverBar: boolean,
     addSelectionBtnsDesktop: boolean,
     addSelectionBtnsMobile: boolean,
     digestAddReadingpoint: boolean,
@@ -151,6 +153,8 @@ type TomatoSettings = {
     cardLanding: string,
     mobileTopBar: boolean,
     cardAppendTime: boolean,
+    /** 卡片顶部来源层级路径（custom-ref/origin-hpath ::before）显示开关，默认关（09-17 群反馈） */
+    flashcardShowPath: boolean,
     cardUnderPiece: boolean,
     openCardsOnOpenPiece: boolean,
     hideBtnsInFlashCard: boolean,
@@ -200,6 +204,9 @@ type TomatoSettings = {
     flashcardAddOriginRef: boolean,
     //------------------
     graphHideStructEdges: boolean,
+    graphShowNumbers: boolean,
+    graphblockmarkMenu: boolean,
+    graphBlockMarkBar: boolean,
     graphMaxAllBlocks: string,
     graphMaxPBlocks: string,
     // graphbox 期2：默认展开层级（按标题层级 h1=1；"all"=全部展开，段落链折叠独立于档位）
@@ -341,6 +348,8 @@ type TomatoSettings = {
     bk_refresh_interval_sec: number,
     bk_visible_only: boolean,
     back_link_goto_bottom_btn: boolean,
+    back_link_float: boolean,
+    back_link_float_ball_stay: boolean,
     back_link_concept_fold: boolean,
     back_link_copy: boolean,
     back_link_move_to_dailynote: boolean,
@@ -402,6 +411,10 @@ type TomatoSettings = {
     commentBoxAnnoEditorFontSize: number,
     /** 批注查看态字号 px（气泡+面板正文同源，12~22，默认 13） */
     commentBoxAnnoViewFontSize: number,
+    /** 查看态追加分档字号 px（侧边栏+气泡追加时间线，11~20，默认 12，陆杰 09-17） */
+    commentBoxAnnoReplyFontSize: number,
+    /** 查看态引文分档字号 px（侧边栏引文摘要，11~20，默认 12，陆杰 09-17） */
+    commentBoxAnnoQuoteFontSize: number,
     linkBoxAttrIconOnHide: boolean,
 };
 
@@ -500,8 +513,11 @@ type AttrType = {
     "custom-bkRefDocCount"?: string,
     "custom-graph-isVertical"?: string,
     "custom-graph-layout"?: string,
+    "custom-graph-mode"?: string,
+    "custom-graph-struct-marks"?: string,
     "custom-graph-node-positions"?: string,
     "custom-graph-collapsed"?: string,
+    "custom-tomato-mark"?: string,
     "custom-super-list"?: string,
     "custom-tomato-reflink"?: string,
     "custom-sync-block-id"?: string,
@@ -606,12 +622,14 @@ interface GraphDockData<T> {
     /** 期4：定位脉冲窗口内抑制自动刷新（expandTo 写属性→ws 回流→relayout 重建打断脉冲/打回 setCenter） */
     suppressAutoRefreshUntil?: number;
     /** graphbox 期1：Provider 内 useSvelteFlow 借道（relayout 末尾首屏视口适配） */
-    fitView?: (opts?: { padding?: number; duration?: number }) => void;
+    /** minZoom=fitView 缩放下限（防孤儿列/宽树过缩成不可见小簇，□2 vision P1） */
+    fitView?: (opts?: { padding?: number; duration?: number; minZoom?: number }) => void;
     /** graphbox 期2：展开目标节点的折叠祖先链（定位不静默）；返回是否有折叠变更 */
     expandTo?: (id: string) => Promise<boolean>;
     /** graphbox 期4：图当前通道态/文档/块上限（locateNode 的 toast 分支文案依据）；
-     *  二期 □2 增 blockCount（precheck 真实块数，「超上限」文案只留给 cnt > maxBlocks 的真超限） */
-    getGraphState?: () => { mode: "full" | "skeleton"; docID: string; maxBlocks: number; blockCount?: number };
+     *  二期 □2 增 blockCount（precheck 真实块数，「超上限」文案只留给 cnt > maxBlocks 的真超限）；
+     *  treemap □5 增 marks 档（同 treemap 定位语义） */
+    getGraphState?: () => { mode: "structure" | "full" | "treemap" | "marks"; docID: string; maxBlocks: number; blockCount?: number };
     /** graphbox 二期 □2：图内全块 id 集（locateNode 定位兜底上爬祖先的「图内」判定） */
     graphIDsOf?: () => Set<string>;
     /** graphbox 期3：当前布局方向（横 LR=false 纵 TB=true）——zoom 过小提示切纵向的判定依据（期7 起随 isVertical 退役，改 layoutForm） */
@@ -620,6 +638,14 @@ interface GraphDockData<T> {
     layoutForm?: string;
     /** graphbox 期7：¶ 链中段定位重定向（目标块并进 ¶ 大节点 → 图上节点=链头） */
     paraRedirectOf?: (id: string) => string;
+    /** graphmark 期3：块级标记写后通知（标记写不碰 updated=指纹短路不含标记集，
+     *  GraphBox.ts toggleBlockMark 显式触发图组件 SWR 重拉标记——●N/只看标记过滤集跟进） */
+    marksChanged?: () => void;
+    /** graphmark 期4：图上聚焦（目标块一跳邻域高亮+其余淡化）。mode=toggle（默认，
+     *  同目标再进=退出全景——命令直连路径的「再按同块恢复」语义）；set（上爬兜底专用，
+     *  重定向目标撞上当前聚焦点=保持聚焦不 toggle，防「聚焦子块=静默关聚焦」错乱）。
+     *  false=图上无此块（调用方上爬图内祖先兜底）；treemap 档恒 false */
+    focusNode?: (id: string, mode?: "toggle" | "set") => Promise<boolean>;
     /** graphbox 期3：xyflow 内部 store 借道（官方更新通道；bind store 在 runes 组件不可靠） */
     graphStore?: { nodes: any; edges: any };
 }

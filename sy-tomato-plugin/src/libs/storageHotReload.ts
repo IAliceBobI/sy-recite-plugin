@@ -38,6 +38,7 @@ const STRUCTURAL_KEYS = new Set([
     "blockEditorBox", "qeFloatBall", // 块编辑器总门+球（BlockEditor onload）
     "spaceRefEnabled", // 空格转引用 document 三监听（SpaceRefBox onload）
     "floatingballEnable", // 悬浮球命令注册族（FloatingBall onload）
+    "back_link_float", // 悬浮反链总开关（BackLinkBottomBox.onload 读死：floatBox 挂载决策+快捷键/状态栏钮注册族）
     "addSelectionBtnsMobile", "addSelectionBtnsDesktop", // 划词工具条 onLayoutReady 一次性注册
     "initProgFloatBtnsDisable", // 渐进浮条系统总开关（禁用态组件从未挂载，渐进键共用此表）
     "mobileTopBar", // 渐进移动端顶栏（组件 init 一次性读，仅移动端受害）
@@ -47,6 +48,7 @@ const STRUCTURAL_KEYS = new Set([
     "cssRefEffect", "cssSuperBlockBorder", "cssFlashThoughts", "cssShowMemo",
     "cssShowFlashCardBlank", "cssShowHomeEndIcon", "cssHomeEndIconLeft",
     "dailyNoteCopyShowPath", "showDocAttrs", "cssNattyList", "cssListBackgound", "cssRefAsTags",
+    "graphBlockMarkBar", // 块级标记左边条（graphmark 期2 review P1-2：Bar 结尾不中 checkbox 族，漏登=单独切换保存后不重载不生效）
     // 外观域·界面净化 6 开关（uiclean 2026-09-12：load_uiClean 一次性注入族同上）
     "uiCleanTabClose", "uiCleanTabBarBtns", "uiCleanTopbarStatus",
     "uiCleanEmptyHelp", "uiCleanDocTreeBadge", "uiCleanDocTreeCompact",
@@ -93,6 +95,9 @@ export async function syncSettingsFromDisk(
     if (!fresh || typeof fresh !== "object") return { changed: [], structural: [] };
     const changed = diffSettingKeys(oldCfg ?? plugin.settingCfg, fresh);
     plugin.settingCfg = fresh;
+    // □5 annofeed0917 review P1-2：热更读盘成功=真值已在世且已灌回内存——装载成败标志
+    // 同步转正（渐进/仿写等子类无此字段，赋值无害），防已自救代被保存守卫永久误拦
+    (plugin as any).settingsLoadedOk = true;
     reloadSettingStores(fresh, changed);
     const structural = changed.filter(isStructuralKey);
     debugLog("storageHotReload", `${plugin.name} 热更 ${changed.length} 键${structural.length ? `（结构性 ${structural.length}，由调用方重载）` : ""}${changed.length ? `：${changed.join(",")}` : ""}`);

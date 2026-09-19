@@ -9,6 +9,7 @@
     import { Handle, Position, type NodeProps } from "@xyflow/svelte";
     import { tomatoI18n } from "./tomatoI18n";
     import { showPanelTip, hidePanelTip } from "./libs/panelTip";
+    import { formatCharsVolume } from "./libs/graphSkeleton";
 
     let { data, targetPosition, sourcePosition }: NodeProps = $props();
     // data: { label, paraText?, collapsed, isParaMerged, hiddenCount, hasChildren, toggle,
@@ -17,6 +18,16 @@
     function onToggle(e: MouseEvent) {
         e.stopPropagation();
         (data as any).toggle?.();
+    }
+    // □2 结构态徽标（「N 段 · X 字」pill）：点按=展开/收起该容器直属叶子
+    function onBadgeToggle(e: MouseEvent) {
+        e.stopPropagation();
+        (data as any).toggleBadge?.();
+    }
+    // 期3 ●N 标记角标：点按=摊开/收起本容器标记叶卡
+    function onMarkToggle(e: MouseEvent) {
+        e.stopPropagation();
+        (data as any).onMarkToggle?.();
     }
     function stopDrag(e: PointerEvent) {
         e.stopPropagation();
@@ -42,6 +53,23 @@
     };
     const blockType = $derived((data as any).blockType as string | undefined);
     const typeIcon = $derived(blockType ? TYPE_ICON[blockType] ?? null : null);
+    // □4 MarginNote 式内容卡片（结构态展开叶子）：两段式=标题栏（类型图标+首行）+多行正文
+    const structLeaf = $derived(!!(data as any).structLeaf);
+    // luji0918 □2：标记叶（结构视图「只挂标记块」）——标题栏染标记色+左缘色条；
+    // structClamp=正文行数钳（标记叶一两行截断，普通展开叶维持 8）。graphmark 期3：
+    // markDot=子树标记角标（●N 量级不做色块——共识「视觉减噪」）{n 子树计数, color 首标记色}；
+    // 点击 onMarkToggle=摊开/收起该容器标记叶卡（无自身标记=展开本节点）
+    const structMark = $derived((data as any).structMark as string | undefined);
+    const structClamp = $derived((data as any).structClamp as number | undefined);
+    const markDot = $derived((data as any).markDot as { n: number; color: string } | undefined);
+    // □4 章节编号独立字段（弱化浅灰前缀——双编号场景两段语义可分）
+    const number = $derived((data as any).number as string | undefined);
+    // □2 徽标：{leaves, chars, expanded}——文本「N 段 · X 字」本体即信息，aria 同源
+    const badge = $derived((data as any).structBadge as { leaves: number; chars: number; expanded: boolean } | undefined);
+    const badgeLabel = $derived(badge
+        ? (badge.expanded ? tomatoI18n.徽标已展开点击收起 : tomatoI18n.徽标段字)
+            .replace("%1", `${badge.leaves}`).replace("%2", `${badge.chars}`)
+        : "");
     const docName = $derived((data as any).docName as string | undefined);
     const isDoc = $derived(!!(data as any).isDoc);
     // 期7 竖排分支（form 由 relayout commit 写进 data；形态切换不重建节点，只刷 form）
@@ -52,7 +80,30 @@
     const paraTip = $derived(((data as any).fullText ?? "").slice(0, 300));
 </script>
 
-{#if (data as any).isParaMerged}
+{#if structLeaf}
+    <!-- □4 MarginNote 式内容卡片：主色标题栏（类型图标+首行）+白底多行正文（pre-wrap 按行/keep 拉丁词整/line-clamp 截断）。
+         luji0918 □2：structMark=标记色变量（标题栏 color-mix 染色+左缘色条），structClamp=行数钳 -->
+    <div
+        class="gn-card"
+        class:gn-card--mark={!!structMark}
+        style={structMark ? `--gn-mark:${structMark}` : ""}
+        role="group"
+        ondblclick={onDblClick}
+        aria-label={(data as any).fullText || (data as any).label}
+        onmouseenter={(e) => showPanelTip(e.currentTarget as HTMLElement)}
+        onmouseleave={hidePanelTip}
+    >
+        <div class="gn-card-head">
+            {#if typeIcon}<svg class="gn-card-icon"><use xlink:href="#{typeIcon}"></use></svg>{/if}
+            <span class="gn-card-title">{(data as any).label}</span>
+        </div>
+        <!-- 期4 vision P2：单行标记叶无正文时不渲染空 body（蓝头下 12px 空白条收掉；
+             普通展开叶 bodyText 恒回退全文不受影响） -->
+        {#if (data as any).bodyText}
+            <div class="gn-card-body" style={structClamp ? `-webkit-line-clamp:${structClamp};line-clamp:${structClamp};` : ""}>{(data as any).bodyText}</div>
+        {/if}
+    </div>
+{:else if (data as any).isParaMerged}
     <div
         class="gn-para" class:gn-para-v={textV}
         role="group"
@@ -86,7 +137,30 @@
         {#if docName}
             <span class="gn-docname">《{docName}》</span>
         {/if}
+        {#if number}<span class="gn-num">{number}</span>{/if}
+        {#if markDot}
+            <button
+                class="gn-markpill"
+                style="--gn-mark:{markDot.color}"
+                aria-label={tomatoI18n.处标记.replace("%1", `${markDot.n}`)}
+                title={tomatoI18n.处标记.replace("%1", `${markDot.n}`)}
+                onclick={onMarkToggle}
+                onpointerdown={stopDrag}
+                ondblclick={stopDbl}
+            ><span class="gn-markpill-dot"></span>{markDot.n}</button>
+        {/if}
         <span class="gn-label">{(data as any).label}</span>
+        {#if badge}
+            <button
+                class="gn-badge"
+                class:gn-badge--open={badge.expanded}
+                aria-label={badgeLabel}
+                title={badgeLabel}
+                onclick={onBadgeToggle}
+                onpointerdown={stopDrag}
+                ondblclick={stopDbl}
+            >{badge.leaves} · {formatCharsVolume(badge.chars, tomatoI18n.lang)}{badge.expanded ? "▾" : "▸"}</button>
+        {/if}
         {#if (data as any).collapsed && (data as any).hiddenCount > 0}
             <button
                 class="gn-toggle gn-toggle--collapsed"
@@ -127,7 +201,8 @@
         color: var(--b3-theme-on-background);
         font-size: 12px;
         line-height: 1.4;
-        word-break: break-all;
+        /* □3 vision P2：拉丁词 break-all 腰斩（H1-INTRO→INTR/O）——anywhere 整词优先断 CJK 随断 */
+        overflow-wrap: anywhere;
         transition: border-color 0.15s, box-shadow 0.15s;
     }
     .gn:hover {
@@ -179,7 +254,8 @@
         min-width: 16px;
         height: 16px;
         padding: 0 4px;
-        border: 1px solid var(--b3-border-color);
+        /* □3 vision P2：白底细边可发现性差——border-color 提浓一档（on-surface 30% 混合） */
+        border: 1px solid color-mix(in srgb, var(--b3-theme-on-surface) 30%, transparent);
         border-radius: 8px;
         background: var(--b3-theme-background);
         color: var(--b3-theme-on-surface-light);
@@ -196,6 +272,136 @@
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
     }
     .gn-toggle:hover {
+        border-color: transparent;
+        background: var(--b3-theme-primary);
+        color: var(--b3-theme-on-primary);
+    }
+    /* □2 结构态徽标 pill：直属叶子聚合量（挂节点底部中央，点击展开/收起）。
+     * 展开态实心主色（与折叠角标形制呼应），默认弱化轻量 */
+    .gn-badge {
+        position: absolute;
+        left: 50%;
+        bottom: -11px;
+        transform: translateX(-50%);
+        height: 18px;
+        padding: 0 8px;
+        border: 1px solid var(--b3-border-color);
+        border-radius: 9px;
+        background: var(--b3-theme-background);
+        color: var(--b3-theme-on-surface-light);
+        font-size: 11px;
+        line-height: 16px;
+        white-space: nowrap;
+        cursor: pointer;
+        box-shadow: none;
+    }
+    /* □4 MarginNote 式内容卡片：统一规格（宽 200 主色标题栏+白底多行正文+细边框轻投影）——
+     * 「整洁数据库感」来自统一规格；正文 pre-wrap 按行（代码语言行恢复）+break-word（拉丁词
+     * 不腰斩）+line-clamp 8 截断（hover panelTip 全文兜底）；暗态走主题变量自动换装 */
+    .gn-card {
+        box-sizing: border-box;
+        width: 200px;
+        border: 1px solid var(--b3-border-color);
+        border-radius: 6px;
+        background: var(--b3-theme-background);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        cursor: default;
+    }
+    .gn-card-head {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        height: 22px;
+        padding: 0 7px;
+        background: var(--b3-theme-primary);
+        color: var(--b3-theme-on-primary);
+        font-size: 11px;
+        line-height: 22px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: none;
+    }
+    .gn-card-icon {
+        flex: none;
+        width: 12px;
+        height: 12px;
+        fill: currentColor;
+    }
+    .gn-card-title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .gn-card-body {
+        padding: 6px 8px;
+        font-size: 11px;
+        line-height: 1.5;
+        color: var(--b3-theme-on-surface);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 8;
+        line-clamp: 8;
+        overflow: hidden;
+    }
+    /* luji0918 □2 标记叶（结构视图「只挂标记块」）：标题栏染标记色（color-mix 浅衬——
+       原主色实心底换浅底保证任意标记色下标题文字可读，左缘 3px 色条保色相辨识） */
+    .gn-card--mark .gn-card-head {
+        background: color-mix(in srgb, var(--gn-mark, var(--b3-theme-primary)) 22%, var(--b3-theme-background));
+        color: var(--b3-theme-on-surface);
+        border-left: 3px solid var(--gn-mark, var(--b3-theme-primary));
+        padding-left: 4px;
+    }
+    /* graphmark 期3 ●N 标记角标：色点+计数小药丸（子树标记量；点按摊开标记叶卡）。
+     * 弱化轻量形制与徽标 pill 呼应，色点承载标记色相（共识「小色点+数字不做色块」） */
+    .gn-markpill {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        height: 16px;
+        margin-inline-end: 4px;
+        padding: 0 5px;
+        border: 1px solid var(--b3-border-color);
+        border-radius: 8px;
+        background: var(--b3-theme-background);
+        color: var(--b3-theme-on-surface); /* 期4 vision P2：10px 数字亮色 3.0:1 不足提档（6.05:1）；暗色分支回 on-surface-light（8.6:1） */
+        font-size: 10px;
+        line-height: 14px;
+        cursor: pointer;
+        box-shadow: none;
+    }
+    .gn-markpill:hover {
+        border-color: transparent;
+        background: var(--b3-theme-primary-lightest);
+        color: var(--b3-theme-on-surface);
+    }
+    /* 期4 vision P2：数字亮色 3.0:1（10px 小字）不足——提 --b3-theme-on-surface（6.05:1）；
+       暗色 on-surface-light 本就 8.6:1，分支保持原值（暗色判据=html[data-theme-mode]，
+       3.8.3 无 .dark class）。基础 color 在上方 .gn-markpill 主块 */
+    :global(html[data-theme-mode="dark"]) .gn-markpill {
+        color: var(--b3-theme-on-surface-light);
+    }
+    .gn-markpill-dot {
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--gn-mark, var(--b3-theme-primary));
+        box-shadow: 0 0 0 1px var(--b3-border-color);
+    }
+    /* □4 章节编号弱化前缀（浅灰常规字重——双编号场景自动编号段与标题自带序号段语义可分） */
+    .gn-num {
+        margin-right: 4px;
+        color: var(--b3-theme-on-surface-light);
+        font-weight: 400;
+        font-size: 10px;
+    }
+    .gn-badge:hover,
+    .gn-badge--open {
         border-color: transparent;
         background: var(--b3-theme-primary);
         color: var(--b3-theme-on-primary);

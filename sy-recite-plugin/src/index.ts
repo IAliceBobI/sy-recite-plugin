@@ -9,6 +9,7 @@ import { events } from "../../sy-tomato-plugin/src/libs/Events";
 import { tomatoI18n } from "../../sy-tomato-plugin/src/tomatoI18n";
 import { isObject, Siyuan } from "../../sy-tomato-plugin/src/libs/utils";
 import { migrateLegacyHotkeys } from "../../sy-tomato-plugin/src/libs/hotkeyCap";
+import { installReadonlyHotkeyBridge, uninstallReadonlyHotkeyBridge } from "../../sy-tomato-plugin/src/libs/readonlyHotkey";
 import { STORAGE_SETTINGS } from "../../sy-tomato-plugin/src/constants";
 import { licenseCloudSynced, userID, userToken } from "../../sy-tomato-plugin/src/libs/stores";
 import { resetKey, verifyKeyRecite } from "../../sy-tomato-plugin/src/libs/user";
@@ -81,6 +82,20 @@ export default class ThePlugin extends BaseTomatoPlugin {
     }
 
     async onload() {
+        // readonlyfix □8：只读态快捷键兜底桥（根因与「零双触发」论证见 tomato
+        // libs/readonlyHotkeyCore.ts 文件头）。白名单只收三连（抽取/对比/复制提示词——
+        // 共性=不写当前只读文档；抽取/对比写的是练习卷/对比文档）。rewrite 删建与
+        // keep/target 原地改块不进（未拍板，只读态保守）；togglePractice 走 callback
+        // 通道=内核 shortcut 源只读态本来活着，天然不进兜底。首行安装：handler LIVE 读
+        // plugin.commands，命令后注册也照常命中；后续步骤抛错桥仍在（progressive □5
+        // 同款半死形态加固）。
+        installReadonlyHotkeyBridge(this, {
+            langKeys: [
+                RECITE_HOTKEYS.reciteExtract.langKey,
+                RECITE_HOTKEYS.reciteCompare.langKey,
+                RECITE_HOTKEYS.reciteCopyPrompt.langKey,
+            ],
+        });
         // □5 核实：recite 无「改配置生效」reload 点——设置项全即时生效（store .set/.write），
         // 激活重载在 tomato 侧 UnlockDialog/UpgradeBar 共用组件（□1 已按 product 映射改好）；
         // 时序无手术面：onload 同步注册零配置依赖，onLayoutReady 是 DOM 属性/auth/播种语义。
@@ -339,6 +354,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
     }
 
     onunload() {
+        uninstallReadonlyHotkeyBridge(this); // readonlyfix □8：兜底桥拆卸（首行——纯拆卸零依赖，后面步骤抛错不致泄漏监听器）
         if (this.userIDTimer) clearInterval(this.userIDTimer);
         this.userIDTimer = null;
         this.bgRoleUnsub?.(); // 背景角色订阅停表（属性清理由下方 removeAttribute 一并兜底）

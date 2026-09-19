@@ -6,7 +6,7 @@
 
 - 📖 **[完整使用指南](https://my.feishu.cn/docx/FgSpdE2PmoEfJmxGYCqcurmDnCf)**（图文 + 背诵/默写/骨架/英语/联想五场景完整实例 + AI 判卷全文 + 演示数据下载）
 - 🤖 **[把 AI 助手接进思源（MCP）](https://my.feishu.cn/docx/BkRldeWJ7o3T4ExE2fdciZbgnRV)**——让 AI 通读原文、替你装配仿写练习（Pro），ZCode / Trae / CodeBuddy / Qoder 三步接入
-- 🔓 **[开源仓库](https://github.com/IAliceBobI/sy-recite-plugin)** — 所见即所编译：发布包由 GitHub Actions 从源码远程构建
+- 📦 **[源码仓库](https://github.com/IAliceBobI/sy-recite-plugin)** — 所见即所编译：发布包由 GitHub Actions 从源码远程构建
 - 💬 [QQ 频道](https://pd.qq.com/s/r3jz0g16) — 反馈与功能建议（与番茄工具箱共用）
 - 💬 [飞书群](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=f08gff0c-d6b0-4a0d-8323-c8a0553e4fff&qr_code=true) — 反馈与功能建议（与番茄工具箱共用）
 - 📱 扫码进群：![群二维码（左 QQ 频道，右飞书群）](group-qr.png)
@@ -76,6 +76,10 @@
 
 - 思源笔记 ≥ 2.12.6，桌面端 / 移动端 / Docker 均可
 - 安装：思源集市（上架后）或手动将 release zip 解压到 `data/plugins/sy-recite-plugin/`
+
+## 许可
+
+**自下一个版本起，本插件改用专有许可**（见 [LICENSE](LICENSE)）：**个人使用仍然免费**，个人用户无任何变化；禁止再分发、改包分发与绕过激活校验；商用（向使用者收费、付费服务、企业内部使用）需书面授权——[飞书群](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=f08gff0c-d6b0-4a0d-8323-c8a0553e4fff&qr_code=true)或 GitHub Issues 联系。v1.5.3 及更早的历史版本仍按发布时的 MIT 许可提供。
 
 ## 支持作者
 

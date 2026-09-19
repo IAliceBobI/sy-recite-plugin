@@ -6,7 +6,7 @@ Highlighting a good article isn't enough to make it stick. Mark the sentences yo
 
 - 📖 **[Full User Guide](https://my.feishu.cn/docx/FgSpdE2PmoEfJmxGYCqcurmDnCf)** (Chinese, with complete walk-throughs for five scenarios — recitation / dictation / skeleton / English / association — plus full AI grading output and demo data download)
 - 🤖 **[Connect AI to SiYuan (MCP)](https://my.feishu.cn/docx/BkRldeWJ7o3T4ExE2fdciZbgnRV)** (Chinese) — let AI read the source text and assemble practice drills for you (Pro); three-step setup for ZCode / Trae / CodeBuddy / Qoder
-- 🔓 **[Open-source repo](https://github.com/IAliceBobI/sy-recite-plugin)** — what you see is what's compiled: release packages are built remotely by GitHub Actions from source
+- 📦 **[Source repository](https://github.com/IAliceBobI/sy-recite-plugin)** — what you see is what's compiled: release packages are built remotely by GitHub Actions from source
 - 💬 [QQ Channel](https://pd.qq.com/s/r3jz0g16) (Chinese) — feedback and feature requests, shared with Tomato Toolbox
 - 💬 [Feishu Group](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=f08gff0c-d6b0-4a0d-8323-c8a0553e4fff&qr_code=true) (Chinese) — feedback and feature requests, shared with Tomato Toolbox
 - 📱 Scan to join: ![Group QR codes (left: QQ Channel, right: Feishu)](group-qr.png)
@@ -76,6 +76,15 @@ Three independent axes — themes, backgrounds and bar skins mix freely: nine th
 
 - SiYuan ≥ 2.12.6 — desktop, mobile and Docker all work
 - Install from the SiYuan marketplace (once listed), or manually unzip a release package into `data/plugins/sy-recite-plugin/`
+
+## License
+
+All released versions up to v1.5.3 remain under the MIT License. **Starting with the next release, this plugin ships under a proprietary license** (see [LICENSE](LICENSE)):
+
+- **Personal use stays free** — nothing changes for individual users
+- Redistribution, re-packaging and distributing modified copies are not allowed
+- Removing or bypassing the activation check is not allowed
+- Commercial use (charging users, paid services, use inside a company) needs written permission — reach out via the [Feishu group](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=f08gff0c-d6b0-4a0d-8323-c8a0553e4fff&qr_code=true) or GitHub issues
 
 ## Support the Author
 

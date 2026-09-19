@@ -3,12 +3,12 @@
     import { onMount } from "svelte";
     import { DestroyManager } from "./libs/destroyer";
     import { confirm, Protyle } from "siyuan";
-    import { getTomatoPluginInstance, siyuan } from "./libs/utils";
+    import { getTomatoPluginInstance, icon } from "./libs/utils";
     import { floatingballBallList, floatingballDocOpenBottom } from "./libs/stores";
     import { OpenSyFile2 } from "./libs/docUtils";
     import { getFloatingBall, getFloatingBallProtyleDialog } from "./FloatingBall";
     import { unbindBall } from "./actions/docAction";
-    import { scrollDocBottomForDoc } from "./libs/ballDocToggle";
+    import { jumpDocBottomViaSlider, readDocPosition, seedFilePosition, type DocReadPosition } from "./libs/ballDocToggle";
     import { debugLog } from "./libs/logUtils";
     import { tomatoI18n } from "./tomatoI18n";
     import DialogSvelte from "./libs/DialogSvelte.svelte";
@@ -30,27 +30,70 @@
     let show = $state(true);
 
     onMount(() => {
+        // 跳底（fballfeedback □3 v2，bear 09-17 反馈「只见最后一个块」）：blockId 恒文档
+        // id=整篇头窗构造——此前喂真尾块 id 实为内核 mode 0 块聚焦形态（悬浮窗只剩尾块、
+        // 往上滚加载不出前文，尾窗通道设想不成立）；跳底改 jumpDocBottomViaSlider：合成
+        // 点击内核滚动条「跳到底部」钮=goEnd 正轨（getDoc mode 4 一次落尾窗+scrollCenter
+        // 滚到尾块，往上滚动态加载前文=整篇可达）。
+        // luji0918 □1 修法②（记忆位置，优先于跳底开关——「上次看到哪」语义；开关关+有档
+        // 也回档，自洽）：重开走内核 cb-get-rootscroll 分支——构造期读 FILEPOSITION 走
+        // getDocByScroll 直载 [startId,endId] 窗口+scrollTop 直恢（官方重开恢复管线，长
+        // 文档懒加载下 DOM scrollIntoView 够不到未渲染块，此为唯一正轨）。档种入内核存储
+        // 供构造同步消费、构造返回即还原（主实例官方阅读位置零污染）。$$dailynote 每天现
+        // 建日记：docID≠action.docID 时档属旧文档，记录与恢复都跳过。
+        const dailyNote = !!docID && docID !== ball.action?.docID;
+        const lastRead = dailyNote ? undefined : ball.action?.lastRead as DocReadPosition | undefined;
+        const restore = lastRead?.startId && lastRead?.endId ? lastRead : undefined;
+        const protyleOptions: any = {
+            blockId: winDocID,
+            render: {
+                background: false,
+                title: false,
+                gutter: true,
+                scroll: true,
+                breadcrumb: false,
+                breadcrumbDocName: false,
+            },
+        };
+        let unseed: (() => void) | undefined;
+        if (restore) {
+            protyleOptions.rootId = winDocID;
+            protyleOptions.action = ["cb-get-rootscroll"];
+            unseed = seedFilePosition(winDocID, restore);
+        }
         const protyle = new Protyle(
             getTomatoPluginInstance().app,
             protyleTarget,
-            {
-                blockId: winDocID,
-                render: {
-                    background: false,
-                    title: false,
-                    gutter: true,
-                    scroll: true,
-                    breadcrumb: false,
-                    breadcrumbDocName: false,
-                },
-            },
+            protyleOptions,
         );
-        dm.add("protyle", () => protyle.destroy());
-        // 滚底（fbfeat □1 落底；□13 禁聚焦拍板后转纯滚动——打开即见最新内容，
-        // 续写光标由用户点一下落，定位类 action 本就不走 new Protyle 构造）
-        debugLog("fball", `floatwin mount bottom=${floatingballDocOpenBottom.get()} docID=${winDocID}`, "fball");
-        if (floatingballDocOpenBottom.get() === true) {
-            void scrollDocBottomForDoc(protyleTarget, winDocID, (id) => siyuan.getDocLastID(id));
+        unseed?.();
+        dm.add("protyle", () => {
+            // luji0918 □1 修法②：关闭即记录。exitProtyle/toggle 关/unbind/sweep 全走
+            // destroyBy，本 cb 首位执行时 DOM 未摘、scrollTop 可读；渲染未就绪=保持旧档。
+            // toggle 关不经 exitProtyle，持久化写在记录处自足（不依赖调用方先 write）。
+            if (!dailyNote) {
+                const pos = readDocPosition(protyleTarget);
+                if (pos) {
+                    ball.action.lastRead = pos;
+                    floatingballBallList.write();
+                }
+            }
+            protyle.destroy();
+        });
+        debugLog("fball", `floatwin mount bottom=${floatingballDocOpenBottom.get()} restore=${restore ? restore.startId.slice(-6) : "-"} doc=${winDocID.slice(-6)}`, "fball");
+        if (!restore && floatingballDocOpenBottom.get() === true) {
+            // luji0918 □1 修法①（遮眼）：头窗构造→goEnd 落底间的可见间隙=「先顶部再跳
+            // 底部」两段式观感根因——跳底全程 visibility:hidden（不参与命中测试、布局
+            // 不塌），jumpDocBottomViaSlider 任何终态（settled/TIMEOUT/abort 族）经
+            // onDone 恢复显示；同步抛错兜底也恢复。恢复路径（cb-get-rootscroll）直载
+            // 终态窗口无中间画帧，不遮眼、保留加载指示。
+            protyleTarget.style.visibility = "hidden";
+            const uncover = () => { protyleTarget.style.visibility = ""; };
+            try {
+                jumpDocBottomViaSlider(protyleTarget, 15000, uncover);
+            } catch {
+                uncover();
+            }
         }
     });
 
@@ -71,34 +114,71 @@
         savePositionKey={`${key}#floatingDialog`}
     >
         {#snippet dialogInner()}
-            <button
-                title={tomatoI18n.解除悬浮球与文档之间的绑定}
-                onclick={() => {
-                    confirm(tomatoI18n.解除悬浮球与文档之间的绑定, "⚠️", () => {
-                        unbindBall(ball);
-                    });
-                }}
-                class="b3-button b3-button--outline space">⛓️‍💥</button
-            >
-            <button
-                onclick={exitProtyle}
-                class="b3-button b3-button--outline space">🏃</button
-            >
-            <button
-                onclick={() => {
-                    OpenSyFile2(getTomatoPluginInstance(), winDocID);
-                    exitProtyle();
-                }}
-                class="b3-button b3-button--outline space">🎯</button
-            >
+            <!-- fballfeedback □4a：按钮行钉窗顶——原先在滚动流内，往下读长文档时跟着内容
+                 滚出顶边被裁（陆杰反馈「连着按钮也往上滑动，所以会被挡住」） -->
+            <div class="win-actions">
+                <!-- emoji 换 sprite 图标钮（09-17 bear：emoji 丑）——28px 方形热区与窗体标题
+                     钮同构；iconLinkOff=断链解除/iconDown=收起（DialogSvelte 收起钮同款）/
+                     iconFocus=定位跳原文，均活内核 sprite 实有（iconoff 探针点名） -->
+                <button
+                    aria-label={tomatoI18n.解除悬浮球与文档之间的绑定}
+                    title={tomatoI18n.解除悬浮球与文档之间的绑定}
+                    onclick={() => {
+                        confirm(tomatoI18n.解除悬浮球与文档之间的绑定, "⚠️", () => {
+                            unbindBall(ball);
+                        });
+                    }}
+                    class="win-btn">{@html icon("iconLinkOff", 15)}</button
+                >
+                <button
+                    aria-label="退出悬浮窗"
+                    title="退出悬浮窗"
+                    onclick={exitProtyle}
+                    class="win-btn">{@html icon("iconDown", 15)}</button
+                >
+                <button
+                    aria-label="定位到原文档"
+                    title="定位到原文档"
+                    onclick={() => {
+                        OpenSyFile2(getTomatoPluginInstance(), winDocID);
+                        exitProtyle();
+                    }}
+                    class="win-btn">{@html icon("iconFocus", 15)}</button
+                >
+            </div>
             <div class="protyleClass" bind:this={protyleTarget}></div>
         {/snippet}
     </DialogSvelte>
 </div>
 
 <style>
-    .space {
+    .win-actions {
+        /* BlockEditor sticky-header 同款：-8px 补偿 DialogSvelte dialog-content
+           padding-top，滚动时行贴窗顶不露缝；表面色遮滚动内容透字 */
+        position: sticky;
+        top: -8px;
+        z-index: 5;
+        background: var(--b3-theme-background);
         margin-top: 10px;
+    }
+    .win-btn {
+        /* 28px 方形图标钮：与 DialogSvelte 标题栏 close-button 同构（b3-button 文字钮
+           换图标后内边距违和，直接用同款热区） */
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: var(--b3-theme-on-background);
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: background-color 0.2s;
+    }
+    .win-btn:hover {
+        background-color: var(--b3-list-hover, rgba(0, 0, 0, 0.075));
     }
     /* fbfeat □1：长文档悬浮窗高度约束——无约束时 .protyleClass 被内容撑到全高，protyle
        内部滚动层（.protyle-content）不出滚动条，超出视口部分不可达（落底也滚不动）；
