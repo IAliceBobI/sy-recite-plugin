@@ -12,6 +12,7 @@
 
     // 快捷键节行数据（□33）：hk 来自 RECITE_HOTKEYS（winHotkey 对象，langKey/默认键/icon 单源），
     // 行名走 plugin.i18n；键帽写回/冲突检测/随机建议全由 HotkeyCap + tomato libs/hotkeyCap.ts 承担
+    // gfloatnav 盘点补漏（09-19）：reciteKeep/reciteTarget 期1/期2 新命令一直缺席键帽行
     // svelte-ignore state_referenced_locally
     const hkRows = [
         { hk: RECITE_HOTKEYS.reciteTogglePractice, label: plugin.i18n["快捷键·进入仿写"] },
@@ -19,6 +20,8 @@
         { hk: RECITE_HOTKEYS.reciteCompare, label: plugin.i18n["快捷键·对比"] },
         { hk: RECITE_HOTKEYS.reciteCopyPrompt, label: plugin.i18n["快捷键·复制提示词"] },
         { hk: RECITE_HOTKEYS.reciteRewrite, label: plugin.i18n["快捷键·重新写"] },
+        { hk: RECITE_HOTKEYS.reciteKeep, label: plugin.i18n["快捷键·设为原文"] },
+        { hk: RECITE_HOTKEYS.reciteTarget, label: plugin.i18n["快捷键·这段练"] },
     ];
 </script>
 

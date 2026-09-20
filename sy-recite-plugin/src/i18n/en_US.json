@@ -30,6 +30,8 @@
   "快捷键·对比": "Generate comparison doc",
   "快捷键·复制提示词": "Copy grading prompt",
   "快捷键·重新写": "Rewrite (delete & rebuild)",
+  "快捷键·设为原文": "Mark as original text",
+  "快捷键·这段练": "Mark as drill target",
   "判官语气": "Grader Tone",
   "判官·文判鼓励": "Gentle",
   "判官·中立": "Neutral",
