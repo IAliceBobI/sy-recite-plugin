@@ -305,6 +305,23 @@ export class DomParaBuilder extends DomBuilder {
 }
 
 /**
+ * 思源 markdown 方言的行内 HTML 标签族 → configured Lute 认识的 span data-type 形态。
+ * 思源自己的 markdown 通道（SQL blocks.markdown 列 / createDocWithMd / updateBlock）把
+ * 下划线序列化为 <u>、上下标 <sub>/<sup>、键盘 <kbd>、带色高亮 <mark style>——这套
+ * HTML 方言标签在 NewConfiguredLute 的 ProtyleWYSIWYG 旗标下被 Lute 当纯文本转义输出
+ * （&lt;u&gt; 字面），下游 innerHTML/事务 HTML 通道照字面落盘=文档里裸显 HTML 标签
+ * （09-21 recite □A：对比文档左栏原文下划线裸显 <u>，bear 实报）。实测 span data-type
+ * 形态 Lute 正确保留（嵌套还合并复合词表 data-type="strong u"），故 md→DOM 解析前
+ * 把方言标签转成 span 形态（属性原样透传，语义等价）。裸 Lute（旗标全关）走标签透传
+ * 不炸，但插件统一走 configured——预处理对本函数全部消费方纯改进。
+ */
+export function siyuanMdInlineHtmlToSpan(md: string): string {
+    return md
+        .replace(/<(u|sub|sup|kbd|mark)((?:\s[^>]*)?)>/g, '<span data-type="$1"$2>')
+        .replace(/<\/(u|sub|sup|kbd|mark)>/g, "</span>");
+}
+
+/**
  * markdown → protyle 块 DOM 数组（Md2BlockDOM 是 protyle 粘贴同款官方转换通道）。
  * 产物统一换新 data-node-id（Md2BlockDOM 生成的 id 不保证唯一语义，显式换掉防撞号）；
  * attrs 挂首块（custom-* 属性直接作为 DOM 属性，内核落库时转为 IAL）。
@@ -314,7 +331,7 @@ export function md2Divs(md: string, attrs?: AttrType, lute?: Lute): HTMLElement[
     if (!md?.trim()) return [];
     if (!lute) lute = NewConfiguredLute();
     const host = document.createElement("div");
-    host.innerHTML = lute.Md2BlockDOM(md);
+    host.innerHTML = lute.Md2BlockDOM(siyuanMdInlineHtmlToSpan(md));
     const divs = [...host.children].filter((el): el is HTMLElement => el instanceof HTMLElement);
     divs.forEach((d, i) => {
         d.setAttribute(DATA_NODE_ID, NewNodeID());

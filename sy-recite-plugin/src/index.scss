@@ -2101,11 +2101,14 @@ html[data-theme-mode="dark"] .recite-aigrade-card__missed-li::before {
 // 折叠算术依赖写区组尾呼吸 14px 在场，unpaid 退化态无此规则=负 margin 会反向重叠，
 // 故包写区同款付费门禁，unpaid 保持内核默认对称）：①缩进对齐写位文字左缘（写位=竖线
 // 3px+padding 10px=13px，按钮行跟进同值=「属于上面写区」的最强信号）；②margin-top
-// -8px 与组尾 14px 折叠=6px 贴近写位；③margin-bottom 12px 与下一锚点 2px 折叠=12px
-// 拉开下一题（纯默写题空锚点 display:none 不参与折叠，12px 全额生效到下一写位，同档）。
+// -8px 与组尾 14px 折叠=6px 贴近写位；③margin-bottom 与下一锚点 2px 折叠=全额拉开
+// 下一题（纯默写题空锚点 display:none 不参与折叠，全额生效到下一写位，同档）。
+// □D 视觉二道（rs-tail2）：computed 6px/12px 目测仅 ~1.25:1——写位块 min-height/
+// padding 把边缘差摊薄，分组感只剩缩进单腿；下侧 margin-bottom 12→36px，视觉总间距
+// 拉进 36~40px 档=第二条腿（面板贴合补偿同幅联动，见 .recite-qctrl-panel 节）。
 body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-type="NodeCustomBlock"][data-info="sy-recite-plugin/q-ctrl"] {
     margin-block-start: -8px;
-    margin-block-end: 12px;
+    margin-block-end: 36px;
     padding-inline-start: 13px;
 }
 // 写作竖线开关跟随（wz-norule 家族同款全前缀，见上文写区开关规则）：关=写位竖线与缩进
@@ -2113,6 +2116,8 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-type="NodeCusto
 body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-type="NodeCustomBlock"][data-info="sy-recite-plugin/q-ctrl"] {
     padding-inline-start: 4px; /* 回内核 padding:4px 默认值 */
 }
+// 文字对比度二道（vision P2-2）：亮色弱灰×.62 估 <4.5:1——color 65% 混黑加深一档+
+// opacity .62→.85（描边/svg 同步受益；hover 满显层级不变）
 .recite-qctrl-btn {
     display: inline-flex;
     align-items: center;
@@ -2122,12 +2127,12 @@ body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg div[data-node-i
     border: 1px solid var(--b3-border-color);
     border-radius: var(--b3-border-radius-b, 4px);
     background: transparent;
-    color: var(--b3-theme-on-surface-light, #999);
+    color: color-mix(in srgb, var(--b3-theme-on-surface-light, #999) 65%, #000);
     font-size: 12px;
     font-family: inherit;
     line-height: 1;
     cursor: pointer;
-    opacity: .62;
+    opacity: .85;
     transition: opacity .15s, color .15s, border-color .15s;
 }
 .recite-qctrl-btn > svg { width: 12px; height: 12px; flex-shrink: 0; }
@@ -2141,8 +2146,13 @@ body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg div[data-node-i
     opacity: 1;
     color: var(--b3-theme-on-surface);
 }
-// 暗色下弱灰×.62 有效对比不足（vision P1-1，ai-grade 徽章同坑的 60% 混白先例）：暗色提亮到 .8
-html[data-theme-mode="dark"] .recite-qctrl-btn { opacity: .8; }
+// 暗色下基态 65% 混黑方向反了（深底上文字要提亮不要加深，6809 实测对比反降至 3.41:1）：
+// color 覆盖回 on-surface-light 本色+opacity .8→.9 提亮一档（vision P2-2 暗色半边，
+// ai-grade 徽章同坑的 60% 混白先例是 color 本身暗、此处是 mix 基态带黑，走本色通道）
+html[data-theme-mode="dark"] .recite-qctrl-btn {
+    color: var(--b3-theme-on-surface-light, #999);
+    opacity: .9;
+}
 // 触屏（vision P1-2）：无 hover 通道常显提亮 + 触控目标 24px（WCAG 2.5.8 最小档）
 @media (pointer: coarse) {
     .recite-qctrl-btn { height: 24px; padding: 0 9px; opacity: .8; }
@@ -2197,11 +2207,11 @@ html[data-theme-mode="dark"] .recite-qctrl-btn.recite-qctrl-clear:hover {
     min-width: 0;
     gap: 0;
 }
-// 面板贴合补偿（归属分组连带）：宿主 margin-bottom 拉到 12px 后，面板（host.after 注入，
-// 紧邻宿主）离自家按钮行同步变远——负 margin 与 12px 折叠=4px 贴回，与改造前 2px 同档；
+// 面板贴合补偿（归属分组连带）：宿主 margin-bottom 拉到 36px 后，面板（host.after 注入，
+// 紧邻宿主）离自家按钮行同步变远——负 margin 与 36px 折叠=4px 贴回，与改造前 2px 同档；
 // 包同款付费门禁（unpaid 宿主 margin 恒 2px，负 margin 会反向重叠盖住按钮行下缘）
 body:not(.recite-unpaid) .protyle-wysiwyg .recite-qctrl-panel {
-    margin-block-start: -8px;
+    margin-block-start: -32px;
 }
 .recite-qctrl-panel__origin,
 .recite-qctrl-panel__mine {

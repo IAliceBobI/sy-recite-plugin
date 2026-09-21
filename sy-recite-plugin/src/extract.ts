@@ -178,31 +178,77 @@ export async function unCardChildren(docID: string): Promise<number> {
 }
 
 /**
- * 建空文档并单事务插入练习单元 + 打文档属性，返回新文档 id。
- * 空 markdown 建文档自带一个种子空段块：单元锚定它之后插入，同事务删除种子。
+ * 卷面复核读（□B 假成功防护，2026-09-21 主实例排障实锤）：/api/transactions 对事务内
+ * 部失败（insertion target block not found 等）仍回 HTTP code 0 + data——PerformTransactions
+ * 异步执行，TxErr 走 ws ReloadUI 广播不进 HTTP 回执，回执真伪只看回执不可靠。回执后
+ * getChildBlocks 重读卷内块数与预期单元数比对（getChildBlocks=文件直读通道，恰好是
+ * 病卷唯一还能读到真实盘面的口），不符=假成功，调用方走失败分支（勿弹「抽取完成」）。
  */
-export async function insertUnitsDoc(box: string, hpath: string, units: string[], attrs: AttrType): Promise<string> {
+export async function verifyUnitsInDoc(docID: string, expected: number): Promise<boolean> {
+    const children = (await siyuan.getChildBlocks(docID)) ?? [];
+    if (children.length !== expected) {
+        debugLog("recite.extract", `verify mismatch doc=${docID.slice(-8)} expected=${expected} got=${children.length}`, "recite");
+        return false;
+    }
+    return true;
+}
+
+/**
+ * 建空文档并分两笔事务插入练习单元 + 打文档属性，返回新文档 id（失败 null，□B①②③）。
+ * 空 markdown 建文档自带一个种子空段块：第一笔单元锚定它之后插入，成功后第二笔独立
+ * 事务删种子——□B① 拆事务：旧形态 insert+delete 种子同事务，事务被内核拒时回滚不彻底
+ * （种子段 blocktree 行永久丢失=病卷，此后重试锚病种子恒炸 insertion target block
+ * not found→TxErrCodeReloadUI 整页刷新永不自愈）；拆开后插入失败文档仍是种子完好的
+ * 空文档可重试，种子删除独立成笔不牵连单元。□B③ 回执后复核读卷内块数。
+ */
+export async function insertUnitsDoc(box: string, hpath: string, units: string[], attrs: AttrType): Promise<string | null> {
     const docID = await siyuan.createDocWithMd(box, hpath, "");
     const seed = (await siyuan.getChildBlocks(docID))[0]?.id;
-    await siyuan.transactions(unitReplaceOps(units, seed, docID, seed ? [seed] : []));
+    if (units.length) {
+        const ret = await siyuan.transactions(unitReplaceOps(units, seed, docID, []));
+        if (!ret) return null; // 顶层校验即拒（假成功见 verifyUnitsInDoc 复核读兜底）
+    }
+    if (seed) await siyuan.transactions(unitReplaceOps([], null, docID, [seed]));
+    if (!await verifyUnitsInDoc(docID, units.length)) return null;
     await siyuan.setBlockAttrs(docID, attrs);
     return docID;
 }
 
 /**
- * 卷级原地更新（闪卡继承，2026-09-14）：旧抽取文档不再删建——单事务清空子块重插新
- * 单元，文档块 id 不变 → IAL custom-riff-decks 不变 → 文档级卡与 FSRS 进度零搬运自动
- * 在（进度语义=卷级：改原文重出题、复习轮次延续，bear 拍板）。挂过卡的子块先摘快速
- * 卡组防孤儿。文档属性不动；对比子文档不连带删（自管重建，旧保留无害）。返回文档 id
- * （即入参），事务失败返回 null（调用方提示，勿进控制块回填与成功 toast——否则用户
- * 看到的「成功」其实是上轮旧卷）。已知取舍：摘卡与换卷事务非原子（事务回滚时子块卡
- * 已摘、块还在）——窗口极窄且仅子块级卡受影响，文档级卡不经此路。
+ * 卷级原地更新（闪卡继承，2026-09-14）：旧抽取文档不再删建——分两笔事务重插新单元后
+ * 清旧子块，文档块 id 不变 → IAL custom-riff-decks 不变 → 文档级卡与 FSRS 进度零搬运
+ * 自动在（进度语义=卷级：改原文重出题、复习轮次延续，bear 拍板）。挂过卡的子块先摘
+ * 快速卡组防孤儿。文档属性不动；对比子文档不连带删（自管重建，旧保留无害）。返回文档
+ * id（即入参），失败返回 null（调用方提示，勿进控制块回填与成功 toast——否则用户看到
+ * 的「成功」其实是上轮旧卷）。已知取舍：摘卡与换卷事务非原子（事务回滚时子块卡已摘、
+ * 块还在）——窗口极窄且仅子块级卡受影响，文档级卡不经此路。
+ *
+ * □B 病卷三步（2026-09-21）：②锚点健康校验——发事务前对锚块（children[0]，blocktree
+ * 通道 getBlockInfo 探测；getChildBlocks=文件直读通道判不出病卷）查无=种子 blocktree
+ * 行已丢的病卷，锚它重插恒炸整页刷新永不自愈→摘卡后 removeDocByID 删旧卷、改走
+ * insertUnitsDoc 新建自愈（文档级卡与 FSRS 进度随旧 id 一并弃——病卷本就无法继续练习，
+ * 换回可用优先）。①拆事务同 insertUnitsDoc（先插单元锚旧首块=旧种子位，成功后第二笔
+ * 独立事务删全部旧块含锚——插入被拒时旧卷原样保留零损伤）。③回执后复核读卷内块数。
  */
-export async function replaceUnitsInPlace(docID: string, units: string[]): Promise<string | null> {
-    const children = await siyuan.getChildBlocks(docID);
+export async function replaceUnitsInPlace(docID: string, units: string[], box: string, hpath: string, attrs: AttrType): Promise<string | null> {
+    const children = (await siyuan.getChildBlocks(docID)) ?? [];
+    const anchor = children[0]?.id;
+    if (anchor && !(await siyuan.getBlockInfo(anchor).catch(() => null))) {
+        // 病卷自愈：getBlockInfo code -1（siyuan.call 归 null）=锚块 blocktree 行已丢。
+        // removeDocByIDSiyuan 一发即删（无 confirm）——删的是插件自管练习卷文档，安全
+        await siyuan.pushMsg("检测到损坏的旧练习卷，已自动重建", 3000);
+        await unCardChildren(docID);
+        await siyuan.removeDocByIDSiyuan(docID);
+        debugLog("recite.extract", `sick doc rebind doc=${docID.slice(-8)} anchor=${anchor.slice(-8)}`, "recite");
+        return insertUnitsDoc(box, hpath, units, attrs);
+    }
     await unCardChildren(docID);
-    const ret = await siyuan.transactions(unitReplaceOps(units, children[0]?.id, docID, children.map(c => c.id)));
-    if (!ret) return null;
+    if (units.length) {
+        const ret = await siyuan.transactions(unitReplaceOps(units, anchor, docID, []));
+        if (!ret) return null;
+    }
+    if (children.length) await siyuan.transactions(unitReplaceOps([], null, docID, children.map(c => c.id)));
+    if (!await verifyUnitsInDoc(docID, units.length)) return null;
     return docID;
 }
 
@@ -329,9 +375,9 @@ function reloadOpenViews(docID: string, shells: [string, string][]) {
 /**
  * 抽取文档单例重建共用尾段：box/路径/标题全走按 id 直查通道（getBlockInfo/getHPathByID
  * 直读文件树）——SQL 有索引延迟，原文刚改名时会拿旧路径旧标题，把抽取文档建进幽灵文件
- * 夹。有旧文档=卷级原地更新（闪卡继承，replaceUnitsInPlace）+ 标题跟随；无旧文档（首次
- * 抽取）建新走 insertUnitsDoc（单事务原子成型），行为不变。标题带原文标题后缀。
- * 返回 false=定位失败已提示（调用方跳过完成 toast），成功则已打开文档。
+ * 夹。有旧文档=卷级原地更新（闪卡继承，replaceUnitsInPlace）+ 标题跟随（病卷自愈走新
+ * 建时例外，见调用点注）；无旧文档（首次抽取）建新走 insertUnitsDoc，行为不变。标题带
+ * 原文标题后缀。返回 false=定位/重建失败已提示（调用方跳过完成 toast），成功则已打开文档。
  */
 async function rebuildExtractDoc(plugin: Plugin, originID: string, units: string[]): Promise<boolean> {
     const info = await siyuan.getBlockInfo(originID);
@@ -342,22 +388,25 @@ async function rebuildExtractDoc(plugin: Plugin, originID: string, units: string
     }
     const old = await findReciteChildDoc({ box: info.box, path: info.path, hpath }, derivedTitle(EXTRACT_TITLE, info.rootTitle), RECITE_EXTRACT, originID);
     let extractID: string | null = null;
+    const extractAttrs = { [RECITE_EXTRACT]: originID } as AttrType;
     if (old.id) {
-        extractID = await replaceUnitsInPlace(old.id, units);
-        if (!extractID) {
-            await siyuan.pushMsg("卷面重建失败，请重试", 2500);
-            return false;
-        }
-        await syncExtractTitle(old.id, old.hpath);
+        extractID = await replaceUnitsInPlace(old.id, units, info.box, old.hpath, extractAttrs);
+        // 病卷自愈走新建时 extractID 是新文档 id（≠old.id）：标题按入参 hpath 建即正确，
+        // 无需跟随；in-place 成功 id 不变，改名跟随照旧
+        if (extractID && extractID === old.id) await syncExtractTitle(old.id, old.hpath);
     } else {
-        extractID = await insertUnitsDoc(info.box, old.hpath, units, { [RECITE_EXTRACT]: originID } as AttrType);
+        extractID = await insertUnitsDoc(info.box, old.hpath, units, extractAttrs);
+    }
+    if (!extractID) {
+        await siyuan.pushMsg("卷面重建失败，请重试", 2500);
+        return false;
     }
     // □5 控制块回填：事务插入的块 id 一律被内核重生成，前向引用拿不到——文档建成后读
     // 真实锚点 id 后二轮事务插控制块（失败=无按钮不伤练习结构，重抽即恢复）
     const qPairs = await backfillQCtrlBlocks(extractID);
     // 原地更新才需要修视图：旧卷 ws 上屏壳无 id，delete 回声删不掉（见 reloadOpenViews）；
-    // 首次抽取是全新页签从盘渲染，壳 fresh 带 id 无此问题
-    if (old.id) reloadOpenViews(extractID, qPairs);
+    // 首次抽取/病卷自愈新建是全新页签从盘渲染，壳 fresh 带 id 无此问题
+    if (old.id && extractID === old.id) reloadOpenViews(extractID, qPairs);
     debugLog("recite.extract", `origin=${originID} extract=${extractID} unitDOM=${units.length} qCtrl=${qPairs.length} rebuild=${old.id ? `inPlace(${old.id})` : "create"}`, "recite");
     await OpenSyFile2(plugin, extractID, "front");
     return true;

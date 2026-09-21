@@ -13204,6 +13204,19 @@ export class TomatoI18n extends TomatoI18nABC {
             default: return "Jump to bottom when opening floating doc";
         }
     }
+    /** fballfb □3：悬浮窗形态球驻留开关——开=点球开窗球常驻再点关窗；关=现状「开窗即消失」 */
+    public get 悬浮文档打开后保留悬浮球() {
+        switch (this.lang) {
+            case "zh_CN": return "悬浮文档打开后保留悬浮球";
+            case "zh_CHT": return "懸浮文檔打開後保留懸浮球";
+            case "ja_JP": return "フローティングドキュメントを開いた後もフローティングボールを残す";
+            case "es_ES": return "Mantener el balón flotante al abrir el documento flotante";
+            case "fr_FR": return "Conserver la balle flottante après l'ouverture du document flottant";
+            case "it_IT": return "Mantieni la palla flottante dopo l'apertura del documento flottante";
+            case "en_US":
+            default: return "Keep the floating ball after opening the floating doc";
+        }
+    }
     public get 请先绑定文档到悬浮球() {
         switch (this.lang) {
             case "zh_CN": return "请先绑定文档到悬浮球";
@@ -13471,6 +13484,51 @@ export class TomatoI18n extends TomatoI18nABC {
             case "ja_JP": return "同期後に公式速記を日記へ自動移動";
             case "en_US":
             default: return "Auto-move official quick notes to diary after sync";
+        }
+    }
+    // □4 速记落块形态三态（fballfb 2026-09-21）：设置 select 行（标签+三个选项）
+    public get 速记落块形态() {
+        switch (this.lang) {
+            case "zh_CN": return "速记落块形态";
+            case "zh_CHT": return "速記落塊形態";
+            case "es_ES": return "Forma de bloque de notas rápidas";
+            case "fr_FR": return "Forme de bloc des notes rapides";
+            case "ja_JP": return "速記のブロック形式";
+            case "en_US":
+            default: return "Quick note block form";
+        }
+    }
+    public get 速记落块形态超级块() {
+        switch (this.lang) {
+            case "zh_CN": return "超级块";
+            case "zh_CHT": return "超級塊";
+            case "es_ES": return "Superbloque";
+            case "fr_FR": return "Superbloc";
+            case "ja_JP": return "スーパーブロック";
+            case "en_US":
+            default: return "Superblock";
+        }
+    }
+    public get 速记落块形态段落块() {
+        switch (this.lang) {
+            case "zh_CN": return "段落块";
+            case "zh_CHT": return "段落塊";
+            case "es_ES": return "Párrafo";
+            case "fr_FR": return "Paragraphe";
+            case "ja_JP": return "段落";
+            case "en_US":
+            default: return "Paragraph";
+        }
+    }
+    public get 速记落块形态列表项块() {
+        switch (this.lang) {
+            case "zh_CN": return "列表项块";
+            case "zh_CHT": return "列表項塊";
+            case "es_ES": return "Elemento de lista";
+            case "fr_FR": return "Élément de liste";
+            case "ja_JP": return "リスト項目";
+            case "en_US":
+            default: return "List item";
         }
     }
     // □3 片段级复制（dailynote-pipeline 2026-09-06）：工具条钮 tip+完成 pushMsg+设置行

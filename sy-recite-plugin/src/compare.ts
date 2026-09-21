@@ -108,6 +108,10 @@ export async function doCompare(plugin: Plugin, extractID: string) {
         await siyuan.removeDocByIDSiyuan(old.id);
     }
     const cmpID = await insertUnitsDoc(info.box, old.hpath, units, { [RECITE_COMPARE]: extractID } as AttrType);
+    if (!cmpID) { // □B③ 假成功复核读失败（insertUnitsDoc 内已复核卷内块数）——勿假报生成
+        await siyuan.pushMsg("对比文档生成失败，请重试", 2500);
+        return;
+    }
     debugLog("recite.compare", `extract=${extractID} compare=${cmpID} entries=${entries.length}`, "recite");
     await siyuan.pushMsg(`对比文档已生成（${entries.length} 题）`, 2000);
     OpenSyFile2(plugin, cmpID, "front");
