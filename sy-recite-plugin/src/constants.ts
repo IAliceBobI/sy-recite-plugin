@@ -11,6 +11,7 @@ export const RECITE_REFS = "custom-recite-refs";
 // 上下文块标记（期1 整篇语义，2026-09-08）：原文档块挂=「留作上下文」——抽取时按文档序
 // 复制进抽取文档（复制产物同挂本属性），闪卡卡面从此有语境。原文标记（RECITE_OLD）与本
 // 标记可同块共存（keep 块=被点名的原文块）；readExtractDoc 据此跳过复制块不进 writes。
+// 两角色化（2026-09-20）起 copy span 照抄产物统一挂它——散写的新写块进卷也是语境（不染色）。
 export const RECITE_KEEP = "custom-recite-keep";
 // 对比视图外层 sb（每题一张卡）：仅样式定位用（index.scss 画题框+中缝），非身份识别
 export const RECITE_CMP_CARD = "custom-recite-cmp-card";
@@ -30,6 +31,9 @@ export const RECITE_TARGET = "custom-recite-target";
 // 属性——「卷子里的提示块」新视觉（琥珀族染色），readExtractDoc/writeZone/q-ctrl 与 keep
 // 同判跳过（展示层，不进 writes 不挪区间末）。与 RECITE_KEEP 的分野：keep=原文语境复制
 // （灰弱化），hint=用户写的提示（自写族醒目）——色系随「青绿=作者句标记族/琥珀=自写族」。
+// 【退役 2026-09-20 recitesimplify □1】「总结」类型退役后新卷不再产 hint 块（散写新块走
+// copy 挂 keep 照抄不染色）；本属性与判读保留仅为老卷子兼容（extractEntries/writeZone/
+// q-ctrl 照跳），勿在新链路挂写。
 export const RECITE_HINT = "custom-recite-hint";
 // 空锚点占位（□2 统一出卷）：无提示考核段照样出卷——锚点 heading 挂本属性=「无提示·纯默写
 // 题」，块内容是占位文案（纯视觉，语言=抽取时快照）；readExtractDoc 出口据属性把
@@ -38,10 +42,10 @@ export const RECITE_HINT = "custom-recite-hint";
 export const RECITE_EMPTY_NOTE = "custom-recite-empty-note";
 // 温和退出标记（□3 退出层，2026-09-13）：「退出」时给练习期间写的块（later-written=无
 // old 的非空块）挂上——淡背景持久标记「这是仿写时写的」，练习标记全清、衍生文档保留；
-// 重进仿写 enterPractice 跳过 written 块不打 old（保持总结身份，练习连续）；「删除」
+// 重进仿写 enterPractice 跳过 written 块不打 old（保持练习连续）；「删除」
 // cleanPractice 连 written 一起清（恢复原状）。不进 blockRole 判定序（重进后 written 块
-// =无 old 非空=总结，天然正确）；正常链路不进抽取文档（copyHTML 纯文本重建不带属性），
-// readExtractDoc/writeZone 按本属性跳过只是脏数据防御。
+// =无 old 非空=上下文/题面候选，天然正确）；正常链路不进抽取文档（copyHTML 纯文本重建
+// 不带属性），readExtractDoc/writeZone 按本属性跳过只是脏数据防御。
 export const RECITE_WRITTEN = "custom-recite-written";
 // 仿写中 wysiwyg 染色类（highlight.ts 挂/摘，statusBtn exitPractice 同步摘——□3 防退出闪染）：
 // 收敛到 constants 单一事实源防两文件字面量漂移

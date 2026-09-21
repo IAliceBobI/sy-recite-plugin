@@ -245,7 +245,7 @@ export async function openDiffCheck(plugin: Plugin, docID: string) {
     }
     const entries = await readExtractDoc(docID);
     if (!entries.length) {
-        await siyuan.pushMsg("抽取文档里没有批注（旧版布局请先「重新写」）", 3000);
+        await siyuan.pushMsg("抽取文档里没有题目（旧版布局请先「重新写」）", 3000);
         return;
     }
     if (!entries.some(e => e.writes.length)) {

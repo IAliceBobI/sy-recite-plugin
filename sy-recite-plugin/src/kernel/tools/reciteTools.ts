@@ -22,7 +22,6 @@ const R_NOTE = "custom-recite-note";
 const R_REFS = "custom-recite-refs";
 const R_AI = "custom-recite-ai";
 const R_TARGET = "custom-recite-target";
-const R_HINT = "custom-recite-hint";
 const R_EMPTY = "custom-recite-empty-note";
 const R_WRITTEN = "custom-recite-written";
 const EXTRACT_TITLE = "抽取";
@@ -34,7 +33,7 @@ const AI_SLUGS = ["recite", "imitate", "direction"];
 
 type Attrs = Record<string, string>;
 
-/** 读原文顶层流（文档序）：□1 起统一 toReciteBlock 三角色判定（与前端 identifyNotes 同源）；AI 锚点单独归类 */
+/** 读原文顶层流（文档序）：□1 起统一 toReciteBlock 两角色判定（与前端 identifyNotes 同源，防两处漂移）；AI 锚点按 R_AI 属性单独归类（不依赖角色） */
 async function readStream(docID: string): Promise<ReciteBlock[]> {
     const children = await api.getChildBlocks(docID);
     const rows = await api.rowsById(children.map(c => c.id), "markdown");
@@ -60,12 +59,11 @@ async function readOrigin(input: Record<string, any>) {
     const blocks = stream.map((b, i) => {
         const aiSlug = ials[b.id]?.[R_AI];
         let kind = "original";
-        if (AI_SLUGS.includes(aiSlug)) kind = "ai-anchor";
+        if (AI_SLUGS.includes(aiSlug)) kind = "ai-anchor"; // R_AI 属性最先判：锚点归类不依赖角色（□3 核对）
         else if (b.role === "target") kind = "target";
-        else if (!docAttrs[R_START]) kind = "original"; // 未进仿写模式：批注概念尚不存在，全显原文
-        else if (b.role === "summary") kind = "note";
+        else if (!docAttrs[R_START]) kind = "original"; // 未进仿写模式：练习语义尚未开始，全显原文
         else if (b.role === "none") kind = "empty";
-        else kind = b.isOld ? "original" : "context"; // 上下文角色：存量=原文；挂 keep 的新写块=用户点名进语境
+        else kind = b.isOld ? "original" : "context"; // 上下文：存量=原文；新写块（含散写与挂 keep）=语境照抄
         return {
             index: i + 1,
             id: b.id,
@@ -185,7 +183,7 @@ async function buildDrill(input: Record<string, any>) {
     }
     if (!anchors.length) return errorResponse("没有有效锚点：after 必须是原文档当前顶层块 id（先 read_origin），text 非空");
 
-    // ── 进仿写模式（仅未进时；重打会把批注错标成原文）──
+    // ── 进仿写模式（仅未进时；重打会把练习时写的字错标成原文、丢题面候选身份）──
     let enteredPractice = false;
     let empties: string[] = [];
     if (!docAttrs[R_START]) {
@@ -197,8 +195,9 @@ async function buildDrill(input: Record<string, any>) {
         }
         empties = children.slice(end).map(c => c.id);
         if (empties.length) await api.transactions(empties.map(id => ({ action: "delete", id })));
-        // written 块（前端温和退出标记的「练习时写的字」）跳过不打 old——保持总结身份、
-        // 练习连续（与前端 enterPractice 同语义，防两处漂移；多轮装配场景 written 块常在）
+        // written 块（前端温和退出标记的「练习时写的字」）跳过不打 old——保持题面候选身份
+        // （!old 新写块：段末后紧邻即配对成题面，散在别处照抄进卷）、练习连续（与前端
+        // enterPractice 同语义，防两处漂移；多轮装配场景 written 块常在）
         const remain = children.slice(0, end).filter(c => !ials[c.id]?.[R_WRITTEN]).map(c => c.id);
         if (remain.length) {
             await api.transactions(remain.map(id => ({ action: "setAttrs", id, data: JSON.stringify({ [R_OLD]: "1" }) })));
@@ -207,7 +206,7 @@ async function buildDrill(input: Record<string, any>) {
         enteredPractice = true;
     }
 
-    // ── 删旧 AI 锚点（只认 custom-recite-ai 三模式值，手写批注永不动）──
+    // ── 删旧 AI 锚点（只认 custom-recite-ai 三模式值，手写新块永不动）──
     const oldAI = children.filter(c => AI_SLUGS.includes(ials[c.id]?.[R_AI])).map(c => c.id);
     if (oldAI.length) await api.transactions(oldAI.map(id => ({ action: "delete", id })));
 
@@ -230,14 +229,15 @@ async function buildDrill(input: Record<string, any>) {
     if (!inserted.length) {
         return errorResponse("锚点块插入全部失败（请重试或检查原文档状态）");
     }
-    // 属性统一后挂（防打 custom 标记后 ~2s 内 insertBlock 竞态继承）：标模式 + 清 old（锚点是批注身份）
+    // 属性统一后挂（防打 custom 标记后 ~2s 内 insertBlock 竞态继承）：标模式 + 清 old——
+    // 锚点保持新写块身份（题面候选：插在锚定块紧后=节拍末后第一个块，位置化配对自动成立）
     await api.transactions(inserted.map(a => ({
         action: "setAttrs", id: a.id,
         data: JSON.stringify({ [R_AI]: mode, [R_OLD]: "" }),
     })));
 
-    // ── 抽取流自构造（勿走 SQL 重读——刚插的块索引未落，markdown 读空会把新锚点看成非批注，
-    // 2026-09-09 6808 实锤）：干相基线（children/markdown/ials）+ 本调用已知变更确定性推演 ──
+    // ── 抽取流自构造（勿走 SQL 重读——刚插的块索引未落，markdown 读空会把新锚点看成空块
+    // 丢出卷，2026-09-09 6808 实锤）：干相基线（children/markdown/ials）+ 本调用已知变更确定性推演 ──
     const deletedSet = new Set<string>(oldAI);
     if (enteredPractice) empties.forEach(id => deletedSet.add(id)); // 进模式时删过的尾部空块
     // 被删块（旧 AI 锚/尾部空块）上再挂锚=重定向到其前面最近的保留块（用户意图的位置近似）
@@ -256,14 +256,14 @@ async function buildDrill(input: Record<string, any>) {
     const stream: ReciteBlock[] = [];
     const pushAnchorsOf = (baseID: string) => {
         for (const a of anchorsByKey.get(baseID) ?? []) {
-            stream.push(toReciteBlock(a.id, a.text, {})); // AI 锚点=批注（总结角色）
+            stream.push(toReciteBlock(a.id, a.text, {})); // AI 锚点=新写块（无 old/keep/target——题面候选，位置配对定升格）
         }
     };
     for (const c of children) {
         if (deletedSet.has(c.id)) continue;
         const ial: Attrs = ials[c.id] ?? {};
         const markdown = rows.get(c.id)?.markdown ?? "";
-        // 本调用进过模式 → 基线块全部刚打上 old 标（批注身份只剩新锚点）；未进则用干相属性
+        // 本调用进过模式 → 基线块全部刚打上 old 标（题面候选只剩新锚点与 written 块）；未进则用干相属性
         stream.push(toReciteBlock(c.id, markdown, {
             isOld: enteredPractice ? !ial[R_WRITTEN] : !!ial[R_OLD],
             isKeep: !!ial[R_KEEP],
@@ -273,9 +273,11 @@ async function buildDrill(input: Record<string, any>) {
     // 挂在流首之前（after 指向首块前不存在——被重定向到 ""）的锚点兜底追加到流尾
     (anchorsByKey.get("") ?? []).forEach(a => stream.push(toReciteBlock(a.id, a.text, {})));
 
-    // ── 节内打靶（□2 统一出卷：锚点要成题，须「考核段末后紧邻提示」配对）──
-    // 锚点认领节=文首到最后一个锚定块：节内 context 块（原文，含 keep）打 R_TARGET（锚点插
-    // 在锚定块紧后=段末后第一个块，配对成立）；手写批注不打（保持提示身份，卷里 hint 照抄）；
+    // ── 节内打靶（□2 统一出卷：锚点要成题，须「考核段末后紧邻题面」位置化配对）──
+    // 锚点认领节=文首到最后一个锚定块：节内原文族块（old/keep，flags 直判——两角色下
+    // role=context 扩面到全部非空块不能按角色判，与 contextBlocksToTarget 同注）打 R_TARGET
+    // （锚点插在锚定块紧后=段末后第一个块，配对成立）；手写新块不打（保持题面候选身份：
+    // 段末后紧邻配对成题面，其余照抄进卷当语境——hint kind 已随「总结」类型退役）；
     // 最后一个锚定块之后的尾部原文不认领（照抄进卷尾——旧整篇语义末组吞尾 refs 的 hack 退役）
     const anchorAfterIDs = new Set([...anchorsByKey.keys()].filter(k => k));
     const targetIDs = new Set(contextBlocksToTarget(stream, anchorAfterIDs));
@@ -290,18 +292,19 @@ async function buildDrill(input: Record<string, any>) {
     // ── 统一装配（extractSpans 与前端 doExtract 共用一份，防两处漂移）──
     const { spans, emptyNoteCount } = extractSpans(marked);
     const unitCount = spans.filter(s => s.kind === "unit").length;
-    if (!unitCount) return errorResponse("认领节内没有可考核的原文块：锚点的 after 须指向原文块（指向总结/批注块认领不到考核内容）");
+    if (!unitCount) return errorResponse("认领节内没有可考核的原文块：锚点的 after 须指向原文块（指向题面/语境块认领不到考核内容）");
     const settings = await readSettings();
     const noteLevel = noteHeadingLevel(settings);
-    // units 与回显 id 的配对记录：二轮挂 note/refs/keep/hint（事务插入的块 id 恒被内核重生成）
-    type UnitAttr = { kind: "keep" } | { kind: "hint" } | { kind: "note"; refs: string; empty: boolean };
+    // units 与回显 id 的配对记录：二轮挂 note/refs/keep（事务插入的块 id 恒被内核重生成；
+    // hint 面已随「总结」类型退役——recitesimplify □1 2026-09-20，散写新块走 copy 挂 keep）
+    type UnitAttr = { kind: "keep" } | { kind: "note"; refs: string; empty: boolean };
     const noteUnits: (UnitAttr | null)[] = [];
     const units: string[] = [];
     for (const span of spans) {
-        if (span.kind === "copy" || span.kind === "hint") {
+        if (span.kind === "copy") {
             for (const b of span.blocks) {
                 units.push(paraHTML(b.markdown, api.newNodeID()));
-                noteUnits.push(span.kind === "copy" ? { kind: "keep" } : { kind: "hint" });
+                noteUnits.push({ kind: "keep" });
             }
         } else {
             // 空锚点（notes 空，防御形态）：空段落 + R_EMPTY 标记，不落占位文案（2026-09-15
@@ -366,12 +369,10 @@ async function buildDrill(input: Record<string, any>) {
     ordered.forEach((id, i) => {
         const nu = noteUnits[i];
         if (!nu || !id) return;
-        // keep/hint 照抄块挂各自标记（readExtractDoc/writeZone/q-ctrl 据此隔离，不进复述——
-        // 修复老装配 keep 照抄裸块被误读成 writes 卷进对比的既有 bug）；note 锚点挂 refs
-        //（+R_EMPTY 空锚点标记）
+        // keep 照抄块挂标记（readExtractDoc/writeZone/q-ctrl 据此隔离，不进复述——修复老装配
+        // keep 照抄裸块被误读成 writes 卷进对比的既有 bug）；note 锚点挂 refs（+R_EMPTY 空锚点标记）
         const attrs: Attrs = {};
         if (nu.kind === "keep") attrs[R_KEEP] = "1";
-        else if (nu.kind === "hint") attrs[R_HINT] = "1";
         else {
             attrs[R_NOTE] = "1";
             attrs[R_REFS] = nu.refs;
@@ -421,9 +422,11 @@ const reciteDescription = [
     "→ 用户在抽取文档写复述 → 前端对比/AI 判卷 → ③ get_grade 查判卷结果做精评。锚点文风三选一（mode）：recite=节拍名+关键词",
     "（不写完整句）；imitate=技法讲解；direction=剧情一句+情绪走向。查询全部免费；build_drill 是 Pro 能力，",
     "未激活时返回引导文案（可转述用户）。日期类参数支持 'today' 语义值。",
-    "read_origin 的 kind 词表：original=存量原文 / context=用户点名保留的新写块（照抄进卷不参与考核；",
-    "build_drill 装配时锚点认领节内的原文块（含 context）会被标记为考核段，介意者调整锚点位置）",
-    " / target=用户圈定的考核段 / note=用户写的总结 / ai-anchor=插件旧锚点 / empty=空块。",
+    "read_origin 的 kind 词表：original=存量原文 / context=新写块（用户写的字，照抄进卷当语境、",
+    "不参与考核；build_drill 装配时锚点认领节内的存量原文块会标记为考核段，手写新块不打靶，",
+    "介意考核范围者调整锚点位置）/ target=用户圈定的考核段 / ai-anchor=练习锚点（出卷后即题面，",
+    "mode=文风）/ empty=空块。题面=位置不是类型：考核段末后紧邻的连续新写块出卷时升格为锚点",
+    "作题面（无则空锚点占位）；装配新现场时题面即锚点文本，由调用者按 mode 文风撰写。",
 ].join("");
 
 export function createReciteTool(): ToolDefinition {

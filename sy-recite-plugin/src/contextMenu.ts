@@ -64,14 +64,14 @@ class ContextMenu {
             // 按当前批注重建——「重新写」是浮条在抽取/对比文档上的免导航说法，落在原文档即再抽取）；
             // 删除仿写模式内部自带 confirm（与浮条「删除」一致）。□3 起该项不带 accelerator——
             // ⌥⌘K（reciteTogglePractice）已改指温和退出，键提示挂在删除项上会误导按键
-            item("抽取批注", "iconCopy", "reciteExtract", () => { void doExtract(this.plugin, docID); });
+            item("抽取", "iconCopy", "reciteExtract", () => { void doExtract(this.plugin, docID); });
             item("重新写", "iconRedo", "reciteRewrite", () => { void doExtract(this.plugin, docID); });
             detail.menu.addItem({ label: "删除仿写模式", icon: "iconTrashcan", click: () => { void cleanPractice(docID); } });
-            // □1 三角色菜单项（2026-09-13 三角色战役）：三选一互斥设置替 toggle，回原文走
-            // 「设为原文」（roleswap 2026-09-15：原「留作上下文」——□2 统一出卷后非靶块全
-            // 照抄，本方向落点=回原文/认领为原文，词不达意是 bear「改不回原文」体感主因）。
-            // 开关沿用 KEEP/TARGET_MENU_KEY（默认开）；「设为总结」在两入口至少一个可见时
-            // 出现——藏掉全部角色入口时单独出现一个设置项是噪音。靶只打在仿写原文档
+            // □1 两角色菜单项（2026-09-13 三角色战役 → recitesimplify □2 两钮化）：二选一
+            // 互斥设置替 toggle，回原文走「设为原文」（roleswap 2026-09-15：原「留作上下文」
+            // ——非靶块全照抄，本方向落点=回原文/认领为原文，词不达意是 bear「改不回原文」
+            // 体感主因）。「设为总结」已随「总结」类型退役（题面=位置，见 extractSpans）。
+            // 开关沿用 KEEP/TARGET_MENU_KEY（默认开）。靶只打在仿写原文档
             // （role 判定已在上方，非仿写无抽取链路）
             const roleMenuOn = (key: string) => (this.plugin as any).settingCfg?.[key] !== false;
             if (blockID && roleMenuOn(KEEP_MENU_KEY)) {
@@ -86,13 +86,6 @@ class ContextMenu {
                     label: this.plugin.i18n["这段练"],
                     icon: "iconReciteTarget",
                     click: () => { void setBlocksRole(this.plugin, detail.protyle, "target", blockEl as HTMLElement); },
-                });
-            }
-            if (blockID && (roleMenuOn(KEEP_MENU_KEY) || roleMenuOn(TARGET_MENU_KEY))) {
-                detail.menu.addItem({
-                    label: this.plugin.i18n["设为总结"],
-                    icon: "iconReciteSummary",
-                    click: () => { void setBlocksRole(this.plugin, detail.protyle, "summary", blockEl as HTMLElement); },
                 });
             }
         } else if (role === "extract") {

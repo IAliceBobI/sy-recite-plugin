@@ -110,7 +110,7 @@ export async function aiGrade(plugin: Plugin, compareID: string) {
         }
         const entries = await readExtractDoc(extractID);
         if (!entries.length) {
-            await siyuan.pushMsg("抽取文档里没有批注（旧版布局请先「重新写」）", 3000);
+            await siyuan.pushMsg("抽取文档里没有题目（旧版布局请先「重新写」）", 3000);
             return;
         }
         const cfg = await getAIConfig();

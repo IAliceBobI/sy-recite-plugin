@@ -57,7 +57,7 @@ export async function doCompare(plugin: Plugin, extractID: string) {
     }
     const entries = await readExtractDoc(extractID);
     if (!entries.length) {
-        await siyuan.pushMsg("抽取文档里没有批注（旧版布局请先「重新写」）", 3000);
+        await siyuan.pushMsg("抽取文档里没有题目（旧版布局请先「重新写」）", 3000);
         return;
     }
     // 题目标题级别跟设置项（出厂默认 H6——H2 巨大折行；2026-09-01 用户「二级还是很巨大」可配 1~6）
@@ -75,7 +75,7 @@ export async function doCompare(plugin: Plugin, extractID: string) {
             leftDivs = md2Divs(e.noteMarkdown);
         } else {
             const origins = await fetchOriginMarkdown(e.refs);
-            leftDivs = origins.length ? md2Divs(origins.join("\n\n")) : [new DomParaBuilder("（本条批注前没有原文段）")];
+            leftDivs = origins.length ? md2Divs(origins.join("\n\n")) : [new DomParaBuilder("（本题前没有原文段）")];
         }
         // 思源 sb 语义：layout="col"=列布局左右并排、layout="row"=行布局垂直堆叠（与直觉相反）。
         // 故外层 col 承左右两栏，内层 row 承栏内多块垂直——一条抽取可对应好几个原文块，整组归左栏。

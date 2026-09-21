@@ -6,41 +6,46 @@
 export type ReciteBlock = {
     id: string;
     markdown: string;
-    isNote: boolean; // 兼容面：批注=总结角色（role==="summary"）；老消费方（groupNotes/配对窗口）照读
+    isNote: boolean; // 题面候选（位置化题面的块级原料，见 toReciteBlock）；老消费方（groupNotes/配对窗口）照读
     isKeep?: boolean;
     isTarget?: boolean;
     isOld?: boolean; // 判据原料：custom-recite-old 直存（role 的输入，非输出）
-    role: ReciteRole; // □1 三角色统一判定（唯一事实源，判定序见 blockRole）
+    role: ReciteRole; // 角色统一判定（唯一事实源，判定序见 blockRole）
 };
 export type NoteGroup = { start: number; end: number; blocks: ReciteBlock[] };
 
-// ---- □1 标记层三角色模型（2026-09-13 仿写三角色战役，handoff 2026-09-13-1555）----
-export type ReciteRole = "target" | "context" | "summary" | "none";
+// ---- 角色模型（2026-09-13 三角色战役 → 2026-09-20 recitesimplify □1 两角色简化）----
+// "summary" 成员已随 kernel 侧死分支收编删除（recitesimplify □3）：blockRole 不再产出、
+// 标记层两钮化（□2）已移除浮条总结钮与右键项——类型面不再含该成员（tsc 把关，任何比较
+// 处写 "summary" 即编译错）。
+export type ReciteRole = "target" | "context" | "none";
 
 /**
- * 三角色判定序（设计共识，唯一权威）：target? 考核 : keep? 上下文 : old? 上下文 : 非空? 总结 : 无角色。
- * - keep 泛化到任意块：新写块挂 keep=上下文（bear 需求①——写总结时补的提示要像原文一样进语境）；
- * - 存量基线（bear 拍板）：old 块默认上下文；新写非空块默认总结（写完即染色惯性）；
- * - markdown 只判空不判内容（DOM 侧传 textContent 同构——角色不读文本）。
+ * 两角色判定序（recitesimplify □1 2026-09-20，唯一权威）：target? 考核 : keep? 上下文 :
+ * old? 上下文 : 非空? 上下文 : 无角色。「总结」类型退役——新写非空块默认上下文（散落在
+ * 别处写的字=照抄进卷当语境，不染色不参与判卷），题面身份不进角色模型（题面=位置：
+ * 考核段末后紧邻的连续新写块，由 extractSpans 配对推导）。keep 泛化到任意块（新写块挂
+ * keep=点名进语境）；markdown 只判空不判内容（DOM 侧传 textContent 同构——角色不读文本）。
  */
 export function blockRole(b: { markdown: string; isOld?: boolean; isKeep?: boolean; isTarget?: boolean }): ReciteRole {
     if (b.isTarget) return "target";
     if (b.isKeep) return "context";
     if (b.isOld) return "context";
-    return b.markdown.trim() ? "summary" : "none";
+    return b.markdown.trim() ? "context" : "none";
 }
 
 /**
  * 流块构造（前端 identifyNotes 与 kernel readStream 共用一份，防两处漂移）：
- * role 过 blockRole；兼容面 isNote=批注（总结角色）——挂 keep 的新写块从此不再当批注
- * （过渡期老抽取路径不再成题、走照抄）。attrsForRole（三钮互斥写值）在前端 role.ts
- * （依赖 constants.ts 的属性名，kernel 勿 import）。
+ * role 过 blockRole；isNote=题面候选（非 old/keep/target 的非空块——与旧「总结角色」
+ * 等价集合改由 flags 直判：角色不再承载题面身份，是否真升格题面由 extractSpans 位置
+ * 配对定；存量文档零迁移，下次抽取自动按新规则重判）。attrsForRole（按钮互斥写值）在
+ * 前端 role.ts（依赖 constants.ts 的属性名，kernel 勿 import）。
  */
 export function toReciteBlock(id: string, markdown: string, flags: { isOld?: boolean; isKeep?: boolean; isTarget?: boolean }): ReciteBlock {
     const role = blockRole({ markdown, ...flags });
     return {
         id, markdown, role,
-        isNote: role === "summary",
+        isNote: !!markdown.trim() && !flags.isOld && !flags.isKeep && !flags.isTarget,
         isKeep: !!flags.isKeep,
         isTarget: !!flags.isTarget,
         isOld: !!flags.isOld,
@@ -48,9 +53,9 @@ export function toReciteBlock(id: string, markdown: string, flags: { isOld?: boo
 }
 
 /**
- * 选中块多数角色（浮条三钮高亮判据）：无角色（空块）不计入；严格多数（> 非空块半数）
- * 才返回该角色——平票/空选返回 null（三钮全不亮）。高亮语义=选中集「当前是什么」，
- * 与三钮「设成什么」互为表里。
+ * 选中块多数角色（浮条两钮高亮判据，□2 两钮化）：无角色（空块）不计入；严格多数
+ * （> 非空块半数）才返回该角色——平票/空选返回 null（两钮全不亮）。高亮语义=选中集
+ * 「当前是什么」，与两钮「设成什么」互为表里（新写块 role=context 默认亮「原文」钮）。
  */
 export function majorityRole(roles: ReciteRole[]): ReciteRole | null {
     const counts = new Map<ReciteRole, number>();
@@ -65,9 +70,11 @@ export function majorityRole(roles: ReciteRole[]): ReciteRole | null {
 }
 
 /**
- * 连续批注聚合：文档序上中间没有非空原文块（custom-recite-old）分隔的批注视为同一条总结。
- * 语义无损——两条批注间没有原文分隔时本就无法各自成立（后条 refs 必空），聚合是唯一自洽读法；
- * 也是敲错回车（想软换行敲了硬回车裂成两块）的安全网，用户无需改写块习惯。
+ * 连续题面候选聚合（老消费方结构基准——自活路径已随统一出卷退役，本体留作老整篇文档
+ * 迁移工具的区间语义基准）：文档序上中间没有非空原文块（custom-recite-old）分隔的候选
+ * 视为同组（旧「连续批注聚合」的等价集合，□1 起候选=isNote 判据）。语义无损——两个候选
+ * 间没有原文分隔时本就无法各自成立（后条 refs 必空），聚合是唯一自洽读法；也是敲错回车
+ * （想软换行敲了硬回车裂成两块）的安全网，用户无需改写块习惯。
  * 空块不算分隔（与 refs 过滤空块同源）；start/end 为组在 stream 里的覆盖区间（组内块可与空块交错）。
  */
 export function groupNotes(stream: ReciteBlock[]): NoteGroup[] {
@@ -112,11 +119,12 @@ export function originBlocksForGroups(stream: ReciteBlock[], groups: NoteGroup[]
  * 上一组末到本组首之间的 keep 块复制进本组锚点之前（组间 keep 归后一组，与批注 refs 切片
  * 对齐原文档序）；最后一组之后的尾部 keep 块并进末组（插在抽取文档末尾）。返回
  * groups.length + 1 组（末组=尾部）。空块滤除。keep 块照常留在 refs 里。
- * □1 起判定经 toReciteBlock：挂 keep 的新写块 isNote=false，`!b.isNote` 不再把它排除——
- * keep 泛化到任意块（bear 需求①：写总结时补的提示挂 keep=进卡面语境而非成题）。
+ * □1 起判定经 toReciteBlock：挂 keep 的新写块不是题面候选（isNote 判据排除 keep 块）——
+ * keep 泛化到任意块（bear 需求①：写提示时补的语境挂 keep=进卡面照抄而非成题；旧
+ * `!b.isNote` 守卫随判据改写恒真冗余已删）。
  */
 export function keepBlocksForGroups(stream: ReciteBlock[], groups: NoteGroup[]): ReciteBlock[][] {
-    const isKeepBlock = (b: ReciteBlock) => !!b.isKeep && !b.isNote && !!b.markdown.trim();
+    const isKeepBlock = (b: ReciteBlock) => !!b.isKeep && !!b.markdown.trim();
     let cursor = 0;
     const sets = groups.map((g) => {
         const keeps = stream.slice(cursor, g.start).filter(isKeepBlock);
@@ -128,22 +136,24 @@ export function keepBlocksForGroups(stream: ReciteBlock[], groups: NoteGroup[]):
 }
 
 /**
- * 统一出卷整流（□2 出卷层，2026-09-13 仿写三角色战役）：单一扫描语义——整篇/节选分叉
- * 退役，extractSpans 是抽取文档构建蓝图的唯一路径（前端 doExtract 与 kernel buildDrill
- * 共用，防两处漂移）。核心分叉（handoff 设计共识）：
+ * 统一出卷整流（□2 出卷层 2026-09-13；recitesimplify □1 2026-09-20 题面位置化）：单一扫描
+ * 语义——整篇/节选分叉退役，extractSpans 是抽取文档构建蓝图的唯一路径（前端 doExtract 与
+ * kernel buildDrill 共用，防两处漂移）。核心分叉（handoff 设计共识）：
  * - 考核块（连续 target，滤空流上相邻）聚段 → 段末原位换 [锚点+写位]（refs=段块 id）；
- * - 考核段**后紧邻**提示块（总结角色）升格为锚点（窗口=段末到下一段首/文末，窗口内首块
- *   须是提示，不越原文认领——与期2节选配对方向一致）；
- * - 无提示=空锚点占位（notes=[]，仍出卷——保 note 属性契约，下游 writeZone/q-ctrl/
- *   compare/判卷零分叉；判卷走纯默写）；
- * - 上下文块照抄（copy span → 挂 RECITE_KEEP 复制）；未升格提示块照抄+染色（hint span →
- *   挂 RECITE_HINT，卷子里的提示块新视觉）；
+ * - **题面=位置不是类型**：段末后紧邻的连续 `!isOld && !isKeep` 新写块升格为锚点（遇
+ *   old/keep/target 块停；窗口=段末到下一段首/文末，不越段不越原文认领）。「这段练」自动
+ *   留的空提示位写进字即题面；AI 锚点/written 块都无 old 属性=天然候选，buildDrill 的
+ *   anchors 合同零改动自动成立；
+ * - 无题面=空锚点占位（notes=[]，仍出卷——保 note 属性契约，下游 writeZone/q-ctrl/
+ *   compare/判卷零分叉；判卷走纯默写 RECITE_EMPTY_NOTE 语义不变）；
+ * - 其余块一律照抄（copy span → 挂 RECITE_KEEP 复制）：原文语境与散写的新写块同走
+ *   copy 不染色不参与判卷（hint kind 已随「总结」类型退役，老卷子的 RECITE_HINT 判读
+ *   在 extractEntries 保留兼容）；
  * - 空块滤除；无考核段不出卷（调用方数 unit 数为零时 toast）。
  */
 export type ExtractSpan =
-    | { kind: "copy"; blocks: ReciteBlock[] } // 上下文照抄（原文复制，挂 keep）
-    | { kind: "hint"; blocks: ReciteBlock[] } // 未升格提示照抄（用户写的总结未配考核段，挂 hint 染色）
-    | { kind: "unit"; targets: ReciteBlock[]; notes: ReciteBlock[] }; // 考核段（notes 空=空锚点占位）
+    | { kind: "copy"; blocks: ReciteBlock[] } // 照抄（原文语境+散写新块，挂 keep 不染色）
+    | { kind: "unit"; targets: ReciteBlock[]; notes: ReciteBlock[] }; // 考核段（notes=升格题面；空=空锚点占位）
 
 export function extractSpans(stream: ReciteBlock[]): { spans: ExtractSpan[]; emptyNoteCount: number } {
     const s = stream.filter(b => b.markdown.trim()); // 空块滤除（无角色，不进抽取文档）
@@ -156,26 +166,27 @@ export function extractSpans(stream: ReciteBlock[]): { spans: ExtractSpan[]; emp
             segs.push({ start, end: i - 1 });
         }
     }
-    // 配对：窗口 = (段末, 下一段首) / (末段末, 文末)，取窗口内第一个提示块并向后续到提示组末
+    // 配对（题面位置化）：窗口 = (段末, 下一段首) / (末段末, 文末)，段末后紧邻的连续
+    // !isOld && !isKeep 块=题面，遇 old/keep/target 块停（滤空流上 target 本不进窗口，
+    // 显式判据保语义自足——角色不读：新写块 role 也是 context，题面身份只在位置里）
     const paired = new Map<number, ReciteBlock[]>();
     segs.forEach((seg, gi) => {
         const winEnd = gi + 1 < segs.length ? segs[gi + 1].start : s.length;
         const notes: ReciteBlock[] = [];
-        for (let j = seg.end + 1; j < winEnd && s[j].isNote; j++) notes.push(s[j]);
+        for (let j = seg.end + 1; j < winEnd && !s[j].isOld && !s[j].isKeep && !s[j].isTarget; j++) notes.push(s[j]);
         if (notes.length) paired.set(gi, notes);
     });
-    // 整流：照抄块与 [锚点+写位] 单元按文档序排布。照抄逐块入 span、相邻同类才合并——
-    // copy（上下文）与 hint（未升格提示）交错时不得重排（双缓冲 flush 会把交错序压扁）。
-    // 升格提示跳过（已变锚点本体）；无提示考核段=空锚点占位（notes=[] 仍出卷）。
+    // 整流：照抄块与 [锚点+写位] 单元按文档序排布。照抄逐块入 copy span、相邻合并；
+    // 升格题面跳过（已变锚点本体）；无题面考核段=空锚点占位（notes=[] 仍出卷）。
     const skipNote = new Set<string>();
     paired.forEach(notes => notes.forEach(n => skipNote.add(n.id)));
     const segOf: number[] = [];
     segs.forEach((seg, gi) => { for (let j = seg.start; j <= seg.end; j++) segOf[j] = gi; });
     const spans: ExtractSpan[] = [];
-    const pushCopy = (b: ReciteBlock, kind: "copy" | "hint") => {
+    const pushCopy = (b: ReciteBlock) => {
         const last = spans[spans.length - 1];
-        if (last && last.kind === kind) last.blocks.push(b);
-        else spans.push({ kind, blocks: [b] });
+        if (last && last.kind === "copy") last.blocks.push(b);
+        else spans.push({ kind: "copy", blocks: [b] });
     };
     for (let j = 0; j < s.length; j++) {
         const gi = segOf[j] ?? -1;
@@ -188,7 +199,7 @@ export function extractSpans(stream: ReciteBlock[]): { spans: ExtractSpan[]; emp
                 });
             }
         } else if (!skipNote.has(s[j].id)) {
-            pushCopy(s[j], s[j].isNote ? "hint" : "copy");
+            pushCopy(s[j]);
         }
     }
     const emptyNoteCount = spans.filter(x => x.kind === "unit" && !x.notes.length).length;
@@ -198,16 +209,19 @@ export function extractSpans(stream: ReciteBlock[]): { spans: ExtractSpan[]; emp
 /**
  * 锚点认领节打靶（kernel buildDrill 装配核心 / □4 老整篇文档迁移工具同族）：锚点插在
  * 锚定块（after 指向的块）紧后——认领节=文首到最后一个锚定块（含，中间块无论远近），
- * 节内 context 角色块（old/keep 原文）打 target 后，锚点即考核段末后第一个块=「段末后
- * 紧邻提示」配对成立（extractSpans 语义）。手写批注（summary）与空块不打：批注保持
- * 提示身份（卷里进 hint 照抄）。最后一个锚定块之后的尾部原文不认领——照抄进卷尾，
- * 不并入末题考核（旧整篇语义吞尾 refs 的兜底 hack 在统一出卷下退役）。
+ * 节内原文族块（old/keep，flags 直判）打 target 后，锚点即考核段末后第一个块=「段末后
+ * 紧邻题面」配对成立（extractSpans 语义）。题面候选（AI 锚点/written/手写新块）与空块
+ * 不打：候选要保持可配对身份（打了靶会被并进考核段吞掉题面）。**判据须 flags 直判**：
+ * 旧 `role==="context"` 在两角色 blockRole 下扩面到全部非空块（新写块 role 也是 context），
+ * AI 锚点会被误并进考核段——flags 直判（!target && (old||keep)）与旧角色集合精确等价，
+ * buildDrill 行为零变化。最后一个锚定块之后的尾部原文不认领——照抄进卷尾，不并入末题
+ * 考核（旧整篇语义吞尾 refs 的兜底 hack 在统一出卷下退役）。
  */
 export function contextBlocksToTarget(stream: ReciteBlock[], anchorAfterIDs: Set<string>): string[] {
     let last = -1;
     stream.forEach((b, i) => { if (anchorAfterIDs.has(b.id)) last = Math.max(last, i); });
     if (last < 0) return [];
-    return stream.slice(0, last + 1).filter(b => b.role === "context").map(b => b.id);
+    return stream.slice(0, last + 1).filter(b => !b.isTarget && (b.isOld || b.isKeep)).map(b => b.id);
 }
 
 /**

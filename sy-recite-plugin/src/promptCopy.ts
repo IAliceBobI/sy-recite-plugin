@@ -138,7 +138,7 @@ export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPo
             parts.push("");
             return;
         }
-        const origin = originsPerEntry[i].join("\n\n") || "（本条批注前没有原文段）";
+        const origin = originsPerEntry[i].join("\n\n") || "（本题前没有原文段）";
         parts.push("【原文】");
         parts.push(origin);
         parts.push("");
@@ -202,7 +202,7 @@ export async function copyPrompt(extractID: string, plugin?: Plugin, anchor?: Mo
     }
     const entries = await readExtractDoc(extractID);
     if (!entries.length) {
-        await siyuan.pushMsg("抽取文档里没有批注（旧版布局请先「重新写」）", 3000);
+        await siyuan.pushMsg("抽取文档里没有题目（旧版布局请先「重新写」）", 3000);
         return;
     }
     const t: any = plugin?.i18n ?? {};

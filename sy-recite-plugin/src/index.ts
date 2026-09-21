@@ -183,13 +183,13 @@ export default class ThePlugin extends BaseTomatoPlugin {
         });
         this.addCommand({
             langKey: RECITE_HOTKEYS.reciteKeep.langKey,
-            langText: "仿写练习：设为原文（存量块清「这段练/总结」标记回原文；你写的块认领为原文照抄进练习文档）",
+            langText: "仿写练习：设为原文（存量块清「这段练」标记回原文；你写的块认领为原文照抄进练习文档）",
             hotkey: RECITE_HOTKEYS.reciteKeep.m,
             editorCallback: (protyle) => setBlocksRole(this, protyle, "context"),
         });
         this.addCommand({
             langKey: RECITE_HOTKEYS.reciteTarget.langKey,
-            langText: "仿写练习：这段练（选中块设为考核，段后留总结位，抽取只练这段）",
+            langText: "仿写练习：这段练（选中块设为考核，段后留题面位，抽取只练这段）",
             hotkey: RECITE_HOTKEYS.reciteTarget.m,
             editorCallback: (protyle) => setBlocksRole(this, protyle, "target"),
         });

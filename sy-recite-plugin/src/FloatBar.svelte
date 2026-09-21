@@ -131,7 +131,7 @@
 
     // □8 期4（2026-09-09）：顶栏选块三钮（向上/向下/取消最后一次）——触屏拖蓝难的逐块
     // 多选入口，复用 □9 升格的 SelectionML，挂内核同款 protyle-wysiwyg--select 类，
-    // 上下文/这段练经 reciteSelection 一级链直接读走（同一条栏选完即消费）。挂顶栏行内
+    // 原文/这段练经 reciteSelection 一级链直接读走（同一条栏选完即消费）。挂顶栏行内
     // 而非 breadcrumb：顶栏（z-index 安全档 10）会盖住 breadcrumb（z 5），挂 breadcrumb
     // 在 role 文档上等于不可点（e2e 实锤）。空 seed 复用实例——act 不重置锚点（连按
     // 向上持续外扩），锚点随点击的刷新由 selml.ts 监听器负责（tomato 同款分工）；
@@ -145,14 +145,15 @@
         const s = getSelectionML(wysiwyg);
         fn(s);
         debugLog("recite.selml", `${name} ${JSON.stringify(s.state)}`, "recite");
-        refreshSelMajor(); // 块选不走 selectionchange，选完即重算三钮高亮
+        refreshSelMajor(); // 块选不走 selectionchange，选完即重算两钮高亮
     }
 
-    // —— □1 三钮当前角色高亮（2026-09-13 三角色战役）：选中块严格多数角色点亮对应钮。
-    // 判据零请求——DOM 属性镜像（custom-recite-* 随 IAL 走）+ blockRole 同一判定序；
-    // \u200b 先剥（内核空块 contenteditable 恒含零宽空格，裸 trim 剔不掉）。selectionchange
-    // 打字期高频触发，rAF 合并成帧级；文档切换/设完角色后显式重算（属性镜像经 ws 广播
-    // ~1s 异步到达，且不触发 selectionchange——onSetRole 补延迟拍）
+    // —— □1 两钮当前角色高亮（2026-09-13 三角色战役 → recitesimplify □2 两钮化）：选中块
+    // 严格多数角色点亮对应钮（新写块 role=context 默认亮「原文」）。判据零请求——DOM 属性镜像
+    // （custom-recite-* 随 IAL 走）+ blockRole 同一判定序；\u200b 先剥（内核空块 contenteditable
+    // 恒含零宽空格，裸 trim 剔不掉）。selectionchange 打字期高频触发，rAF 合并成帧级；文档切换/
+    // 设完角色后显式重算（属性镜像经 ws 广播 ~1s 异步到达，且不触发 selectionchange——onSetRole
+    // 补延迟拍）
     let selMajor = $state<ReciteRole | null>(null);
     let selMajorQueued = false;
     function elRole(el: HTMLElement): ReciteRole {
@@ -348,10 +349,10 @@
         {/if}
         {#if $reciteDoc.role === "origin"}
             <div class="recite-floatbar-btns">
-                <button class="b3-tooltips b3-tooltips__n recite-btn-pro" class:recite-btn-busy={splitting} disabled={splitting} aria-label={splitting ? (plugin.i18n["拆分中提示"] || "AI 拆分进行中…") : (plugin.i18n["AI拆分提示"] || "AI 通读全文，按叙事节拍自动插入锚点批注\n走思源 AI 配置（消耗自己的额度）\n重跑删旧 AI 锚点，手写批注不动") + (splitting ? "" : proNote())} onclick={onSplitClick}>{@html reciteIcon(splitting ? "iconReciteSpin" : "iconReciteSplit")}<span class="recite-btn-text">{splitting ? (plugin.i18n["拆分中"] || "拆分中…") : t("AI 拆分")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n recite-btn-pro" class:recite-btn-busy={splitting} disabled={splitting} aria-label={splitting ? (plugin.i18n["拆分中提示"] || "AI 拆分进行中…") : (plugin.i18n["AI拆分提示"] || "AI 通读全文，按叙事节拍自动插入复述/仿写/方向三种锚点\n走思源 AI 配置（消耗自己的额度）\n重跑删旧 AI 锚点，你写的字不动") + (splitting ? "" : proNote())} onclick={onSplitClick}>{@html reciteIcon(splitting ? "iconReciteSpin" : "iconReciteSplit")}<span class="recite-btn-text">{splitting ? (plugin.i18n["拆分中"] || "拆分中…") : t("AI 拆分")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" aria-label={"生成练习卷\n考核段逐题拆出：段后提示升格为题目\n没提示的段出纯默写题"} onclick={() => doExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteExtract")}<span class="recite-btn-text">{t("抽取")}</span></button>
                 <!-- □8 期4 选块三钮（移动端顶栏纯图标，桌面共用标记但桌面顶栏不渲染）：
-                     选完的块挂内核同款选中类，右侧 上下文/这段练 直接读走；
+                     选完的块挂内核同款选中类，右侧 原文/这段练 直接读走；
                      $selmlOn=设置面板「移动端选块按钮」开关（2026-09-09），切换即时生效 -->
                 {#if isMobile && $selmlOn}
                     <span class="recite-topbar-sep" aria-hidden="true"></span>
@@ -360,18 +361,18 @@
                     <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["取消最后一次选择的内容"] || "取消最后一次选择"} onclick={() => selmlAct("cancel", s => s.cancelLast())}>{@html "<svg><use xlink:href=\"#iconRedo\"></use></svg>"}<span class="recite-btn-text">{plugin.i18n["取消最后一次选择的内容"] || "取消最后一次选择"}</span></button>
                     <span class="recite-topbar-sep" aria-hidden="true"></span>
                 {/if}
-                <!-- □1 三角色钮（2026-09-13 三角色战役）：三选一互斥设置替「再点取消」toggle，
-                     钮亮=选中块当前角色（严格多数，判定/高亮同序 blockRole）。roleswap 2026-09-15：
-                     「上下文」更名「原文」——数据落点本就是「这块是原文」（存量清靶回原文/新写认领），
-                     词汇显式化让「改回原文」的路可见（bear 拍板全矩阵可互改来回改）。
+                <!-- 两角色钮（2026-09-13 三角色战役 → 2026-09-20 recitesimplify □2 两钮化）：
+                     二选一互斥设置，「总结」类型退役（题面=位置：段后紧邻新写块，见 extractSpans）。
+                     钮亮=选中块当前角色（严格多数，判定/高亮同序 blockRole——新写块 role=context，
+                     默认点亮「原文」钮）。roleswap 2026-09-15：「上下文」更名「原文」——数据落点
+                     本就是「这块是原文」（存量清靶回原文/新写认领）。
                      作用对象=当前编辑器选中块集（Ctrl+点击多选/移动端选块三钮） -->
-                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "context"} aria-label={plugin.i18n["原文浮条提示"] || "设为原文：存量块清除「这段练/总结」标记回到原文\n你写的字则认领为原文（照抄进卷、退出与删除都按原文走）\n与「这段练」「总结」三选一，钮亮=当前角色"} onclick={() => onSetRole("context")}>{@html reciteIcon("iconReciteKeep")}<span class="recite-btn-text">{t("原文")}</span></button>
-                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "target"} aria-label={plugin.i18n["靶浮条提示"] || "设为考核（这段练）：抽取只练这段，其余照抄做语境\n段后留有总结位，落笔即配对成题"} onclick={() => onSetRole("target")}>{@html reciteIcon("iconReciteTarget")}<span class="recite-btn-text">{t("这段练")}</span></button>
-                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "summary"} aria-label={plugin.i18n["总结浮条提示"] || "设为总结：当作自己写的提示，抽取时作为题目\n选中块是存量原文时一并认领（清原文标记）"} onclick={() => onSetRole("summary")}>{@html reciteIcon("iconReciteSummary")}<span class="recite-btn-text">{t("总结")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "context"} aria-label={plugin.i18n["原文浮条提示"] || "设为原文：存量块清除「这段练」标记回到原文\n你写的字则认领为原文（照抄进卷、退出与删除都按原文走）\n与「这段练」二选一，钮亮=当前角色"} onclick={() => onSetRole("context")}>{@html reciteIcon("iconReciteKeep")}<span class="recite-btn-text">{t("原文")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "target"} aria-label={plugin.i18n["靶浮条提示"] || "设为考核（这段练）：抽取只练这段，其余照抄做语境\n段后留题面位，写一句这段在讲什么即题面"} onclick={() => onSetRole("target")}>{@html reciteIcon("iconReciteTarget")}<span class="recite-btn-text">{t("这段练")}</span></button>
                 <!-- □3 退出两档（2026-09-13）：轻「退出」（字保留+淡标记）与重「删除」（彻底抹）
                      并排，双 ghost 图标形辨轻重（门箭头 vs 垃圾桶）；退出顶栏笔图标 toggle 同义 -->
                 <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={plugin.i18n["退出浮条提示"] || "温和退出仿写模式\n你写的字保留并加淡色标记，练习标记全清\n抽取/对比文档保留；彻底删除用「删除」"} onclick={() => exitPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteExit")}<span class="recite-btn-text">{t("退出")}</span></button>
-                <button class="b3-tooltips b3-tooltips__n recite-btn-ghost recite-btn-danger" aria-label={"彻底删除练习\n删批注块+抽取/对比子文档+全部标记（回收站可找回）"} onclick={() => cleanPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteDelete")}<span class="recite-btn-text">{t("删除")}</span></button>
+                <button class="b3-tooltips b3-tooltips__n recite-btn-ghost recite-btn-danger" aria-label={"彻底删除练习\n删练习期间写的块（题面/散写，认领为原文的不动）+抽取/对比子文档+全部标记（回收站可找回）"} onclick={() => cleanPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteDelete")}<span class="recite-btn-text">{t("删除")}</span></button>
             </div>
         {:else if $reciteDoc.role === "extract"}
             <div class="recite-floatbar-btns">

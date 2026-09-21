@@ -7,10 +7,11 @@ import { reciteDoc } from "./statusBtn";
 const REFRESH_EVENTS = new Set(["switch-protyle", "loaded-protyle-static", "loaded-protyle-dynamic"]);
 
 /**
- * 染色 = 纯 CSS（index.scss「你的句」规则）：`:not([custom-recite-old]):not([custom-recite-keep])
- * :not([custom-recite-target])`（□1 三角色起排除挂标记的新写块——判定序与 blockRole 同源）。
- * 原文块在进入仿写时由 enterPractice 批量打 custom-recite-old（随块 IAL 走、渲染即带），
- * 新块（回车分块/粘贴）无属性即批注——浏览器渲染同帧生效，无 JS 链路、无时序竞争。
+ * 染色 = 纯 CSS（index.scss 原文档规则）：新写块默认不染（recitesimplify □2 2026-09-20
+ * 「写完即染色」退役——散写在别处的字=照抄进卷当语境）；视觉只剩三个落点：靶段（target
+ * 属性）、keep 弱化、题面位（段末后紧邻新写块——链式 + 选择器位置判据，与 extractSpans
+ * 配对语义同构）。原文块在进入仿写时由 enterPractice 批量打 custom-recite-old（随块 IAL
+ * 走、渲染即带），新块（回车分块/粘贴）无属性——浏览器渲染同帧生效，无 JS 链路、无时序竞争。
  * 本类只管一件事：仿写中文档的 wysiwyg 加 class，其余文档全清。
  */
 class Highlight {

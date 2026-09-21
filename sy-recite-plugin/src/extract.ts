@@ -21,7 +21,7 @@ export type ExtractEntry = {
     noteID: string;
     noteMarkdown: string;
     refs: string[];           // 溯源锚（原文块 id），对比/判卷时实时回查（原文改了拿新文，删了占位标注）
-    writes: { id: string; markdown: string }[]; // 总结块后的非空块（复述；写位空块占位不进）
+    writes: { id: string; markdown: string }[]; // 锚点后的非空块（复述；写位空块占位不进）
 };
 
 /**
@@ -40,10 +40,10 @@ export function isAssociation(noteMarkdown: string): boolean {
 }
 
 /**
- * 按文档序取原文顶层块流（getChildBlocks 保文档序）。□1 起统一走 toReciteBlock 三角色
- * 判定（判定序见 extractCore blockRole）：批注（isNote 兼容面）=总结角色——挂 keep 的
- * 新写块从此不当批注（不配对成题，走 hint 照抄，□2 起语义归正）。空块——打了回车没
- * 写字——无角色，不进抽取文档。
+ * 按文档序取原文顶层块流（getChildBlocks 保文档序）。两角色判定（recitesimplify □1
+ * 2026-09-20，判定序见 extractCore blockRole）：新写非空块默认上下文（散写在别处的字=
+ * 照抄语境），题面身份不进角色——isNote=题面候选（非 old/keep/target 的非空块，段末后
+ * 紧邻才由 extractSpans 位置配对升格）。空块——打了回车没写字——无角色，不进抽取文档。
  */
 export async function identifyNotes(originID: string): Promise<ReciteBlock[]> {
     const children = await siyuan.getChildBlocks(originID);
@@ -97,8 +97,10 @@ export async function findReciteChildDoc(parent: { box: string; path: string; hp
 /**
  * 抽取文档读数归一（readExtractDoc 的纯函数核心，□2 抽出）：顶层块流（id+markdown+IAL）→
  * entries。四个消费方（compare/diffCheck/判卷/提示词）全走 readExtractDoc 读数，在此一处
- * 隔离展示层：keep（上下文复制）/hint（卷子里的未升格提示）/q-ctrl 控制块跳过；空锚点
- * （RECITE_EMPTY_NOTE）noteMarkdown 归一空串——占位文案只是卷内视觉，判卷走纯默写。
+ * 隔离展示层：keep（copy span 照抄产物——原文语境与散写新块同挂）/hint（老卷子兼容判读：
+ * 「总结」类型退役后新卷不再产 RECITE_HINT 块，存量老卷子的提示块照跳）/q-ctrl 控制块
+ * 跳过；空锚点（RECITE_EMPTY_NOTE）noteMarkdown 归一空串——占位文案只是卷内视觉，判卷
+ * 走纯默写。
  */
 export function extractEntries(blocks: { id: string; markdown: string; ial?: Record<string, string> }[]): ExtractEntry[] {
     const entries: ExtractEntry[] = [];
@@ -106,8 +108,9 @@ export function extractEntries(blocks: { id: string; markdown: string; ial?: Rec
     blocks.forEach(b => {
         const ial = b.ial ?? {};
         const markdown = b.markdown ?? "";
-        // 上下文块（原文 keep 的复制）与提示块（未升格总结的复制）：非锚点非复述，跳过——
-        // 不进 writes，四消费方在此一处隔离；q-ctrl 控制块同判（围栏判据，6811 实测）；
+        // 照抄块（copy span 产物挂 keep——原文语境与散写新块）与提示块（老卷子 hint 产物——
+        // 判读兼容保留，新卷不再产）：非锚点非复述，跳过——不进 writes，四消费方在此一处
+        // 隔离；q-ctrl 控制块同判（围栏判据，6811 实测）；
         // written（□3 温和退出标记）同判跳过——正常链路不进卷子（copyHTML 重建不带属性），
         // 防御脏数据与 writeZone 判序同源
         if (ial[RECITE_KEEP] || ial[RECITE_HINT] || ial[RECITE_WRITTEN]) return;
@@ -225,13 +228,13 @@ export function noteBlockAsHeading(div: HTMLElement, level: number = 6): HTMLEle
 }
 
 /**
- * 统一出卷（□2 出卷层，2026-09-13 仿写三角色战役）：doExtract 单一扫描语义——整篇/节选
- * 分叉退役，extractSpans（extractCore，kernel 共用）是抽取文档构建蓝图唯一路径：
- * 考核块（连续 target）聚段→段末原位换 [锚点+写位]（refs=段块 id，对比/判卷实时回查）；
- * 段后紧邻提示块升格为锚点；无提示=空锚点占位（RECITE_EMPTY_NOTE，纯默写）照样出卷；
- * 上下文块照抄（copyHTML 挂 keep）；未升格提示照抄+染色（copyHTML 挂 hint 新视觉）。
- * 无考核段不出卷（提示改指「标记考核」——批注不再是出卷开关）。
- * 老整篇文档（old+批注+无靶）在新语义下不出卷（受损），兼容三选一见 handoff □4。
+ * 统一出卷（□2 出卷层，2026-09-13；recitesimplify □1 2026-09-20 题面位置化）：doExtract
+ * 单一扫描语义——整篇/节选分叉退役，extractSpans（extractCore，kernel 共用）是抽取文档
+ * 构建蓝图唯一路径：考核块（连续 target）聚段→段末原位换 [锚点+写位]（refs=段块 id，
+ * 对比/判卷实时回查）；段末后紧邻的连续新写块升格为锚点（题面=位置）；无题面=空锚点
+ * 占位（RECITE_EMPTY_NOTE，纯默写）照样出卷；其余块（原文语境+散写新块）一律照抄
+ * （copyHTML 挂 keep 不染色——hint 面已随「总结」类型退役，老卷子 RECITE_HINT 判读保留
+ * 在 extractEntries）。无考核段不出卷（提示改指「标记考核」——题面不再是出卷开关）。
  */
 export async function doExtract(plugin: Plugin, originID: string) {
     if (!originID) return;
@@ -242,7 +245,7 @@ export async function doExtract(plugin: Plugin, originID: string) {
         return;
     }
     const stream = await identifyNotes(originID);
-    debugLog("recite.identify", `doc=${originID} blocks=${stream.length} summary=${stream.filter(b => b.role === "summary").length} targets=${stream.filter(b => b.isTarget).length} keeps=${stream.filter(b => b.isKeep).length}`, "recite");
+    debugLog("recite.identify", `doc=${originID} blocks=${stream.length} notes=${stream.filter(b => b.isNote).length} targets=${stream.filter(b => b.isTarget).length} keeps=${stream.filter(b => b.isKeep).length}`, "recite");
     const { spans, emptyNoteCount } = extractSpans(stream);
     const say = (k: string, fb: string) => ((plugin as any)?.i18n?.[k] as string) || fb;
     const unitCount = spans.filter(s => s.kind === "unit").length;
@@ -252,9 +255,9 @@ export async function doExtract(plugin: Plugin, originID: string) {
     }
     const noteLevel = noteHeadingLevel((plugin as any).settingCfg);
     const units = spans.flatMap(span => {
-        if (span.kind === "copy") return copyHTML(span.blocks, RECITE_KEEP);
-        if (span.kind === "hint") return copyHTML(span.blocks, RECITE_HINT);
-        // unit：升格提示=锚点文本（单行 heading 化接通大纲跳转/折叠）；空锚点=空段落
+        if (span.kind === "copy") return copyHTML(span.blocks);
+        // unit：升格题面=锚点文本（单行 heading 化接通大纲跳转/折叠——noteFitsHeading/
+        // noteBlockAsHeading 对位置化题面照用）；空锚点=空段落
         //（RECITE_EMPTY_NOTE 属性=纯默写题标记，readExtractDoc 出口归一空串——占位不漏下游；
         // 2026-09-15 起不落占位文案：锚点空段+写位空段相邻，写位有 writeZone 竖线可辨）
         if (!span.notes.length) {
@@ -375,14 +378,15 @@ async function syncExtractTitle(docID: string, wantedHpath: string) {
 }
 
 /**
- * 照抄块复制 HTML（统一出卷共用层）：原文块 md2Divs 纯文本复制带格式，每块挂指定标记
- * ——copy span 挂 RECITE_KEEP（上下文语境，灰弱化）、hint span 挂 RECITE_HINT（卷子里的
- * 提示块，琥珀染色）；readExtractDoc/writeZone/q-ctrl 都据此（或同判据）跳过，不进复述。
- * 抽取时快照、原文改了重抽才更新。
+ * 照抄块复制 HTML（统一出卷共用层）：原文块与散写新块 md2Divs 纯文本复制带格式，每块挂
+ * RECITE_KEEP——readExtractDoc/writeZone/q-ctrl 据此（或同判据）跳过，不进复述（照抄=
+ * 语境，不染色不参与对比判卷）。抽取时快照、原文改了重抽才更新。hint 染色面已随「总结」
+ * 类型退役（recitesimplify □1 2026-09-20）：老卷子的 RECITE_HINT 判读兼容在 extractEntries，
+ * 不在此产新。
  */
-function copyHTML(blocks: ReciteBlock[], attr: string): string[] {
+function copyHTML(blocks: ReciteBlock[]): string[] {
     return blocks.flatMap(b => md2Divs(b.markdown).map(d => {
-        d.setAttribute(attr, "1");
+        d.setAttribute(RECITE_KEEP, "1");
         return d.outerHTML;
     }));
 }

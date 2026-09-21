@@ -14,7 +14,7 @@
     --recite-card-bg: color-mix(in srgb, var(--recite-accent) 5%, var(--b3-theme-surface));
     --recite-card-border: color-mix(in srgb, var(--recite-accent) 24%, var(--b3-border-color));
     --recite-shadow: 0 2px 8px rgba(122, 76, 21, 0.10);
-    --recite-yours: #2f7d6e;         // 「你的句」专属色（青绿，本批预留，后续批次用）
+    --recite-yours: #2f7d6e;         // 靶段色（青绿=作者句标记族；「你的句」全量染色退役后唯一消费方）
     // 写位底色基准 alpha（2026-09-01 写作现场组）：亮 0.12 暗 0.14（= v1.2.0 恒显浅底原值），
     // 实际浓度=基准×--recite-glow-k（theme.ts applyWzVisuals 注入 body inline，默认 1=出厂）
     --recite-glow-a: 0.12;
@@ -37,7 +37,7 @@ html[data-theme-mode="dark"] {
 // 暗色必须用 html[data-theme-mode="dark"] 前缀在 body 上重新声明。
 // 取色：货架样机主色（theme.ts color）按默认琥珀同款手法派生——亮色 accent 为主色加深档（文字
 // 对比达标）、strong 再深一档（徽章底白字）、soft=0.12 alpha、shadow 走 strong 色调；暗色 accent
-// 直接用主色、strong 微降档、soft=0.14、阴影回中性黑。yours 为「你的句」预留色（本批未消费），
+// 直接用主色、strong 微降档、soft=0.14、阴影回中性黑。yours=靶段色（青绿，
 // 默认绿系，仅青瓷主题与 accent 同族冲突时换琥珀对色。
 $recite-skins: (
     "ink-teal": (la: #3a7466, ls: #2e5c51, ly: #8a5a20, da: #7fb5a8, ds: #639a8b, dy: #d4a960),
@@ -332,31 +332,52 @@ body:not(.recite-unpaid)[data-recite-bg="custom"] {
 // verifyKeyRecite 失败时 index.ts 给 body 挂 recite-unpaid：三块收费视觉（染色/快照/对比卡片）
 // 整体退化为朴素态；JS 功能零改动（防君子不防小人的立场）。默认（无 class）与付费态现状完全一致。
 
-// ---- 项2：原文·仿写模式双色区分（付费态）----
-// 你的句 = 仿写模式（wysiwyg 由 highlight 加 .recite-practicing）下无 custom-recite-old 的顶层块
-// （进入仿写后用户新写/批注的句子，属性判据随块 IAL 走，渲染同帧生效）：accent 字色 + 浅底 + 左侧 3px 竖条。
-// □1 三角色（2026-09-13）：挂 keep/靶的新写块排除出「你的句」染色——角色判定序里它们是
-// 上下文/考核（blockRole 同序），各自的标记规则自带视觉，不叠总结色
-body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target]) {
-    color: var(--recite-accent);
-    background-color: var(--recite-accent-soft);
-    border-inline-start: 3px solid var(--recite-accent);
-    border-radius: 4px;
-    padding-inline: 4px;
-}
-// 作者句 = 有 custom-recite-old 的原文块：中性弱化（轻微降不透明度），让「你的句」跳出来、
-// 不另加色（克制，避免两套颜色互相打架）；keep 块（含上下文认领——□4 起「设为上下文」对
+// ---- 项2：原文·仿写模式视觉（付费态；recitesimplify □2 2026-09-20 两钮化改版）----
+// 「你的句」全量染色已随「总结」类型退役：新写块默认不染——散落在别处写的字=照抄进卷当
+// 语境（不染色不参与判卷），视觉例外只剩题面位（下节）与 written（退场余温）。
+// 作者句 = 有 custom-recite-old 的原文块：中性弱化（轻微降不透明度），让靶段/题面位跳出来、
+// 不另加色（克制，避免两套颜色互相打架）；keep 块（含上下文认领——「设为原文」对
 // 新写块挂 old，与存量原文同一视觉）与靶块不进弱化集的是靶——靶自带底+线压 0.75 会互相抵消
 body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-old]:not([custom-recite-target]) {
     opacity: 0.75;
+}
+
+// ---- 题面位（recitesimplify □2 2026-09-20）：段末后紧邻新写块染淡题面色 ----
+// 题面=位置不是类型（extractSpans 配对语义）：考核段末后紧邻的连续新写块（遇 old/keep/target
+// 停）在原文档里一眼可辨「这是题面位，写一句这段在讲什么」；空题面位（「这段练」自动插的）
+// 同染=落笔引导。CSS 无「向后直到」原语，@for 展开链式 + 选择器 T+X、T+X+X…（段内连续题面
+// 块逐深度命中，深度帽 6 覆盖现实题面长度，超出只是无视觉、数据层照配对）；链上每一环都带
+// :not(old/keep/target) 排除——遇原文/点名/靶即断链，与配对窗口停驻条件同构（段内连续靶也
+// 因 :not(target) 不误匹配，只有段末最后一靶的紧邻块起链）。
+// 色=琥珀自写族低饱和（accent 8% 底+45% 细竖线，弱于靶段 12%——题面是引导不是强调）；
+// token 随 Pro 皮肤/明暗自动跟随（暗色 html[data-theme-mode="dark"] 覆写 accent 整组，无需
+// 暗色分支）。免费功能免费视觉：标记反馈与靶段同族，不包 unpaid 门禁。
+@for $i from 1 through 6 {
+    $chain: ".protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-target]";
+    @for $j from 1 through $i {
+        $chain: $chain + " + div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target])";
+    }
+    #{$chain} {
+        background-color: color-mix(in srgb, var(--recite-accent) 8%, transparent);
+        border-inline-start: 2px solid color-mix(in srgb, var(--recite-accent) 45%, transparent);
+        border-radius: 4px;
+        padding-inline: 4px;
+    }
+    // 竖线开关同族跟随（target/written 先例）：关=竖线+底+padding 整组退场，同 @for 全深度
+    // 覆盖（body 前缀特异性压过对应深度的常驻链）
+    body[data-recite-wz-norule] #{$chain} {
+        background-color: transparent;
+        border-inline-start: none;
+        padding-inline: 0;
+    }
 }
 
 // ---- 期1 keep 上下文块（原文档侧，2026-09-08；□1 泛化；□4 视觉语境化）----
 // keep=语境（「这块照抄进练习文档」），视觉向原文弱化对齐、竖线退役——□4 bear 反馈：新写
 // 块设上下文后仍带竖线标记，与「你的句」竖线形态撞（绿系皮肤下双胞胎），且语义上「当作
 // 原文」就不该保留「新写/被点名」的强调感。□4 起新写认领走挂 old（上方弱化规则），
-// 此规则只剩老 keep 数据与 MCP 点名场景的兜底；「上下文」钮点存量 keep 块=清标回纯 old。
-// 免费功能免费视觉——不包 unpaid 门禁的语义不变，但弱化与双色染色同族（unpaid 朴素退化
+// 此规则只剩老 keep 数据与 MCP 点名场景的兜底；「原文」钮点存量 keep 块=清标回纯 old。
+// 免费功能免费视觉——不包 unpaid 门禁的语义不变，但弱化与作者句弱化同族（unpaid 朴素退化
 // =不弱化），随族包门禁
 body:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id][custom-recite-keep]:not([custom-recite-old]):not([custom-recite-target]) {
     opacity: 0.75;
@@ -381,10 +402,11 @@ body[data-recite-wz-norule] .protyle-wysiwyg.recite-practicing > div[data-node-i
 
 // ---- □3 written 温和退出标记（原文档侧，2026-09-13）：练习时写的字淡背景 ----
 // 温和退出但字留痕：挂 custom-recite-written 的顶层块染 faint accent 淡底（8%，比靶段
-// 12%/「你的句」14% 更弱——「退场后的余温」而非「在场的强调」；vision 评审 7% 小屏/低亮度
+// 12% 略弱——「退场后的余温」而非「在场的强调」；vision 评审 7% 小屏/低亮度
 // 有退化风险，提到 8% 留余量）。三语义：① 不限
-// .recite-practicing——标记的意义就是退出后回头看仍在（持久标记）；重进练习时让位
-// 「你的句」角色染色（written 块=总结身份），退出后又回来；② 包 unpaid 门禁（与双色
+// .recite-practicing——标记的意义就是退出后回头看仍在（持久标记）；重进练习时新写块默认
+// 不染（□2 起全量染色退役），块本身无角色视觉——题面位视觉按位置另判（段末紧邻才染）；
+// ② 包 unpaid 门禁（与双色
 // 区分同族——unpaid 朴素退化：字保留无淡标记）；③ wz-norule 开关跟随标记族（底退）。
 body:not(.recite-unpaid) .protyle-wysiwyg:not(.recite-practicing) > div[data-node-id][custom-recite-written="1"] {
     background-color: color-mix(in srgb, var(--recite-accent) 8%, transparent);
@@ -436,7 +458,7 @@ body .protyle-wysiwyg div[custom-recite-note="1"][custom-recite-empty-note="1"] 
 // 写区 = 每条总结块之后到下一条总结块之间的全部顶层块（writeZone.ts 挂 data-recite-write，
 // 内存 DOM 属性不落 IAL，回车分块/粘贴/拖拽由 MutationObserver 重算跟随）。视觉 = 左侧
 // accent 竖线贯穿整个写区（逐块绘制天然连续、无拼接缝）+ 空块浅底/✍ 提示、写过字的块底色
-// 退隐只剩竖线——「区域恒在、空位可填」，与原文档「你的句」竖线语言同构。根治旧版
+// 退隐只剩竖线——「区域恒在、空位可填」，与原文档题面位竖线语言同构。根治旧版
 // `note + p` 相邻选择器只框第一个段块、回车新块出框的瑕疵（2026-08-31）。
 body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] {
     border-inline-start: 3px solid var(--recite-accent);
@@ -468,14 +490,11 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] >
 }
 
 // 写作竖线开关（2026-09-01 用户：「左边像中括号一样的东西，应该可以选择不要」）：关 =
-// body 挂 data-recite-wz-norule（theme.ts applyWzVisuals），写区竖线与原文档「你的句」
-// 竖线一起退场（同构语言一处开关）；竖线让出的 padding 一并收回，左缘不悬空。开关组
-// 比常驻组多一个属性选择器，特异性天然压过上面的常驻规则。
+// body 挂 data-recite-wz-norule（theme.ts applyWzVisuals），写区竖线与原文档视觉标记
+// （靶段/题面位）一起退场（同构语言一处开关）；竖线让出的 padding 一并收回，左缘不悬空。
+// 开关组比常驻组多一个属性选择器，特异性天然压过上面的常驻规则（题面位链式规则的开关
+// 变体见上节 @for 内联生成，同款全深度覆盖）。
 body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] {
-    border-inline-start: none;
-    padding-inline-start: 0;
-}
-body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target]) {
     border-inline-start: none;
     padding-inline-start: 0;
 }
@@ -536,17 +555,9 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-cmp-card]::before {
 
 // ---- 退化态（body.recite-unpaid）：保「能分清标没标」，视觉退普通 ----
 
-// 已批注句退柔和黄底（2026-08-25 反馈调柔：mark 原生 0.4 太亮刺眼，降透明度到 0.2 保「能分清
-// 标没标」底线；不用 --b3-protyle-inline-mark-background——部分主题该值恒 0.4 拉不柔），未批注句
-// 原样；作者句不弱化（免费态全文档一个视觉层级）
-body.recite-unpaid .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target]) {
-    background-color: rgba(255, 208, 0, 0.2);
-    border-radius: var(--b3-border-radius);
-}
-// 暗主题黄底对比更刺眼，再降一档
-html[data-theme-mode="dark"] body.recite-unpaid .protyle-wysiwyg.recite-practicing > div[data-node-id]:not([custom-recite-old]):not([custom-recite-keep]):not([custom-recite-target]) {
-    background-color: rgba(255, 208, 0, 0.13);
-}
+// 新写块双色/黄底退化规则已随「你的句」全量染色退役（recitesimplify □2）：新写块默认
+// 不染对免费/付费一致，unpaid 无需再保「已批注句黄底」底线；标记反馈类视觉（靶段/题面位）
+// 本就不包门禁，原样可见。
 
 // 批注快照弱区分（2026-08-25 反馈）：免费态快照与用户复述原本同色难分「题目 vs 自己写的」，
 // 加 opacity 弱化 + 左侧 2px 中性灰细竖条（刻意不用付费金 accent——朴素感留给付费态当落差）
@@ -2083,6 +2094,25 @@ html[data-theme-mode="dark"] .recite-aigrade-card__missed-li::before {
 // 之后（写位下方），零落盘零事务。颜色全走 b3 变量；z-index 安全档=10（内核弹层计数器
 // 首弹窗即 11，常驻浮层家族档位）。视觉语言对齐 ai-grade 卡（b3 边框/圆角/表面色）。
 // 桌面默认低调半显（opacity .62）、hover 提亮；移动端无 hover 通道同样可读可点（常显）。
+// 控制块宿主归属分组（recitesimplify 二道终审 P2-2：按钮行上下间距几乎相等=分不清属于
+// 哪一题。根因=内核 typography 给所有 [data-node-id] padding:4px/margin:2px 0，按钮行
+// 上方吃写区组尾呼吸 14px、下方锚点仅 2px，但 custom 块 min-height:32px 的行盒富余把
+// 两边抹成近对称，且按钮行全宽左缘对齐与写位竖线区毫无从属信号）。三手收紧（负 margin
+// 折叠算术依赖写区组尾呼吸 14px 在场，unpaid 退化态无此规则=负 margin 会反向重叠，
+// 故包写区同款付费门禁，unpaid 保持内核默认对称）：①缩进对齐写位文字左缘（写位=竖线
+// 3px+padding 10px=13px，按钮行跟进同值=「属于上面写区」的最强信号）；②margin-top
+// -8px 与组尾 14px 折叠=6px 贴近写位；③margin-bottom 12px 与下一锚点 2px 折叠=12px
+// 拉开下一题（纯默写题空锚点 display:none 不参与折叠，12px 全额生效到下一写位，同档）。
+body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-type="NodeCustomBlock"][data-info="sy-recite-plugin/q-ctrl"] {
+    margin-block-start: -8px;
+    margin-block-end: 12px;
+    padding-inline-start: 13px;
+}
+// 写作竖线开关跟随（wz-norule 家族同款全前缀，见上文写区开关规则）：关=写位竖线与缩进
+// 收回，按钮行的对齐目标同步收回防孤立悬空
+body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-type="NodeCustomBlock"][data-info="sy-recite-plugin/q-ctrl"] {
+    padding-inline-start: 4px; /* 回内核 padding:4px 默认值 */
+}
 .recite-qctrl-btn {
     display: inline-flex;
     align-items: center;
@@ -2167,6 +2197,12 @@ html[data-theme-mode="dark"] .recite-qctrl-btn.recite-qctrl-clear:hover {
     min-width: 0;
     gap: 0;
 }
+// 面板贴合补偿（归属分组连带）：宿主 margin-bottom 拉到 12px 后，面板（host.after 注入，
+// 紧邻宿主）离自家按钮行同步变远——负 margin 与 12px 折叠=4px 贴回，与改造前 2px 同档；
+// 包同款付费门禁（unpaid 宿主 margin 恒 2px，负 margin 会反向重叠盖住按钮行下缘）
+body:not(.recite-unpaid) .protyle-wysiwyg .recite-qctrl-panel {
+    margin-block-start: -8px;
+}
 .recite-qctrl-panel__origin,
 .recite-qctrl-panel__mine {
     flex: 1 1 0;
@@ -2197,11 +2233,11 @@ html[data-theme-mode="dark"] .recite-qctrl-btn.recite-qctrl-clear:hover {
 }
 
 
-// ---- □1 三钮当前角色高亮（2026-09-13 三角色战役；review P1-2 修正位） ----
+// ---- □1 两钮当前角色高亮（2026-09-13 三角色战役 → recitesimplify □2 两钮化；review P1-2 修正位） ----
 // 选中块严格多数角色的钮点亮：按钮字色内描边环（accent 底上高对比）+ 外一圈 accent 光环。
 // 放文件尾 + 双类名提特异性 (0,3,2)：Pro 皮肤段的 button:hover box-shadow 是 (0,3,1) 且后置，
 // 规则放前面会被 hover 整条替换（内环光环同时消失，「当前角色」指示归零）；:hover 态显式
-// 叠加皮肤式投影，内环保住。只有三个角色钮挂本类（判定与高亮同序 blockRole）。
+// 叠加皮肤式投影，内环保住。只有两个角色钮挂本类（判定与高亮同序 blockRole）。
 body .recite-floatbar button.recite-btn-on.recite-btn-on {
     box-shadow: inset 0 0 0 2px var(--recite-fb-btn-fg), 0 0 0 2.5px color-mix(in srgb, var(--recite-accent) 40%, transparent);
 }

@@ -187,7 +187,7 @@ async function openPanel(host: HTMLElement, data: QCtrlData): Promise<void> {
         }
         const refs = ((attrs[RECITE_REFS] as string) ?? "").split(",").filter(Boolean);
         if (!refs.length) {
-            fillText(say("本条批注前没有原文段", "（本条批注前没有原文段）"));
+            fillText(say("本条批注前没有原文段", "（本题前没有原文段）"));
             return;
         }
         const origins = await fetchOriginMarkdown(refs);

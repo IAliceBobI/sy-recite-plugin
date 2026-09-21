@@ -75,18 +75,19 @@ export async function enterPractice(docID: string) {
     });
     await siyuan.setBlockAttrs(docID, { [RECITE_START]: ts } as AttrType);
     debugLog("recite.mark", `enter doc=${docID} start=${ts} marked=${olds.length} writtenSkipped=${children.length - olds.length} emptyTrimmed=${empties.length}`, "recite");
-    await siyuan.pushMsg(`已进入仿写模式：直接打字插入的块即批注${empties.length ? `（已清理末尾空块 ${empties.length} 个）` : ""}`, 2500);
+    await siyuan.pushMsg(`已进入仿写模式：选中想练的段落点浮条「这段练」（段后自动留题面位）${empties.length ? `（已清理末尾空块 ${empties.length} 个）` : ""}`, 2500);
     await statusBtn.refresh();
 }
 
 /**
  * 删除仿写练习（原「退出」→「清理」，2026-08-23 第三轮反馈再改坐实语义：彻底抹掉练习痕迹）：
- * 删批注块（无 custom-recite-old 的顶层块）+ 删衍生文档（抽取文档连对比子树）+ 清全部原文标记 +
+ * 删练习期间写的块（无 custom-recite-old 的顶层块）+ 删衍生文档（抽取文档连对比子树）+ 清全部原文标记 +
  * 删文档级 custom-recite-start，原文恢复原状。有批注或衍生文档时一次 confirm 覆盖全部删除内容；
  * 从未生成过衍生文档静默跳过；删块/删文档均进回收站可找回。
  * □3 起与温和退出（exitPractice）构成两档：本函数仍是重操作（浮条「删除」/右键「删除仿写
- * 模式」入口），written 标记一并清（恢复原状语义）；批注块判据（无 old）额外涵盖「设为总结」
- * 认领的存量原文——它们也会被删，文案口径用「练习期间写的块」涵盖（reasoning P2-5）。
+ * 模式」入口），written 标记一并清（恢复原状语义）；删除块判据（无 old）=练习期间写的未
+ * 认领块（题面/散写/AI 锚点），认领为原文的块挂 old 按原文保留——文案口径用「练习期间
+ * 写的块」涵盖（reasoning P2-5；「设为总结」认领面已随类型退役，recitesimplify □2）。
  */
 export async function cleanPractice(docID: string) {
     // stale role 复核（review P2-9）：双窗对侧已退/删时，本侧 stale 浮条再点「删除」会对
@@ -113,7 +114,7 @@ export async function cleanPractice(docID: string) {
         await statusBtn.refresh();
     };
     if (notes.length || derivedID) {
-        const parts = [notes.length ? `${notes.length} 个练习期间写的块（批注与认领的原文）` : "", derivedID ? "抽取文档及其对比子文档" : ""].filter(Boolean).join("、");
+        const parts = [notes.length ? `${notes.length} 个练习期间写的块（题面与认领的原文）` : "", derivedID ? "抽取文档及其对比子文档" : ""].filter(Boolean).join("、");
         confirm("⚠️ 删除仿写练习", `将删除 ${parts}并清除全部标记，原文恢复原状（均可在回收站找回）`, () => doClean().catch(() => { }));
     } else {
         await doClean();
@@ -125,21 +126,25 @@ export async function cleanPractice(docID: string) {
  * 后来写的字全保留并挂 custom-recite-written 淡背景持久标记，练习标记全清（old/keep/
  * target + 文档 RECITE_START），衍生文档保留。顶栏笔图标 toggle（togglePractice）改指本
  * 函数——重操作（删除）不绑开关；浮条另有「退出」钮（ghost，与「删除」一眼可辨轻重）。
- * 重进时 enterPractice 跳过 written 块（保持总结身份，练习连续）。
- * later-written = 无 old 的非空块（总结/认领原文/新写 keep 块都是「练习期间写的」）；
- * 空块没字不挂标记。判向走 cache-first 属性 API（role.ts 同理：三钮刚设的 keep/target
+ * 重进时 enterPractice 跳过 written 块（保持练习期书写身份，练习连续）。
+ * later-written = 无 old 的非空块（题面/散写/认领前的新写 keep 块都是「练习期间写的」）；
+ * 空块没字不挂标记。判向走 cache-first 属性 API（role.ts 同理：两钮刚设的 keep/target
  * 在 SQL ial 列异步索引秒级窗内拿不到）。
+ * 无确认弹窗（650189 09-21 反馈「温和退出无需二次提醒」bear 拍板移除）——本档无损可逆
+ * （写的字保留、衍生文档保留、重进续练），直退+toast 反馈；「删除」档是真删，confirm 保留。
  */
 export async function exitPractice(docID: string) {
     // stale role 复核（review P2-9）：双窗对侧已退/删时，本侧 stale 浮条点「退出」会对非练习
     // 文档全量错挂 written——首行闸门拦下（合法调用方笔图标 toggle/浮条都在 RECITE_START 态）
     if (!(await siyuan.getBlockAttrs(docID).catch(() => null))?.[RECITE_START]) return;
     const doExit = async () => {
-        // 快照取在 confirm 之后（review P2-4）：弹窗停留期间 sync/AI/他窗的迟到写入也进快照，
-        // 且停留时间天然覆盖 SQL markdown 索引窗（块刚插入就退出的缺行场景）
+        // 稳态等待 400ms（接管原确认弹窗停留期的时序兜底，P2-4 精神保留）：在途 sync/AI/他窗
+        // 写入赶进快照；SQL 缺行兜底仍在数据层（下方 rows[i]==null 保守挂 written 不变）——
+        // 弹窗移除后两道保险各归其位（650189 09-21 反馈移除弹窗，无损档直退）
+        await new Promise(r => setTimeout(r, 400));
         const children = await siyuan.getChildBlocks(docID);
         const rows = await siyuan.getRows(children.map(c => c.id), "markdown", true, [], true);
-        // 判向走 cache-first 属性 API（role.ts 同理：三钮刚设的 keep/target 在 SQL ial 列
+        // 判向走 cache-first 属性 API（role.ts 同理：两钮刚设的 keep/target 在 SQL ial 列
         // 异步索引秒级窗内拿不到）；整体失败拦下重试——不拦会把原文整篇错挂 written
         const ials = await siyuan.batchGetBlockAttrs(children.map(c => c.id)).catch(() => null);
         if (ials == null && children.length) {
@@ -186,7 +191,7 @@ export async function exitPractice(docID: string) {
             : "已退出仿写模式", 2500);
         await statusBtn.refresh();
     };
-    confirm("退出仿写模式", "后来写的字将保留并加淡色标记，练习标记全清，抽取/对比文档保留。\n想彻底删除练习请改用「删除」", () => doExit().catch(() => { }));
+    await doExit().catch(() => { });
 }
 
 /**
