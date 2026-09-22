@@ -1,10 +1,12 @@
 import { events } from "../../sy-tomato-plugin/src/libs/Events";
 import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
-import { RECITE_EXTRACT, RECITE_NOTE, RECITE_KEEP, RECITE_HINT, RECITE_WRITTEN } from "./constants";
+import { RECITE_EXTRACT, RECITE_NOTE, RECITE_KEEP, RECITE_HINT, RECITE_WRITTEN, RECITE_HOLE } from "./constants";
+import { HOLE_SPAN_SEL } from "./hole";
 import { isQCtrlHost } from "./qCtrlBlock";
 
 const WRITE_ATTR = "data-recite-write";
+const HOLE_HINT_ATTR = "data-recite-hole-hint"; // 值=single/multi（挖空题写位的填回提示形态）
 const REFRESH_EVENTS = new Set(["switch-protyle", "loaded-protyle-static", "loaded-protyle-dynamic"]);
 
 /**
@@ -44,8 +46,39 @@ export function computeWriteFlags(noteFlags: (string | null | undefined)[], keep
     return flags;
 }
 
+/** 挖空写位提示形态：""=非挖空写位（沿用通用 ✍ 复述提示）；single=单空；multi=同块多空连填 */
+export type HoleHintKind = "" | "single" | "multi";
+
+/**
+ * 卷内挖空写位提示判定（holerevamp □2，症状1 方向 B「空位负责看、写位负责填」）：
+ * 顶层块流（keep/hole 属性+挖空 span 数）→ 每块的填回提示形态。挖空单元结构=
+ * [遮字块(keep+hole)][锚点(note)][写位]——锚点前最近的遮字块即该写位的题面，其 span 数
+ * >1=多空连填（按顺序填回、空格分隔）。挂起值跨锚点块等写位消费（锚点可多块）；DOM 读
+ * 失败降级的照抄块只有 keep 无 hole（span 已剥=无遮字）→ 判 "" 走通用提示。writeFlags
+ * 入参与 computeWriteFlags 同源（只对写位块出值）。
+ */
+export function computeHoleHints(blocks: { keep: string | null; hole: string | null; holeSpans: number }[], writeFlags: boolean[]): HoleHintKind[] {
+    const hints: HoleHintKind[] = [];
+    let pending: number | null = null; // 最近遮字块的空数，跨锚点等待写位消费
+    for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        if (b.keep != null && b.hole != null) {
+            pending = b.holeSpans > 0 ? b.holeSpans : null; // span 数 0=脏 IAL（无实空），不挂提示
+            hints.push("");
+        } else if (writeFlags[i]) {
+            hints.push(pending == null ? "" : pending > 1 ? "multi" : "single");
+            pending = null; // 写位消费挂起——之后的写位不再关联本题面
+        } else {
+            hints.push(""); // 锚点/语境/题面块：不挂提示
+        }
+    }
+    return hints;
+}
+
 /** DOM 执行薄层：按 wysiwyg 顶层块流重算写区并打/摘标（幂等， MutationObserver 回调复用）。
- *  q-ctrl 控制块与注入面板（□5）在锚点区间内但属 UI 层，恒摘标不进竖线（keep/hint 同判）。 */
+ *  q-ctrl 控制块与注入面板（□5）在锚点区间内但属 UI 层，恒摘标不进竖线（keep/hint 同判）。
+ *  □2 挖空写位在同轮重算里挂 data-recite-hole-hint（CSS 覆写 ✍ 提示文案；同 WRITE_ATTR
+ *  只挂内存 DOM 不落盘）。 */
 export function markWriteZones(wysiwyg: HTMLElement): void {
     const blocks = Array.from(wysiwyg.children) as HTMLElement[];
     const flags = computeWriteFlags(
@@ -54,9 +87,23 @@ export function markWriteZones(wysiwyg: HTMLElement): void {
         blocks.map(b => b.getAttribute(RECITE_HINT)),
         blocks.map(b => b.getAttribute(RECITE_WRITTEN)),
     );
+    const hints = computeHoleHints(
+        blocks.map(b => ({
+            keep: b.getAttribute(RECITE_KEEP),
+            hole: b.getAttribute(RECITE_HOLE),
+            holeSpans: b.querySelectorAll(HOLE_SPAN_SEL).length,
+        })),
+        flags,
+    );
     blocks.forEach((b, i) => {
-        if (flags[i] && !isQCtrlHost(b) && !b.classList.contains("recite-qctrl-panel")) b.setAttribute(WRITE_ATTR, "");
-        else b.removeAttribute(WRITE_ATTR);
+        if (flags[i] && !isQCtrlHost(b) && !b.classList.contains("recite-qctrl-panel")) {
+            b.setAttribute(WRITE_ATTR, "");
+            if (hints[i]) b.setAttribute(HOLE_HINT_ATTR, hints[i]);
+            else b.removeAttribute(HOLE_HINT_ATTR);
+        } else {
+            b.removeAttribute(WRITE_ATTR);
+            b.removeAttribute(HOLE_HINT_ATTR);
+        }
     });
 }
 
@@ -83,7 +130,10 @@ class WriteZone {
 
     onunload() {
         this.teardown();
-        document.querySelectorAll(`[${WRITE_ATTR}]`).forEach(el => el.removeAttribute(WRITE_ATTR));
+        document.querySelectorAll(`[${WRITE_ATTR}]`).forEach(el => {
+            el.removeAttribute(WRITE_ATTR);
+            el.removeAttribute(HOLE_HINT_ATTR);
+        });
     }
 
     /** 断开观察器与挂起的重算（切文档/文档销毁/插件停用）；已挂的标留给全清或重算处理 */

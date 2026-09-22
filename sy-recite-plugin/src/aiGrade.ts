@@ -6,7 +6,7 @@ import { parseIAL } from "../../sy-tomato-plugin/src/libs/strUtils";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { OpenAIClient, buildMessages, appendChunk, stripThinkTag, getOfficialConfig, diagnoseAI } from "../../sy-tomato-plugin/src/libs/openAI";
 import type { StreamState } from "../../sy-tomato-plugin/src/libs/openAI";
-import { RECITE_COMPARE, RECITE_AI } from "./constants";
+import { RECITE_COMPARE, RECITE_EXTRACT, RECITE_AI } from "./constants";
 import { readExtractDoc } from "./extract";
 import { buildPrompt, GRADER_TONES, DEFAULT_TONE_SLUG, TONE_SETTING_KEY } from "./promptCopy";
 import { setRecitePose, parsePose, stripPoseLine, poseWithTone } from "./mascot";
@@ -113,6 +113,7 @@ export async function aiGrade(plugin: Plugin, compareID: string) {
             await siyuan.pushMsg("抽取文档里没有题目（旧版布局请先「重新写」）", 3000);
             return;
         }
+        const originID = (await siyuan.getBlockAttrs(extractID))?.[RECITE_EXTRACT] ?? ""; // □I 挖空题分派透传
         const cfg = await getAIConfig();
         if (!cfg) {
             confirm(
@@ -126,7 +127,7 @@ export async function aiGrade(plugin: Plugin, compareID: string) {
         const tone = (plugin as any)?.settingCfg?.[TONE_SETTING_KEY];
         const toneHit = GRADER_TONES.find(t => t.slug === tone);
         const client = new OpenAIClient(cfg.apiKey, cfg.baseURL);
-        const stream = await client.createStreamPublic(cfg.model, buildMessages(await buildPrompt(entries, tone, true)));
+        const stream = await client.createStreamPublic(cfg.model, buildMessages(await buildPrompt(entries, tone, true, originID)));
         if (!stream) {
             await siyuan.pushMsg(say("AI请求失败", "AI 请求失败，请检查网络与密钥后重试"), 3500);
             return;

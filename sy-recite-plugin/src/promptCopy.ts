@@ -4,8 +4,8 @@ import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { copyToClipboard } from "../../sy-tomato-plugin/src/libs/domUtils";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { RECITE_EXTRACT, RECITE_COMPARE } from "./constants";
-import { readExtractDoc, fetchOriginMarkdown, isAssociation } from "./extract";
-import type { ExtractEntry } from "./extract";
+import { readExtractDoc, dispatchOrigin, isAssociation } from "./extract";
+import type { ExtractEntry, OriginDispatch } from "./extract";
 import { setRecitePose } from "./mascot";
 
 // 判官语气三档（2026-08-26）：文判·鼓励 / 中立（默认）/ 武判·严厉，QQ 秀哲学三档全免费。
@@ -76,16 +76,26 @@ function toneLinesOf(tone: string | undefined): string[] {
  * 判官语气（2026-08-26 三档）：tone 非中立档时指令区末尾追加一段语气指令（文判鼓励/武判
  * 严厉），aiGrade 与 copyPrompt 两通道从 settingCfg.graderTone 传入自动一致；中立档零追加。
  * pose 协议（2026-08-26 □12）：withPose=true（仅 aiGrade）再追加小宠物表情标记指令。
+ * 挖空题变体（□I，2026-09-21）：refs 全为挖空块的题走 dispatchOrigin 收窄——条目改
+ * 【被挖空的原文】（遮字形态 ____ 占位）+【我的提示】+【我的复述】+【被挖的原字】四要素
+ * （要素名挖空题用「提示」对齐完形填空语义，整块题沿用【我的笔记】）；头部加挖空级
+ * rubric 两行（只判被挖字、勿要求补写全文）；多空时【被挖的原字】空格分连排、rubric
+ * 注明按序逐空判（□3 连填归一化——答案间分隔符不算错）。无挖空题的卷子 prompt 与改前逐字节一致
+ * （零回归承诺——tests/unit/promptHole.test.ts 基线快照锁定）。originID 可选（空则
+ * dispatchOrigin 经 getBlockInfo 派生根文档，调用方两入口 copyPrompt/aiGrade 均显式传）。
  */
-export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPose?: boolean): Promise<string> {
+export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPose?: boolean, originID?: string): Promise<string> {
     const assoc = entries.map(e => isAssociation(e.noteMarkdown));
     const hasAssoc = assoc.some(Boolean);
-    // 空锚点题（□2 纯默写）：noteMarkdown 归一空串——rubric 加一行纯默写标准；普通文档
-    // prompt 保持逐字一致零回归（条件追加）
-    const hasEmptyNote = entries.some(e => !e.noteMarkdown.trim());
-    const originsPerEntry = await Promise.all(
-        entries.map((e, i) => (assoc[i] ? Promise.resolve([] as string[]) : fetchOriginMarkdown(e.refs))),
+    const dispatches: (OriginDispatch | null)[] = await Promise.all(
+        entries.map((e, i) => (assoc[i] ? Promise.resolve(null) : dispatchOrigin(originID ?? "", e.refs))),
     );
+    const holeOf = (i: number) => (dispatches[i]?.kind === "hole" ? dispatches[i] : null);
+    const hasHole = entries.some((_, i) => !!holeOf(i));
+    // 空锚点题（□2 纯默写）：noteMarkdown 归一空串——rubric 加一行纯默写标准；普通文档
+    // prompt 保持逐字一致零回归（条件追加）。挖空题空提示不触发（自有挖空级 rubric——
+    // 「只按【原文】查遗漏」与完形填空判法互相矛盾，□I）
+    const hasEmptyNote = entries.some((e, i) => !assoc[i] && !holeOf(i) && !e.noteMarkdown.trim());
     const parts: string[] = hasAssoc ? [
         "我在做写作练习（读后仿写与自由联想）。下面每题按题型给出材料与我的写作，",
         "请逐题点评，不需要复述原文或题目，直接给结论。",
@@ -120,15 +130,40 @@ export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPo
         "",
     ];
     const toneLines = toneLinesOf(tone);
+    // 挖空题在场（非联想卷）：开篇行改「按题型给出材料」——【原文】【我的笔记】三要素罗列
+    // 对挖空题不成立（遮字原文+提示两套要素名）。只动挖空卷（零回归：无挖空逐字节不变）；
+    // 联想卷开篇本就「按题型」，挖空混入不冲突
+    if (hasHole && !hasAssoc) parts[0] = "我在做「读后仿写」练习（含完形填空挖空题）。下面每题按题型给出材料与我的写作，";
     if (hasEmptyNote) parts.splice(parts.length - 1, 0,
         "- 纯默写级（笔记为空的题=无提示默写）：无笔记可对照，只按【原文】查遗漏、偏差与杜撰，",
         "语义还原到位即好。",
+    );
+    if (hasHole) parts.splice(parts.length - 1, 0,
+        "- 挖空级（材料是挖空题=完形填空）：只判【被挖的原字】填得对不对、用词是否贴合",
+        "上下文；一块多空时按【被挖的原字】给出的顺序逐空判（复述里多个答案连填、以空格",
+        "或顿号等分隔符分界），不要要求补写全文、不要点评未挖空的部分。",
     );
     if (toneLines.length) parts.push(...toneLines, "");
     if (withPose) parts.push(...MISSED_PROMPT_LINES, ...POSE_PROMPT_LINES, "");
     entries.forEach((e, i) => {
         const write = e.writes.map(w => w.markdown).join("\n\n");
         parts.push(`## 第 ${i + 1} 题`);
+        const hole = holeOf(i);
+        if (hole) { // 挖空题（□I）：四要素——遮字原文（判卷才隐藏被挖字）+提示+复述+被挖原字（判对错参照）
+            parts.push("【被挖空的原文】");
+            parts.push(hole.masked.join("\n\n") || "（本题前没有原文段）");
+            parts.push("");
+            parts.push("【我的提示】");
+            parts.push(e.noteMarkdown || "（无提示：此题凭记忆填空）");
+            parts.push("");
+            parts.push("【我的复述】");
+            parts.push(write || "（未填空）");
+            parts.push("");
+            parts.push("【被挖的原字】");
+            parts.push(hole.literals.join(" ") || "（未取到被挖字）"); // 多空空格分（□3）——与写位连填形态对齐，AI 直接按序对应
+            parts.push("");
+            return;
+        }
         if (assoc[i]) { // 联想题：题目（批注原文）+ 联想写作两要素，无原文/笔记
             parts.push("【题目】");
             parts.push(e.noteMarkdown);
@@ -138,7 +173,7 @@ export async function buildPrompt(entries: ExtractEntry[], tone?: string, withPo
             parts.push("");
             return;
         }
-        const origin = originsPerEntry[i].join("\n\n") || "（本题前没有原文段）";
+        const origin = (dispatches[i]?.kind === "full" ? dispatches[i].markdowns : []).join("\n\n") || "（本题前没有原文段）";
         parts.push("【原文】");
         parts.push(origin);
         parts.push("");
@@ -207,7 +242,8 @@ export async function copyPrompt(extractID: string, plugin?: Plugin, anchor?: Mo
     }
     const t: any = plugin?.i18n ?? {};
     const say = (k: string, fb: string) => t[k] || fb;
-    const prompt = await buildPrompt(entries, (plugin as any)?.settingCfg?.[TONE_SETTING_KEY]);
+    // originID 显式透传（□I：挖空题分派读原块 DOM 免逐题 getBlockInfo 派生）
+    const prompt = await buildPrompt(entries, (plugin as any)?.settingCfg?.[TONE_SETTING_KEY], false, attrs[RECITE_EXTRACT]);
     const ok = await copyToClipboard(prompt);
     debugLog("recite.prompt", `copied=${ok} entries=${entries.length} chars=${prompt.length}`, "recite");
     if (ok) {

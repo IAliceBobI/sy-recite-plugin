@@ -22,6 +22,7 @@ const R_NOTE = "custom-recite-note";
 const R_REFS = "custom-recite-refs";
 const R_AI = "custom-recite-ai";
 const R_TARGET = "custom-recite-target";
+const R_HOLE = "custom-recite-hole";
 const R_EMPTY = "custom-recite-empty-note";
 const R_WRITTEN = "custom-recite-written";
 const EXTRACT_TITLE = "抽取";
@@ -167,9 +168,13 @@ async function buildDrill(input: Record<string, any>) {
     const rows = await api.rowsById(children.map(c => c.id), "markdown");
     const ials = await api.batchGetBlockAttrs(children.map(c => c.id)).catch(() => ({} as Record<string, Attrs>));
     // 含手打靶块的文档不做 MCP 装配（装配=全新现场：考核布局由锚点认领节决定，与用户手打靶
-    // 语义交叠）——原地拒绝，请在原文档前端抽取
+    // 语义交叠）——原地拒绝，请在原文档前端抽取。文字级挖空（□H）同判：span 标记不进
+    // markdown 序列化，kernel 无 DOM 通道复刻不出遮字卷——前端抽取才有完整挖空语义
     if (children.some(c => ials[c.id]?.[R_TARGET])) {
         return errorResponse("该文档已手打「这段练」考核段，暂不支持 MCP 装配（请清除靶标后重试，或在原文档前端抽取）");
+    }
+    if (children.some(c => ials[c.id]?.[R_HOLE])) {
+        return errorResponse("该文档已用文字级挖空标记，暂不支持 MCP 装配（请在原文档前端抽取，挖空遮字卷只有前端通道）");
     }
     const seen = new Set<string>();
     const anchors: { after: string; text: string }[] = [];
@@ -297,7 +302,6 @@ async function buildDrill(input: Record<string, any>) {
     const noteLevel = noteHeadingLevel(settings);
     // units 与回显 id 的配对记录：二轮挂 note/refs/keep（事务插入的块 id 恒被内核重生成；
     // hint 面已随「总结」类型退役——recitesimplify □1 2026-09-20，散写新块走 copy 挂 keep）
-    type UnitAttr = { kind: "keep" } | { kind: "note"; refs: string; empty: boolean };
     const noteUnits: (UnitAttr | null)[] = [];
     const units: string[] = [];
     for (const span of spans) {
@@ -306,6 +310,11 @@ async function buildDrill(input: Record<string, any>) {
                 units.push(paraHTML(b.markdown, api.newNodeID()));
                 noteUnits.push({ kind: "keep" });
             }
+        } else if (span.kind === "hole") {
+            // kernel 无 DOM 通道复刻 span（入口已拒挖空文档，此分支=防御 unreachable）：
+            // 按语境照抄兜底（markdown 剥 span=纯文本），不出题不遮字
+            units.push(paraHTML(span.block.markdown, api.newNodeID()));
+            noteUnits.push({ kind: "keep" });
         } else {
             // 空锚点（notes 空，防御形态）：空段落 + R_EMPTY 标记，不落占位文案（2026-09-15
             // 与前端 doExtract 同步）——前端 readExtractDoc 出口按 R_EMPTY 归一空串，判卷走
@@ -325,11 +334,58 @@ async function buildDrill(input: Record<string, any>) {
     const originInfo = await api.getBlockInfo(originID);
     const hpath = originInfo?.box ? await api.getHPathByID(originID, originInfo.box) : "";
     if (!originInfo?.box || !hpath) return errorResponse("未取到原文位置信息（请重试）");
-    // ── 抽取文档重建：有旧=卷级原地更新（2026-09-14 闪卡继承，与前端 rebuildExtractDoc
-    // 同语义防分叉）——清空子块重插新单元，文档块 id 不变 → 文档级卡与 FSRS 进度自动在；
-    // 挂过卡的子块（用户手动加进抽取卷的卡；判卷块级卡在对比文档，其重建另有摘卡）先摘
-    // 快速卡组防孤儿；对比子文档不再连带删（自管重建，旧保留无害——判卷结果保留上一轮，
-    // 重新对比后覆盖）。无旧=建新（既有行为）。同名占用递增后缀 ──
+    const rebuilt = await rebuildExtractDoc(originID, originInfo, hpath, units, noteUnits);
+    if ("error" in rebuilt) return errorResponse(rebuilt.error);
+    const { extractID, rebuild } = rebuilt;
+
+    await siyuan.logger.info(`[kernel] build_drill origin=${originID} mode=${mode} inserted=${inserted.length} failed=${failed} skipped=${skipped} targets=${targetIDs.size} units=${unitCount} emptyNotes=${emptyNoteCount} extract=${extractID} rebuild=${rebuild} entered=${enteredPractice}`);
+    return successResponse({
+        originID,
+        extractID,
+        rebuild, // inPlace=原地更新 / create=新建 / sickRebuild=病卷自愈重建（□G：可向用户转述旧卷曾损坏已自动重建）
+        mode,
+        anchorsInserted: inserted.length,
+        anchorsFailed: failed,
+        anchorsSkipped: skipped,
+        targetsMarked: targetIDs.size,
+        practiceUnits: unitCount,
+        emptyNotes: emptyNoteCount,
+        enteredPractice,
+        hint: "练习现场装配完成：锚点认领节已标记考核段、抽取文档已重建，写位为空。对比/AI 判卷在前端抽取文档照常使用；点「重新写」可补齐每题的单题对照面板。注意：本轮未重新对比前，get_grade 返回的是上一轮判卷结果。",
+    });
+}
+
+/** units 与回显 id 的配对记录（二轮挂 note/refs/keep 用；keep=照抄块，note=锚点题面） */
+type UnitAttr = { kind: "keep" } | { kind: "note"; refs: string; empty: boolean };
+
+/**
+ * 抽取文档重建（□G 2026-09-21 抽出为模块级函数，与前端 extract.ts insertUnitsDoc/
+ * replaceUnitsInPlace 同构防漂移；单测 kernelRebuildExtract 用 siyuan.client.fetch mock 驱动）。
+ * 有旧=卷级原地更新（2026-09-14 闪卡继承——清空子块重插新单元，文档块 id 不变 → 文档级卡
+ * 与 FSRS 进度自动在）；挂过卡的子块先摘快速卡组防孤儿；对比子文档不连带删（自管重建）；
+ * 无旧=建新。同名占用递增后缀。□G 三步：
+ * ①拆事务——旧形态「insert 单元+delete 种子/旧块」同事务，事务被内核拒时回滚不彻底
+ * （delete 的 blocktree 行移除是即时全局变更、文件写在提交期，TxErr 回滚只清内存不还行）
+ * =种子/旧块 blocktree 行永久丢失造病卷，此后重试锚病块恒炸 insertion target block not
+ * found→TxErrCodeReloadUI 整页刷新永不自愈；拆成「先插全部单元，成功后独立事务删种子/
+ * 旧块」两笔——插入被拒时旧卷/种子原样保留零损伤可重试。
+ * ②锚点健康校验自愈——发事务前对锚块（旧卷首块）getBlockInfo 探测：走 blocktree 通道
+ * （getChildBlocks=文件直读判不出病卷，病块照常列出）；查无=病卷→摘卡已毕、removeDocByID
+ * 删旧卷改走新建（identity attrs 由尾部 setBlockAttrs(R_EXTRACT) 落到新卷=继承；文档级卡
+ * 与 FSRS 进度随旧 id 弃——病卷本就无法继续练习，换回可用优先，前端同取舍）。kernel 侧
+ * API 语义差异：api.call 对 code!=0 throw（前端 siyuan.call 归 null），catch 归 null 同判；
+ * 6809 探针实测查无=code -1「未找到 ID 为 [...] 的内容块」data null。
+ * ③假成功复核读——/api/transactions 对事务内部失败仍回 code 0（PerformTransactions 异步
+ * 执行，TxErr 走 ws ReloadUI 广播不进 HTTP 回执），回执后 getChildBlocks 复核卷内块数，
+ * 不符报错不回成功。
+ */
+export async function rebuildExtractDoc( // export 仅为单测可注入（kernel bundle 全模块本就随注册入口打入，无摇树面）
+    originID: string,
+    originInfo: { box: string; path: string; rootTitle?: string },
+    hpath: string,
+    units: string[],
+    noteUnits: (UnitAttr | null)[],
+): Promise<{ extractID: string; rebuild: "inPlace" | "create" | "sickRebuild" } | { error: string }> {
     const files = await api.listDocsByPath(originInfo.box, originInfo.path);
     let oldID = "";
     let name = derivedTitle(EXTRACT_TITLE, originInfo.rootTitle ?? "");
@@ -343,27 +399,50 @@ async function buildDrill(input: Record<string, any>) {
         if (!occ || occ === oldID) break;
         name = `${derivedTitle(EXTRACT_TITLE, originInfo.rootTitle ?? "")}${i + 1}`;
     }
-    let extractID: string;
-    let echoed: api.IOperation[];
+    let extractID = "";
+    let echoed: api.IOperation[] | null = null;
+    let rebuild: "inPlace" | "create" | "sickRebuild" = oldID ? "inPlace" : "create";
     if (oldID) {
         const oldChildren = await api.getChildBlocks(oldID);
         const oldIals = await api.batchGetBlockAttrs(oldChildren.map(c => c.id)).catch(() => ({} as Record<string, Attrs>));
         const carded = riffCardedIDs(oldChildren.map(c => c.id), oldIals, QUICK_DECK_ID);
         if (carded.length) await api.removeRiffCards(carded, QUICK_DECK_ID);
-        // 单事务原子换卷：新单元锚首块插入+删全部旧子块（unitReplaceOps 与前端共用，
-        // reverse 保 units 文档序；空文档防御=parentID 头插）
-        echoed = await api.transactions(unitReplaceOps(units, oldChildren[0]?.id, oldID, oldChildren.map(c => c.id)));
-        extractID = oldID;
-        await syncExtractTitle(oldID, name); // 标题跟随（原文改名后重装配）
-    } else {
+        const anchor = oldChildren[0]?.id;
+        if (anchor && !(await api.getBlockInfo(anchor).catch(() => null))) {
+            // ②病卷自愈：摘卡已完成（上方 carded）；removeDocByID 一发即删无 confirm——
+            // 删的是插件自管练习卷文档，安全（与前端 removeDocByIDSiyuan 同款）
+            await api.removeDocByID(oldID).catch(() => null);
+            await siyuan.logger.info(`[kernel] sick extract doc rebuild old=${oldID} anchor=${anchor}`);
+            rebuild = "sickRebuild";
+        } else {
+            // ①拆事务两笔：先插全部单元锚旧首块（旧种子位；reverse 保 units 文档序；空文档
+            // 防御=parentID 头插），成功后第二笔独立事务删全部旧子块
+            echoed = await api.transactions(unitReplaceOps(units, anchor, oldID, [])).catch(() => null);
+            if (!echoed) return { error: "练习卷单元插入被拒（旧卷原样保留未损伤），请重试" };
+            await api.transactions(unitReplaceOps([], null, oldID, oldChildren.map(c => c.id))).catch(() => null);
+            extractID = oldID;
+            await syncExtractTitle(oldID, name); // 标题跟随（原文改名后重装配）
+        }
+    }
+    if (!extractID) {
+        // 新建路径（首次装配+病卷自愈共用）：空 markdown 建文档自带种子空段块；①拆事务
+        // 两笔——单元先锚种子插入（unitReplaceOps 与前端 insertUnitsDoc 共用），成功后
+        // 独立事务删种子
         extractID = await api.createDocWithMd(originInfo.box, `${hpath}/${name}`, "");
         const seed = (await api.getChildBlocks(extractID))[0]?.id;
-        // 同事务插单元+删种子（unitReplaceOps 与前端 insertUnitsDoc 共用）
-        echoed = await api.transactions(unitReplaceOps(units, seed, extractID, seed ? [seed] : []));
+        echoed = await api.transactions(unitReplaceOps(units, seed, extractID, [])).catch(() => null);
+        if (!echoed) return { error: "练习卷单元插入被拒（新卷种子完好），请重试" };
+        if (seed) await api.transactions(unitReplaceOps([], null, extractID, [seed])).catch(() => null);
     }
-    // 回显 id 与 units 对位：原地事务混有 delete op，按 action 过滤只取 insert 的真实块 id
-    //（回显按提交序=units 反序）；reverse 还原文档序
-    const realIDs = echoed.filter(op => op.action === "insert").map(op => op.id ?? "");
+    // ③假成功复核读：块数与预期单元数不符=假成功，报错不回成功（调用方 AI 可转述重试）
+    const finalCount = (await api.getChildBlocks(extractID)).length;
+    if (finalCount !== units.length) {
+        await siyuan.logger.info(`[kernel] verify mismatch extract=${extractID} expected=${units.length} got=${finalCount}`);
+        return { error: `练习卷落盘复核失败：预期 ${units.length} 块、实读 ${finalCount} 块（事务假成功防护），请重试` };
+    }
+    // 回显 id 与 units 对位：按 action 过滤只取 insert 的真实块 id（拆事务后首笔回显纯
+    // insert；过滤留作防御——回显按提交序=units 反序）；reverse 还原文档序
+    const realIDs = (echoed ?? []).filter(op => op.action === "insert").map(op => op.id ?? "");
     const ordered = realIDs.slice().reverse(); // 还原文档序
     const attrOps = [] as api.IOperation[];
     ordered.forEach((id, i) => {
@@ -382,21 +461,7 @@ async function buildDrill(input: Record<string, any>) {
     });
     if (attrOps.length) await api.transactions(attrOps);
     await api.setBlockAttrs(extractID, { [R_EXTRACT]: originID });
-
-    await siyuan.logger.info(`[kernel] build_drill origin=${originID} mode=${mode} inserted=${inserted.length} failed=${failed} skipped=${skipped} targets=${targetIDs.size} units=${unitCount} emptyNotes=${emptyNoteCount} extract=${extractID} rebuild=${oldID ? "inPlace" : "create"} entered=${enteredPractice}`);
-    return successResponse({
-        originID,
-        extractID,
-        mode,
-        anchorsInserted: inserted.length,
-        anchorsFailed: failed,
-        anchorsSkipped: skipped,
-        targetsMarked: targetIDs.size,
-        practiceUnits: unitCount,
-        emptyNotes: emptyNoteCount,
-        enteredPractice,
-        hint: "练习现场装配完成：锚点认领节已标记考核段、抽取文档已重建，写位为空。对比/AI 判卷在前端抽取文档照常使用；点「重新写」可补齐每题的单题对照面板。注意：本轮未重新对比前，get_grade 返回的是上一轮判卷结果。",
-    });
+    return { extractID, rebuild };
 }
 
 function localTS(): string {

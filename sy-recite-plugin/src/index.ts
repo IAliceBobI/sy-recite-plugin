@@ -16,6 +16,7 @@ import { resetKey, verifyKeyRecite } from "../../sy-tomato-plugin/src/libs/user"
 import { statusBtn, togglePractice, enterPractice, reciteDoc } from "./statusBtn";
 import { highlight } from "./highlight";
 import { writeZone } from "./writeZone";
+import { holeGuard } from "./holeGuard";
 import { contextMenu } from "./contextMenu";
 import { onload as selmlOnload } from "./selml";
 import { selmlOn } from "./uiState";
@@ -105,6 +106,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
         statusBtn.onload();
         highlight.onload();
         writeZone.onload();
+        holeGuard.onload(); // □2 卷内填写引导（selectionchange 光标送写位；writeZone 同款事件驱动）
         contextMenu.onload(this);
         selmlOnload(); // □8 期4：移动端选块三钮的锚点跟随监听（按钮本体在 FloatBar 顶栏）
         // □8 判卷结果自定义块渲染器（3.8.3+；旧内核 customBlockRenders 缺省=注册即无操作）
@@ -385,6 +387,7 @@ export default class ThePlugin extends BaseTomatoPlugin {
         contextMenu.onunload();
         highlight.onunload();
         writeZone.onunload();
+        holeGuard.onunload();
         statusBtn.onunload(); // 与 onload 注册顺序对称的逆序回收（清挂起的自检 timer，见 statusBtn.onunload 范式注释）
     }
 }

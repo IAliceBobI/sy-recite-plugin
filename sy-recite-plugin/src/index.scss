@@ -18,6 +18,11 @@
     // 写位底色基准 alpha（2026-09-01 写作现场组）：亮 0.12 暗 0.14（= v1.2.0 恒显浅底原值），
     // 实际浓度=基准×--recite-glow-k（theme.ts applyWzVisuals 注入 body inline，默认 1=出厂）
     --recite-glow-a: 0.12;
+    // 挖空示位/遮字底色（holerevamp □2，bear 拍板换醒目黄系）：独立 token 不跟 accent 走
+    // ——闪卡 mark 同心智的荧光笔黄。旧值 accent-soft 12% 亮色下偏淡、暗色基本隐身
+    //（=「看不到背景」的另一半原因）。亮=#ffb703 琥珀黄 32% alpha（白底约呈奶油黄、可分辨）；
+    // 皮肤组不覆写——醒目黄系跨皮肤统一（初值由 vision-glm 终审定稿）
+    --recite-hole-bg: rgba(255, 183, 3, 0.32);
 }
 html[data-theme-mode="dark"] {
     --recite-accent: #d4a960;
@@ -28,6 +33,9 @@ html[data-theme-mode="dark"] {
     --recite-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
     --recite-yours: #5c9c8f;
     --recite-glow-a: 0.14;
+    // 挖空底色暗态提亮一档（□K「24% 先例」之上再亮：亮基色 #ffd154+38% alpha——深底上呈
+    // 可辨的暗金黄块状感；色相仍黄系但比亮态的琥珀更浅更亮，抵深底吃色）
+    --recite-hole-bg: rgba(255, 209, 84, 0.38);
 }
 
 // ========== 皮肤主题（2026-08-25 真切换）：四套 Pro 皮肤整组 token 覆盖 ==========
@@ -428,6 +436,46 @@ body[data-recite-wz-norule]:not(.recite-unpaid) .protyle-wysiwyg:not(.recite-pra
     font-size: 0.95em;
 }
 
+// ---- □H 文字级挖空（2026-09-21）：原文标记示位（醒目黄，不遮字）----
+// span 物理标记的示位视觉：原文档（及任何视图）里被挖的字铺醒目黄底——用户找得到挖在哪，
+// 字照读；遮字只发生在卷内（下一条规则）。复合词表匹配 [data-type~="recite-hole"]：内核把
+// 行内格式合并进同锚 span 词序不定，精确匹配漏带格式 run（anno □1 同判例）。免费功能免费
+// 视觉不包 unpaid 门禁（keep 弱化同例）。底色走 --recite-hole-bg（holerevamp □2 醒目黄系
+// token，亮暗两态各自声明；不跟 accent 走——旧 accent-soft 12% 亮暗两态都偏淡）。
+.protyle-wysiwyg span[data-type~="recite-hole"] {
+    background-color: var(--recite-hole-bg);
+    border-radius: 3px;
+    padding-inline: 1px;
+    box-decoration-break: clone;
+}
+
+// ---- □H 卷内遮字（完形填空）：仅抽取文档内遮住被挖的字 ----
+// 作用域=wysiwyg 文档级 custom-recite-extract 镜像属性（上文 keep 弱化同通道）——遮字只打
+// 卷内，原文档标记不遮。纯 CSS 不改块内容：color transparent 遮字（::selection 底色照常但
+// 字形透明，选中也读不出）+ 虚线下划+黄底=一眼可辨是填空位；底色与示位同走 --recite-hole-bg
+// token（holerevamp □2 醒目黄系，html[data-theme-mode=dark] 声明暗态值自动翻转——原 □K
+// 「暗色单独提亮一档」规则随之退役，提亮已收进 token 暗态值）。不包 unpaid 门禁：遮字是
+// 完形填空的结构语义非装饰，免费/Pro 一致。特异性（0,4,3）压过示位规则（0,2,1）稳赢。
+// 多空形态=多个 span 各自遮（holerevamp □1 放开一块多空；选择器按 span 逐个命中天然支持）。
+body .protyle-wysiwyg[custom-recite-extract] div[data-node-id] span[data-type~="recite-hole"] {
+    color: transparent;
+    background-color: var(--recite-hole-bg);
+    border-bottom: 2px dashed var(--recite-accent);
+    border-radius: 3px;
+    padding-inline: 1px;
+    box-decoration-break: clone;
+    // 光标落进遮字内打字有反馈（caret 默认跟 color 走会一起透明=「打字没反应」）——holerevamp
+    // □2 起光标被 holeGuard 引导送写位，此值只兜底（引导未及的瞬态窗口）
+    caret-color: var(--recite-accent);
+}
+
+// 挖空照抄块不吃 keep 弱化（opacity/字号缩）：它是完形填空的题面本体不是语境陪衬——
+// 半透明的遮字空位辨识度差。上文弱化规则的排除臂（加一属性选择器 (0,4,1) 压 (0,3,1)）。
+.protyle-wysiwyg[custom-recite-extract] div[data-node-id][custom-recite-keep][custom-recite-hole] {
+    opacity: 1;
+    font-size: 1em;
+}
+
 // ---- 抽取文档中的批注快照（块自带 custom-recite-note 属性，CSS 直接命中）----
 body:not(.recite-unpaid) .protyle-wysiwyg div[custom-recite-note="1"] {
     color: var(--recite-accent);
@@ -487,6 +535,17 @@ body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write] >
     color: var(--recite-accent);
     opacity: 0.55;
     pointer-events: none;
+}
+// □2 挖空写位提示覆写（holerevamp，症状1 方向 B「写位负责填」）：挖空题的写位不是「复述」
+// 是「填回」——writeZone 对挖空题写位块挂 data-recite-hole-hint（内存 DOM 不落盘；single=单空
+// /multi=同块多空连填），把通用 ✍ 文案换成填回语境。只覆写 content，色/透明度/不挡点击沿用
+// 通用规则；多一个属性选择器特异性天然压过（(0,7,3)>(0,6,3)）。空判定仍走 :empty——写过字
+// 提示即退场，删空复现。
+body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write][data-recite-hole-hint="single"] > div[contenteditable]:empty::before {
+    content: "✍ 在这里填回被挖的词";
+}
+body:not(.recite-unpaid) .protyle-wysiwyg div[data-node-id][data-recite-write][data-recite-hole-hint="multi"] > div[contenteditable]:empty::before {
+    content: "✍ 按顺序填回被挖的词，用空格分隔";
 }
 
 // 写作竖线开关（2026-09-01 用户：「左边像中括号一样的东西，应该可以选择不要」）：关 =

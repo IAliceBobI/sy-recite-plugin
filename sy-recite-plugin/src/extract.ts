@@ -3,7 +3,8 @@ import { siyuan } from "../../sy-tomato-plugin/src/libs/siyuanApi";
 import { OpenSyFile2 } from "../../sy-tomato-plugin/src/libs/navUtils";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { DomParaBuilder, md2Divs } from "../../sy-tomato-plugin/src/libs/sydom";
-import { RECITE_START, RECITE_EXTRACT, RECITE_NOTE, RECITE_REFS, RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_HINT, RECITE_EMPTY_NOTE, RECITE_WRITTEN, RECITE_COMPARE, EXTRACT_TITLE } from "./constants";
+import { RECITE_START, RECITE_EXTRACT, RECITE_NOTE, RECITE_REFS, RECITE_OLD, RECITE_KEEP, RECITE_TARGET, RECITE_HINT, RECITE_EMPTY_NOTE, RECITE_WRITTEN, RECITE_COMPARE, RECITE_HOLE, EXTRACT_TITLE } from "./constants";
+import { holeCopyHTML, HOLE_SPAN_SEL } from "./hole";
 import { backfillQCtrlBlocks, isQCtrlMarkdown, parseQCtrlContent } from "./qCtrlBlock";
 // 结构层纯函数在 extractCore.ts（与 kernel 侧共用一份，2026-09-09 recite MCP □3 抽出）
 import {
@@ -51,7 +52,8 @@ export async function identifyNotes(originID: string): Promise<ReciteBlock[]> {
     // IAL 走 cache-first 属性 API 而非 SQL ial 列（reasoning review P1-2，2026-09-08）：
     // setBlockAttrs 返回前同步刷内核 IAL 缓存，blocks 表 ial 列却走异步索引队列（秒级窗）。
     // 期2 靶属性是抽取的模式开关（有靶→节选），SQL 读旧值会让刚打的靶静默回落整篇语义；
-    // markdown 走 SQL 无此问题（块内容不经属性写入路径）
+    // markdown 走 SQL 无此问题（块内容不经属性写入路径）。挖空判据同走 IAL（custom-recite-hole
+    // ——span 不进 markdown 序列化，探针 6809 实测，SQL markdown 列看不到挖空）
     const ials = await siyuan.batchGetBlockAttrs(children.map(c => c.id)).catch(() => null);
     return children.map((c, i) => {
         const ial = ials?.[c.id] ?? {};
@@ -59,6 +61,7 @@ export async function identifyNotes(originID: string): Promise<ReciteBlock[]> {
             isOld: !!ial[RECITE_OLD],
             isKeep: !!ial[RECITE_KEEP],
             isTarget: !!ial[RECITE_TARGET],
+            isHole: !!ial[RECITE_HOLE],
         });
     });
 }
@@ -274,6 +277,100 @@ export function noteBlockAsHeading(div: HTMLElement, level: number = 6): HTMLEle
 }
 
 /**
+ * 挖空块 DOM 克隆读取（□H 文字级挖空，2026-09-21）：span 标记不进 markdown/kramdown
+ * 序列化（6809 探针实测），卷内照抄必须走 DOM 通道——getBlockDOM(originID) 整树一次读
+ * （巨书 25~39s 量级仅超大文档，普通文档毫秒级）+ DOMParser 按块 id 取顶层块克隆。
+ * 只在有挖空块时调用（无挖空零开销）；读失败返回空 Map=调用方降级 md2Divs（无遮字
+ * 仍出卷——span 剥成纯文本，块当普通语境）。
+ */
+export async function fetchHoleBlockDOM(originID: string, ids: Set<string>): Promise<Map<string, HTMLElement>> {
+    const map = new Map<string, HTMLElement>();
+    if (!ids.size) return map;
+    try {
+        const ret = await siyuan.getBlockDOM(originID);
+        if (!ret?.dom) return map;
+        const doc = new DOMParser().parseFromString(ret.dom, "text/html");
+        ids.forEach(id => {
+            const el = doc.querySelector(`div[data-node-id="${id}"]`);
+            if (el) map.set(id, el.cloneNode(true) as HTMLElement);
+        });
+    } catch { /* 静默降级 */ }
+    return map;
+}
+
+// ---------- □I 期望组装共享层（查错/判卷共用，2026-09-21） ----------
+//
+// 病灶：diffCheck 与 promptCopy 都拿 fetchOriginMarkdown(refs) 的整块全文当期望——挖空题
+// refs=整块 id 而写位只填被挖的字 → 查错绿下划线刷屏/判卷误判大面积缺失。分派语义：
+// refs 全为挖空块（IAL custom-recite-hole，batchGetBlockAttrs 直读——索引窗假旧值禁 SQL
+// ial 列）→ 期望收窄到被挖 span 字面（DOM 通道，markdown 序列化剥 span 探针实测）；否则
+// 现状整块语义零改动。任一读失败（DOM 缺块/span 无字面）整题降级 full——判卷材料面给
+// 全文、查错照旧行为，宁旧勿错。
+
+/** 分派结果：full=现状整块语义（markdowns=fetchOriginMarkdown 同源含占位）；hole=挖空题 */
+export type OriginDispatch =
+    | { kind: "full"; markdowns: string[] }
+    | {
+        kind: "hole";
+        literals: string[]; // 被挖字面（块序×块内 DOM 序；一块一空常态=每块一项）——查错期望/判卷【被挖的原字】
+        masked: string[];   // 遮字形态原文（块序，被挖处 ____ 占位）——判卷【被挖空的原文】
+    };
+
+/** 挖空块 DOM 克隆 → 被挖字面列表（DOM 序；一块一空常态单项，多 span 防御全收）。空列表=无有效字面 */
+export function holeLiteralsOfBlock(clone: HTMLElement): string[] {
+    return Array.from(clone.querySelectorAll(HOLE_SPAN_SEL))
+        .map(s => (s.textContent ?? "").replace(/\u200b/g, "").trim())
+        .filter(Boolean);
+}
+
+/** 判卷遮字占位符（被挖处替换显示；与卷面 CSS 遮字视觉语义对齐的字面形态） */
+export const HOLE_MASK_PLACEHOLDER = "____";
+
+/**
+ * 挖空块 DOM 克隆 → 遮字形态文本：span 文本换 ____ 占位后取纯文本（可编辑区限定——
+ * protyle-attr 属性行与零宽占位剔除）。实现取舍（defaults 记档）：走 DOM 克隆而非
+ * markdown 字面替换——字面在块内多处出现时替换会错位，DOM 位置精确天然规避。
+ */
+export function maskedTextOfBlock(clone: HTMLElement): string {
+    const work = clone.cloneNode(true) as HTMLElement;
+    work.querySelectorAll(HOLE_SPAN_SEL).forEach(s => { s.textContent = HOLE_MASK_PLACEHOLDER; });
+    const editables = work.querySelectorAll('[contenteditable="true"]');
+    const texts = (editables.length ? Array.from(editables) : [work])
+        .map(e => (e.textContent ?? "").replace(/\u200b/g, ""));
+    return texts.join("\n").trim();
+}
+
+/**
+ * refs → 期望分派（查错/判卷共用入口，□I）。originID 空且 refs 非空时经 getBlockInfo
+ * 直读文件树派生根文档 id（调用方未显式传时的兜底，无 SQL 索引窗）。混合 refs（挖空+
+ * 非挖空同题）按现状整块语义处理——Run4 蓝图挖空块单块成段理论不混合，防御取简单行为。
+ */
+export async function dispatchOrigin(originID: string, refs: string[]): Promise<OriginDispatch> {
+    if (!refs.length) return { kind: "full", markdowns: [] };
+    const ials = await siyuan.batchGetBlockAttrs(refs).catch(() => null);
+    const holeFlags = refs.map(id => !!(ials?.[id]?.[RECITE_HOLE]));
+    if (!holeFlags.every(Boolean)) return { kind: "full", markdowns: await fetchOriginMarkdown(refs) };
+    let root = originID;
+    if (!root) {
+        const info = await siyuan.getBlockInfo(refs[0]).catch(() => null);
+        root = info?.rootID ?? "";
+        if (!root) return { kind: "full", markdowns: await fetchOriginMarkdown(refs) };
+    }
+    const doms = await fetchHoleBlockDOM(root, new Set(refs));
+    const literals: string[] = [];
+    const masked: string[] = [];
+    for (const id of refs) {
+        const clone = doms.get(id);
+        if (!clone) return { kind: "full", markdowns: await fetchOriginMarkdown(refs) }; // DOM 读失败/块已删
+        const words = holeLiteralsOfBlock(clone);
+        if (!words.length) return { kind: "full", markdowns: await fetchOriginMarkdown(refs) }; // span 无字面（脏 IAL）
+        literals.push(...words);
+        masked.push(maskedTextOfBlock(clone));
+    }
+    return { kind: "hole", literals, masked };
+}
+
+/**
  * 统一出卷（□2 出卷层，2026-09-13；recitesimplify □1 2026-09-20 题面位置化）：doExtract
  * 单一扫描语义——整篇/节选分叉退役，extractSpans（extractCore，kernel 共用）是抽取文档
  * 构建蓝图唯一路径：考核块（连续 target）聚段→段末原位换 [锚点+写位]（refs=段块 id，
@@ -281,6 +378,9 @@ export function noteBlockAsHeading(div: HTMLElement, level: number = 6): HTMLEle
  * 占位（RECITE_EMPTY_NOTE，纯默写）照样出卷；其余块（原文语境+散写新块）一律照抄
  * （copyHTML 挂 keep 不染色——hint 面已随「总结」类型退役，老卷子 RECITE_HINT 判读保留
  * 在 extractEntries）。无考核段不出卷（提示改指「标记考核」——题面不再是出卷开关）。
+ * □H 文字级挖空单元（hole span）与 target 聚段并列：[照抄遮字块（DOM 克隆保 span，挂
+ * keep）+锚点+写位]——完形填空语义：块进卷但被挖的字遮住，块后写位填空；refs=本块 id，
+ * 对比左栏走 SQL markdown 回查=被挖的字可见（现有通道自动获得）。
  */
 export async function doExtract(plugin: Plugin, originID: string) {
     if (!originID) return;
@@ -291,35 +391,50 @@ export async function doExtract(plugin: Plugin, originID: string) {
         return;
     }
     const stream = await identifyNotes(originID);
-    debugLog("recite.identify", `doc=${originID} blocks=${stream.length} notes=${stream.filter(b => b.isNote).length} targets=${stream.filter(b => b.isTarget).length} keeps=${stream.filter(b => b.isKeep).length}`, "recite");
+    debugLog("recite.identify", `doc=${originID} blocks=${stream.length} notes=${stream.filter(b => b.isNote).length} targets=${stream.filter(b => b.isTarget).length} keeps=${stream.filter(b => b.isKeep).length} holes=${stream.filter(b => b.isHole).length}`, "recite");
     const { spans, emptyNoteCount } = extractSpans(stream);
     const say = (k: string, fb: string) => ((plugin as any)?.i18n?.[k] as string) || fb;
-    const unitCount = spans.filter(s => s.kind === "unit").length;
+    const unitCount = spans.filter(s => s.kind === "unit" || s.kind === "hole").length;
     if (!unitCount) {
-        await siyuan.pushMsg(say("抽取无考核提示", "还没有标记考核内容：选中要练的块点浮条「这段练」"), 3000);
+        await siyuan.pushMsg(say("抽取无考核提示", "还没有标记考核内容：选中要练的块点浮条「这段练」，或划词点「挖空」"), 3000);
         return;
     }
+    // 挖空块 DOM 克隆（一次整树读）；target 优先的双标块不走 hole 通道（聚段语义吞块）
+    const holeIDs = new Set(spans.filter(s => s.kind === "hole").map(s => s.block.id));
+    const holeDOMs = await fetchHoleBlockDOM(originID, holeIDs);
     const noteLevel = noteHeadingLevel((plugin as any).settingCfg);
-    const units = spans.flatMap(span => {
-        if (span.kind === "copy") return copyHTML(span.blocks);
-        // unit：升格题面=锚点文本（单行 heading 化接通大纲跳转/折叠——noteFitsHeading/
-        // noteBlockAsHeading 对位置化题面照用）；空锚点=空段落
-        //（RECITE_EMPTY_NOTE 属性=纯默写题标记，readExtractDoc 出口归一空串——占位不漏下游；
-        // 2026-09-15 起不落占位文案：锚点空段+写位空段相邻，写位有 writeZone 竖线可辨）
-        if (!span.notes.length) {
+    // 锚点块装配（unit/hole 共用）：升格题面=锚点文本（单行 heading 化接通大纲跳转/折叠
+    // ——noteFitsHeading/noteBlockAsHeading 对位置化题面照用）；空锚点=空段落
+    //（RECITE_EMPTY_NOTE 属性=纯默写题标记，readExtractDoc 出口归一空串——占位不漏下游；
+    // 2026-09-15 起不落占位文案：锚点空段+写位空段相邻，写位有 writeZone 竖线可辨）
+    const anchorHTMLs = (refs: string[], notes: { markdown: string }[]): string[] => {
+        if (!notes.length) {
             const div = new DomParaBuilder().build();
             div.setAttribute(RECITE_NOTE, "1");
-            div.setAttribute(RECITE_REFS, span.targets.map(b => b.id).join(","));
+            div.setAttribute(RECITE_REFS, refs.join(","));
             div.setAttribute(RECITE_EMPTY_NOTE, "1");
-            return [div.outerHTML, new DomParaBuilder().html()];
+            return [div.outerHTML];
         }
-        const md = span.notes.map(b => b.markdown).join("\n");
+        const md = notes.map(b => b.markdown).join("\n");
         const note = md2Divs(md, {
             [RECITE_NOTE]: "1",
-            [RECITE_REFS]: span.targets.map(b => b.id).join(","),
+            [RECITE_REFS]: refs.join(","),
         } as AttrType);
         if (note[0] && noteFitsHeading(md)) noteBlockAsHeading(note[0], noteLevel);
-        return [...note.map(n => n.outerHTML), new DomParaBuilder().html()];
+        return note.map(n => n.outerHTML);
+    };
+    const units = spans.flatMap(span => {
+        if (span.kind === "copy") return copyHTML(span.blocks);
+        if (span.kind === "hole") {
+            // [照抄遮字块] + [锚点] + [写位]：照抄块挂 keep（卷内展示层）保 span（遮字 CSS
+            // 命中）；DOM 读失败降级 md2Divs（span 剥纯文本=无遮字仍出卷，当普通语境）
+            const clone = holeDOMs.get(span.block.id);
+            const copy = clone
+                ? holeCopyHTML(clone)
+                : copyHTML([span.block])[0];
+            return [copy, ...anchorHTMLs([span.block.id], span.notes), new DomParaBuilder().html()];
+        }
+        return [...anchorHTMLs(span.targets.map(b => b.id), span.notes), new DomParaBuilder().html()];
     });
     debugLog("recite.extract", `origin=${originID} spans=${spans.length} units=${unitCount} emptyNotes=${emptyNoteCount}`, "recite");
     if (await rebuildExtractDoc(plugin, originID, units)) {
@@ -393,7 +508,7 @@ async function rebuildExtractDoc(plugin: Plugin, originID: string, units: string
         extractID = await replaceUnitsInPlace(old.id, units, info.box, old.hpath, extractAttrs);
         // 病卷自愈走新建时 extractID 是新文档 id（≠old.id）：标题按入参 hpath 建即正确，
         // 无需跟随；in-place 成功 id 不变，改名跟随照旧
-        if (extractID && extractID === old.id) await syncExtractTitle(old.id, old.hpath);
+        if (extractID && extractID === old.id) await syncDerivedTitle(old.id, old.hpath);
     } else {
         extractID = await insertUnitsDoc(info.box, old.hpath, units, extractAttrs);
     }
@@ -413,11 +528,12 @@ async function rebuildExtractDoc(plugin: Plugin, originID: string, units: string
 }
 
 /**
- * 原地更新后标题跟随：旧路径靠删建自动带新标题，保留文档本体后原文改名会让标题陈旧
- * ——现名 ≠ 期望名（findReciteChildDoc 算的 hpath 尾段，已保证不撞名）时 rename 跟随。
- * box/path 走 getBlockInfo 直读文件树（renameDocByID 内部过 SQL 有索引延迟，不用）。
+ * 原地更新后标题跟随（□E 起为卷/收集文档共用，改名 syncDerivedTitle）：旧路径靠删建
+ * 自动带新标题，保留文档本体后原文改名会让标题陈旧——现名 ≠ 期望名（findReciteChildDoc
+ * 算的 hpath 尾段，已保证不撞名）时 rename 跟随。box/path 走 getBlockInfo 直读文件树
+ * （renameDocByID 内部过 SQL 有索引延迟，不用）。
  */
-async function syncExtractTitle(docID: string, wantedHpath: string) {
+export async function syncDerivedTitle(docID: string, wantedHpath: string) {
     const wanted = wantedHpath.split("/").pop() ?? "";
     if (!wanted) return;
     const info = await siyuan.getBlockInfo(docID).catch(() => null);

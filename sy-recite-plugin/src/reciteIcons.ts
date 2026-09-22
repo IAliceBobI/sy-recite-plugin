@@ -22,11 +22,18 @@ export const RECITE_FLOAT_ICONS = `
 <symbol id="iconReciteKeep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4.6L5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
 <!-- 期2 这段练（2026-09-08）：靶心准星=圈定练习语义，与快捷键 ⌥⌘⇧O（O=靶圈；09-10 加 ⇧ 避撞 MindWire doc）同助记 -->
 <symbol id="iconReciteTarget" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.6"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></symbol>
+<!-- □H 文字级挖空（2026-09-21）：三行文字、中行中段虚线空框=被挖走的字位（完形填空语义）。
+     与 iconReciteTarget 同族但粒度到「字」——靶心圈整块，空框圈选中的文字 -->
+<symbol id="iconReciteHole" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16"/><path d="M4 18.5h16"/><path d="M4 10.5h3.2"/><rect x="8.6" y="8" width="6.8" height="5" rx="1" stroke-dasharray="2.2 2.2"/><path d="M16.8 10.5H20"/></symbol>
 <!-- □1 总结钮（2026-09-13）已随「总结」类型退役（recitesimplify □2 两钮化，2026-09-20）：
      总结钮/右键「设为总结」/iconReciteSummary 图标一并移除，sprite 不留死枚 -->
 <!-- □3 退出钮（2026-09-13 退出两档）：门+离门箭头=温和退出（字留下、练习收摊）。与「删除」
      垃圾桶一眼辨轻重；ghost 样式双保险 -->
 <symbol id="iconReciteExit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+<!-- □E 收集成文（2026-09-21）：左侧三段散字（长短不一）+右向箭头+右页=「练习写的字
+     聚拢成一页文」。与 iconReciteExtract（页+右上抽出箭头）方向相反——抽取=从原文
+     挖出去出卷，收集=把写的字收回来成文 -->
+<symbol id="iconReciteCollect" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h5.5"/><path d="M3 10.5h3.5"/><path d="M3 15.5h5.5"/><path d="M10.5 10.5H13"/><path d="m11.5 8.5 2 2-2 2"/><rect x="15.5" y="4" width="6.5" height="16" rx="1.6"/></symbol>
 <!-- □5 单题对照（2026-09-08）：左右双栏+中缝=单题「原文 vs 复述」就地对照（iconReciteCompare 双栏矩形族的单页迷你变体） -->
 <symbol id="iconReciteQctrl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M12 5v14"/><path d="M6.5 11.5l1.8-2 1.7 3.5"/><path d="M14.5 12.5h3.2"/></symbol>
 <!-- □5 单题清空（2026-09-14）：斜置橡皮+底线=擦掉本题重写——轻重语言与「删除」垃圾桶

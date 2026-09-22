@@ -21,6 +21,7 @@
     import { onMount } from "svelte";
     import { reciteDoc, cleanPractice, exitPractice } from "./statusBtn";
     import { doExtract, rewriteExtract } from "./extract";
+    import { doCollect } from "./collect";
     import { doCompare } from "./compare";
     import { copyPrompt } from "./promptCopy";
     import { aiGrade } from "./aiGrade";
@@ -31,6 +32,7 @@
     import { selmlOn } from "./uiState";
     import { reciteIcon } from "./reciteIcons";
     import { setBlocksRole, type SettableRole } from "./role";
+    import { setHoleFromSelection } from "./hole";
     import { blockRole, majorityRole, type ReciteRole } from "./extractCore";
     import { RECITE_OLD, RECITE_KEEP, RECITE_TARGET } from "./constants";
     import { reciteSelection } from "./selection";
@@ -369,6 +371,10 @@
                      作用对象=当前编辑器选中块集（Ctrl+点击多选/移动端选块三钮） -->
                 <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "context"} aria-label={plugin.i18n["原文浮条提示"] || "设为原文：存量块清除「这段练」标记回到原文\n你写的字则认领为原文（照抄进卷、退出与删除都按原文走）\n与「这段练」二选一，钮亮=当前角色"} onclick={() => onSetRole("context")}>{@html reciteIcon("iconReciteKeep")}<span class="recite-btn-text">{t("原文")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" class:recite-btn-on={selMajor === "target"} aria-label={plugin.i18n["靶浮条提示"] || "设为考核（这段练）：抽取只练这段，其余照抄做语境\n段后留题面位，写一句这段在讲什么即题面"} onclick={() => onSetRole("target")}>{@html reciteIcon("iconReciteTarget")}<span class="recite-btn-text">{t("这段练")}</span></button>
+                <!-- □H 文字级挖空（2026-09-21 bear 拍板）：圈靶粒度细化到选中的文字——划词打
+                     行内 span 物理标记（位置随文字走），出卷时被挖的字遮住、块后写位填空。
+                     与「这段练」并列两型：整块挖空 vs 文字级挖空，互不干扰 -->
+                <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["挖空浮条提示"] || "文字级挖空：在原文划词选中一段字，出卷时这段字被遮住\n凭记忆在块后写位填回（完形填空）\n一块可挖多个空（空之间至少隔一个字）；选中已挖的空再点=撤销"} onclick={() => setHoleFromSelection(plugin, $reciteDoc.protyle)}>{@html reciteIcon("iconReciteHole")}<span class="recite-btn-text">{t("挖空")}</span></button>
                 <!-- □3 退出两档（2026-09-13）：轻「退出」（字保留+淡标记）与重「删除」（彻底抹）
                      并排，双 ghost 图标形辨轻重（门箭头 vs 垃圾桶）；退出顶栏笔图标 toggle 同义 -->
                 <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={plugin.i18n["退出浮条提示"] || "温和退出仿写模式\n你写的字保留并加淡色标记，练习标记全清\n抽取/对比文档保留；彻底删除用「删除」"} onclick={() => exitPractice($reciteDoc.docID)}>{@html reciteIcon("iconReciteExit")}<span class="recite-btn-text">{t("退出")}</span></button>
@@ -377,6 +383,9 @@
         {:else if $reciteDoc.role === "extract"}
             <div class="recite-floatbar-btns">
                 <button class="b3-tooltips b3-tooltips__n" aria-label={"生成对比文档\n每题左右两列，原文与复述逐题对照"} onclick={() => doCompare(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCompare")}<span class="recite-btn-text">{t("对比")}</span></button>
+                <!-- □E 收集成文（2026-09-21 bear 点名）：把写位里「自己写的字」一键抽成独立文档——
+                     练习的终点是作品。全量免费不挂门禁；落原文档下不随「删除练习」消失 -->
+                <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["收集提示"] || "把你在写位写的字收集成文\n生成原文档下「仿写文·原文标题」子文档，可编辑可导出\n重复收集=覆盖更新同一份；不随「删除练习」消失"} onclick={() => doCollect(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteCollect")}<span class="recite-btn-text">{t("收集")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" aria-label={plugin.i18n["默写查错提示"] || "逐字比对原文与复述\n错/多字红删除线、漏字绿下划线，弹窗即看即走"} onclick={() => openDiffCheck(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteDiff")}<span class="recite-btn-text">{plugin.i18n["默写查错"] || "默写查错"}</span></button>
                 <button class="b3-tooltips b3-tooltips__n" aria-label={carded ? (plugin.i18n["取消制卡提示"] || "本篇已在快速卡组\n再点移除") : (plugin.i18n["加闪卡提示"] || "把本篇练习文档加入快速闪卡卡组\n与摘抄卡同组复习")} onclick={addToCards}>{@html reciteIcon(carded ? "iconReciteCardOn" : "iconReciteCard")}<span class="recite-btn-text">{carded ? (plugin.i18n["取消制卡"] || "取消制卡") : t("加闪卡")}</span></button>
                 <button class="b3-tooltips b3-tooltips__n recite-btn-ghost" aria-label={"重抽重建练习\n删当前抽取文档（连对比）按当前考核段重建，复述清零"} onclick={() => rewriteExtract(plugin, $reciteDoc.docID)}>{@html reciteIcon("iconReciteRewrite")}<span class="recite-btn-text">{t("重新写")}</span></button>

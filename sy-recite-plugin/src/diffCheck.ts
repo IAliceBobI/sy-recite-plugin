@@ -7,7 +7,8 @@ import { DestroyManager } from "../../sy-tomato-plugin/src/libs/destroyer";
 import { events } from "../../sy-tomato-plugin/src/libs/Events";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { RECITE_EXTRACT, RECITE_COMPARE } from "./constants";
-import { readExtractDoc, fetchOriginMarkdown, isAssociation } from "./extract";
+import { readExtractDoc, dispatchOrigin, isAssociation } from "./extract";
+import type { ExtractEntry } from "./extract";
 import DiffDialog from "./DiffDialog.svelte";
 
 /**
@@ -23,8 +24,9 @@ import DiffDialog from "./DiffDialog.svelte";
 
 /** markdown 装饰剥壳（链接取文字、== ** * ~~ ` 剥壳、换行并空格），diff 只看纯文本。
  *  heading 前缀先剥——题目 heading 化（v1.2.3 默认）后 SQL markdown 带 `###### `，
- *  不剥则查错弹窗题目显示 # 字面（isAssociation 剥壳同族，□5 review 发现） */
-function md2plain(md: string): string {
+ *  不剥则查错弹窗题目显示 # 字面（isAssociation 剥壳同族，□5 review 发现）。
+ *  □3 起导出（compare 挖空题写位取纯文本共用） */
+export function md2plain(md: string): string {
     return md
         .replace(/^#{1,6}\s+/gm, "")
         .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
@@ -225,7 +227,84 @@ export function diffText(origin: string, write: string): { lines: DiffLine[]; su
     };
 }
 
+// ---------- □3 挖空连填归一化（查错/判卷/对比共用） ----------
+
+/**
+ * 多空连填归一化（□3）：答案分隔符（空格/全角空格/顿号/中英逗号）统一为单空格、剥零宽
+ * 空格。比对语义上=剥除——tokenize 本就把空白/标点挡在内容统计外，归一化再消掉分隔符
+ * 形态差异产的 punct 级轻标噪音（用户用顿号分隔 vs 期望空格分隔不再标灰）；展示上保
+ * 多空可读（答案行/写位列的多个答案隔开不粘连）——比对与展示同串同源，不分裂两套形态。
+ */
+export function normalizeHoleFill(text: string): string {
+    return text.replace(/\u200b/g, "").replace(/[、，,]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * 挖空题比对纯核心（□3，查错弹窗/对比文档共用）：期望=literals 空格拼接、写位连填归一化
+ * （normalizeHoleFill）后 diffText；行结构拍平合并为单行 spans——对比文档答案行/写位着色
+ * 消费（一行连续文本无句读断行诉求），查错弹窗仍走 buildDiffViews 的行对齐形态，同一
+ * diff 结构两切法。相邻同 cls span 合并减少落盘 DOM。
+ */
+export function holeFillDiff(literals: string[], write: string): { a: DiffSpan[]; b: DiffSpan[]; summary: DiffSummary } {
+    const r = diffText(normalizeHoleFill(literals.join(" ")), normalizeHoleFill(write));
+    const flat = (spans: DiffSpan[]) => {
+        const out: DiffSpan[] = [];
+        spans.forEach(s => {
+            const last = out[out.length - 1];
+            if (last && last.cls === s.cls) last.text += s.text;
+            else out.push({ ...s });
+        });
+        return out;
+    };
+    return { a: flat(r.lines.flatMap(l => l.a)), b: flat(r.lines.flatMap(l => l.b)), summary: r.summary };
+}
+
 // ---------- 弹窗入口（浮条按钮调用）----------
+
+/**
+ * 逐题视图模型+总统计（openDiffCheck 的纯数据核心，□I 抽出可单测）：
+ * - 联想题：只展示不统计（现状）；
+ * - 挖空题（□I）：期望收窄到被挖 span 字面——diffText(被挖字, 写位字) 对称比对，填对
+ *   填错一目了然，非挖空部分不再刷绿下划线；多空连填两侧先过 normalizeHoleFill（□3，
+ *   分隔符形态差异不算错）；分派失败（DOM/IAL 读不到）整题自动回落
+ *   整块语义（dispatchOrigin 内降级，查错行为=改前）；
+ * - 整块题/空锚点题：fetchOriginMarkdown 整块全文比对（现状零改动）。
+ */
+export async function buildDiffViews(entries: ExtractEntry[], originID: string): Promise<{ views: DiffEntryView[]; summary: DiffSummary }> {
+    const views: DiffEntryView[] = [];
+    let gWrong = 0, gMiss = 0, gExtra = 0, gMatched = 0, gTotal = 0;
+    for (const e of entries) {
+        // 联想题：自由联想写作无逐字比对——保留题号与题目展示、不跑 diff 不进统计（查错语义只属还原型练法）
+        if (isAssociation(e.noteMarkdown)) {
+            views.push({ note: md2plain(e.noteMarkdown), lines: [], association: true });
+            continue;
+        }
+        const d = await dispatchOrigin(originID, e.refs);
+        // 挖空题（□3 多空连填）：期望=literals 拼接、写位归一化（剥分隔符形态差异）——
+        // 分隔符不再产 punct 级轻标；整块题期望/写位零改动（标点语义保留）
+        const origin = d.kind === "hole"
+            ? normalizeHoleFill(d.literals.join(" "))
+            : d.markdowns.map(md2plain).join(" ");
+        const writeRaw = e.writes.map(w => md2plain(w.markdown)).join(" ");
+        const write = d.kind === "hole" ? normalizeHoleFill(writeRaw) : writeRaw;
+        const r = diffText(origin, write);
+        // 空锚点题（□2 纯默写）noteMarkdown 归一空串——题目行留空（2026-09-15 起不显示占位文案）
+        views.push({ note: md2plain(e.noteMarkdown), lines: r.lines });
+        gWrong += r.summary.wrong;
+        gMiss += r.summary.miss;
+        gExtra += r.summary.extra;
+        gMatched += r.matched;
+        gTotal += r.total;
+    }
+    return {
+        views,
+        summary: {
+            diffs: gWrong + gMiss + gExtra,
+            wrong: gWrong, miss: gMiss, extra: gExtra,
+            similarity: gTotal ? Math.min(100, Math.round((200 * gMatched) / gTotal)) : 100,
+        },
+    };
+}
 
 /**
  * 默写查错弹窗（抽取/对比浮条两处入口，docID 二义解析同 copyPrompt/aiGrade）：
@@ -253,30 +332,8 @@ export async function openDiffCheck(plugin: Plugin, docID: string) {
         await siyuan.pushMsg(t["查错·先写提示"] || "抽取文档里还没有复述，写完再查", 3000);
         return;
     }
-    const views: DiffEntryView[] = [];
-    let gWrong = 0, gMiss = 0, gExtra = 0, gMatched = 0, gTotal = 0;
-    for (const e of entries) {
-        // 联想题：自由联想写作无逐字比对——保留题号与题目展示、不跑 diff 不进统计（查错语义只属还原型练法）
-        if (isAssociation(e.noteMarkdown)) {
-            views.push({ note: md2plain(e.noteMarkdown), lines: [], association: true });
-            continue;
-        }
-        const origin = (await fetchOriginMarkdown(e.refs)).map(md2plain).join(" ");
-        const write = e.writes.map(w => md2plain(w.markdown)).join(" ");
-        const r = diffText(origin, write);
-        // 空锚点题（□2 纯默写）noteMarkdown 归一空串——题目行留空（2026-09-15 起不显示占位文案）
-        views.push({ note: md2plain(e.noteMarkdown), lines: r.lines });
-        gWrong += r.summary.wrong;
-        gMiss += r.summary.miss;
-        gExtra += r.summary.extra;
-        gMatched += r.matched;
-        gTotal += r.total;
-    }
-    const summary: DiffSummary = {
-        diffs: gWrong + gMiss + gExtra,
-        wrong: gWrong, miss: gMiss, extra: gExtra,
-        similarity: gTotal ? Math.min(100, Math.round((200 * gMatched) / gTotal)) : 100,
-    };
+    // originID 透传给期望分派（□I 挖空题收窄；整块题行为零改动）
+    const { views, summary } = await buildDiffViews(entries, attrs[RECITE_EXTRACT]);
     const t: any = plugin?.i18n ?? {};
     const dm = new DestroyManager();
     const host = newID();

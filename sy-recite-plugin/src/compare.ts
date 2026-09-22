@@ -4,8 +4,11 @@ import { OpenSyFile2 } from "../../sy-tomato-plugin/src/libs/navUtils";
 import { debugLog } from "../../sy-tomato-plugin/src/libs/logUtils";
 import { DomSuperBlockBuilder, DomParaBuilder, md2Divs } from "../../sy-tomato-plugin/src/libs/sydom";
 import type { DomBuilder } from "../../sy-tomato-plugin/src/libs/sydom";
+import { escapeHtml } from "../../sy-tomato-plugin/src/libs/annoKramdown";
 import { RECITE_EXTRACT, RECITE_COMPARE, RECITE_CMP_CARD, RECITE_NOTE, COMPARE_TITLE } from "./constants";
-import { readExtractDoc, fetchOriginMarkdown, findReciteChildDoc, insertUnitsDoc, unCardChildren, derivedTitle, isAssociation, noteBlockAsHeading, noteHeadingLevel } from "./extract";
+import { readExtractDoc, dispatchOrigin, findReciteChildDoc, insertUnitsDoc, unCardChildren, derivedTitle, isAssociation, noteBlockAsHeading, noteHeadingLevel } from "./extract";
+import { holeFillDiff, normalizeHoleFill, md2plain } from "./diffCheck";
+import type { DiffSpan } from "./diffCheck";
 
 /**
  * 题目单行化：批注 markdown 的 \n 拼为空格——对比文档每题进 h2 的前提。
@@ -38,11 +41,74 @@ export function headingifyNoteDivs(divs: HTMLElement[], level: number = 6): HTML
     return [noteBlockAsHeading(para, level)];
 }
 
+// ---------- □3 挖空题对比收窄（着色纯函数层，单测锚点） ----------
+//
+// 通道拍板（6808 探针 2026-09-22 实锤，updateBlock(dom) 与 insert 事务两通道同验）：
+// 着色=扁平复合词表 + span IAL style——`<span data-type="u text" style="color:…">` /
+// `<span data-type="s text" style="color:…">` 落盘逐字节保真；ask 假设的 text-color+
+// data-content 形态 data-content 被内核剥（renderTextMarkAttrs 枚举不含，只 inline-math
+// 有）不可用；data-*/class 伴生属性写通道必剥（R10）。色值走主题自适应 var（--b3-card-
+// success/error-color 亮暗两主题都声明）带 hex fallback；语义对齐 diffCheck 现行 diff
+// 产出（漏/被写错=绿系下划线 u、错/多=红系删除线 s），diff 结构复用 holeFillDiff 勿重写。
+
+/** 漏/被写错的正确字着色（对齐 DiffDialog rd-s-miss 亮色值做 fallback） */
+export const HOLE_DIFF_MISS_STYLE = "color:var(--b3-card-success-color,#2f8f4e)";
+/** 错/多余的字着色（对齐 DiffDialog rd-s-wrong 亮色值做 fallback） */
+export const HOLE_DIFF_WRONG_STYLE = "color:var(--b3-card-error-color,#c0392b)";
+
+/** diff spans → 着色行内 HTML（答案行/写位着色共用；eq/punct 不着色——标点差异不进对比文档） */
+export function holeDiffInlineHTML(spans: DiffSpan[]): string {
+    return spans.map(s => {
+        const text = escapeHtml(s.text);
+        if (s.cls === "miss") return `<span data-type="u text" style="${HOLE_DIFF_MISS_STYLE}">${text}</span>`;
+        if (s.cls === "wrong") return `<span data-type="s text" style="${HOLE_DIFF_WRONG_STYLE}">${text}</span>`;
+        return text;
+    }).join("");
+}
+
+/** 着色行内 HTML → 段落块（DomParaBuilder 结构同构：外 p + contenteditable 内层 + protyle-attr 尾）。
+ *  导出供单测锚定事务块形态（compareNoteHeading.test.ts 手搭同构产物互证）。 */
+export function paraWithInlineHTML(inlineHTML: string): HTMLElement {
+    const built = new DomParaBuilder().build();
+    (built.querySelector('[contenteditable="true"]') as HTMLElement).innerHTML = inlineHTML;
+    return built;
+}
+
+/**
+ * 挖空题对比卡左右栏装配（doCompare 挖空分支的纯函数核心，□3 单测锚点）：
+ * 左栏=遮字形态原文逐条落段（masked 是 DOM 通道纯文本、span 剥净，走 DomParaBuilder
+ * textContent 直落——md2Divs 会把原文里的 markdown 元字符（井号、星号、有序列表前缀、
+ * 双等号对）重新解释成语法，纯文本契约破坏）+「被挖的字：」答案行（literals 全列空格分；漏/被写错的正确字绿下划线
+ * 着色，fill.a 覆盖期望全文、eq 部分原样；未填空=纯文本不着色——无比对可言）；
+ * 右栏=写位内容 holeFillDiff 着色（归一化后展示：分隔符统一单空格；错/多余红删除线）——
+ * 挖空写位是短填空文本，着色比对价值大于原格式保留（普通题右栏照旧走 md2Divs）。
+ */
+export function holeCompareDivs(literals: string[], masked: string[], writesMarkdowns: string[]): {
+    left: (HTMLElement | DomBuilder)[];
+    right: (HTMLElement | DomBuilder)[];
+} {
+    const fill = holeFillDiff(literals, writesMarkdowns.map(md2plain).join(" "));
+    const answer = writesMarkdowns.length
+        ? holeDiffInlineHTML(fill.a)
+        : escapeHtml(normalizeHoleFill(literals.join(" ")));
+    return {
+        left: [...masked.map(m => new DomParaBuilder(m)), paraWithInlineHTML(`被挖的字：${answer}`)],
+        right: writesMarkdowns.length
+            ? [paraWithInlineHTML(holeDiffInlineHTML(fill.b))]
+            : [new DomParaBuilder("（未填空）")],
+    };
+}
+
 /**
  * 对比：抽取文档下生成「对比·原文标题」子文档（每条批注一个左右两列超级块：左原文 / 右复述）。
  * 原文按总结块 refs 溯源属性实时回查原块（v1 语义：原文改了拿新文，删了占位标注）；
  * 总结不进对比——它已在抽取文档里，对比只看「写得像不像原文」。
  * 可编辑（不锁只读，2026-08-24 用户反馈改）——浮条常驻可「重新写/复制提示词」。
+ * 挖空题收窄（□3，症状 2 修法）：refs 全为挖空块的题走 dispatchOrigin——左栏不再整段
+ * 回查（94 字明文 vs 用户 6 字的粒度不对等），改「遮字形态原文（masked，语境+____ 占位）
+ * + 被挖字面答案行（literals 全列）」；右栏=写位内容 holeFillDiff 着色（错/多红删除线、
+ * 漏在答案行绿下划线）。普通题/联想题行为零变化；分派失败（dispatchOrigin 内降级 full）
+ * 回落整段语义=改前行为。
  */
 export async function doCompare(plugin: Plugin, extractID: string) {
     if (!extractID) return;
@@ -69,20 +135,31 @@ export async function doCompare(plugin: Plugin, extractID: string) {
         const heading = e.noteMarkdown.trim()
             ? headingifyNoteDivs(md2Divs(flatNote(e.noteMarkdown)), noteLevel).map(d => d.outerHTML)
             : [];
-        // 左栏：联想题=题目本身（自由联想无原文可比，不回查 refs）；普通题=refs 实时回查原文
+        // 左栏：联想题=题目本身（自由联想无原文可比，不回查 refs）；挖空题=遮字形态+答案行
+        // （□3 收窄）；普通题=refs 实时回查原文
         let leftDivs: (HTMLElement | DomBuilder)[];
+        let rightDivs: (HTMLElement | DomBuilder)[];
         if (isAssociation(e.noteMarkdown)) {
             leftDivs = md2Divs(e.noteMarkdown);
+            rightDivs = e.writes.flatMap(w => md2Divs(w.markdown));
+            if (!e.writes.length) rightDivs.push(new DomParaBuilder("（未仿写）"));
         } else {
-            const origins = await fetchOriginMarkdown(e.refs);
-            leftDivs = origins.length ? md2Divs(origins.join("\n\n")) : [new DomParaBuilder("（本题前没有原文段）")];
+            const d = await dispatchOrigin(attrs[RECITE_EXTRACT], e.refs);
+            if (d.kind === "hole") {
+                const hole = holeCompareDivs(d.literals, d.masked, e.writes.map(w => w.markdown));
+                leftDivs = hole.left;
+                rightDivs = hole.right;
+            } else {
+                const origins = d.markdowns;
+                leftDivs = origins.length ? md2Divs(origins.join("\n\n")) : [new DomParaBuilder("（本题前没有原文段）")];
+                rightDivs = e.writes.flatMap(w => md2Divs(w.markdown));
+                if (!e.writes.length) rightDivs.push(new DomParaBuilder("（未仿写）"));
+            }
         }
         // 思源 sb 语义：layout="col"=列布局左右并排、layout="row"=行布局垂直堆叠（与直觉相反）。
         // 故外层 col 承左右两栏，内层 row 承栏内多块垂直——一条抽取可对应好几个原文块，整组归左栏。
         const left = new DomSuperBlockBuilder("row").append(...leftDivs);
         // 右栏=复述：总结不进对比（抽取文档里已有，判卷提示词里另有【我的笔记】）
-        const rightDivs: (HTMLElement | DomBuilder)[] = e.writes.flatMap(w => md2Divs(w.markdown));
-        if (!e.writes.length) rightDivs.push(new DomParaBuilder("（未仿写）"));
         const right = new DomSuperBlockBuilder("row").append(...rightDivs);
         // 外层挂卡片属性：index.scss 据此画题框+中缝（嵌套 sb 只画外层，内层 row 无线防乱）
         const card = new DomSuperBlockBuilder("col").setAttrs({ [RECITE_CMP_CARD]: "1" } as AttrType).append(left, right).html();

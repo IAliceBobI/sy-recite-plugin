@@ -10,6 +10,7 @@ export type ReciteBlock = {
     isKeep?: boolean;
     isTarget?: boolean;
     isOld?: boolean; // 判据原料：custom-recite-old 直存（role 的输入，非输出）
+    isHole?: boolean; // 文字级挖空块（custom-recite-hole IAL，□H）：块内 span 标记由前端打、出卷走 DOM 克隆通道
     role: ReciteRole; // 角色统一判定（唯一事实源，判定序见 blockRole）
 };
 export type NoteGroup = { start: number; end: number; blocks: ReciteBlock[] };
@@ -41,7 +42,7 @@ export function blockRole(b: { markdown: string; isOld?: boolean; isKeep?: boole
  * 配对定；存量文档零迁移，下次抽取自动按新规则重判）。attrsForRole（按钮互斥写值）在
  * 前端 role.ts（依赖 constants.ts 的属性名，kernel 勿 import）。
  */
-export function toReciteBlock(id: string, markdown: string, flags: { isOld?: boolean; isKeep?: boolean; isTarget?: boolean }): ReciteBlock {
+export function toReciteBlock(id: string, markdown: string, flags: { isOld?: boolean; isKeep?: boolean; isTarget?: boolean; isHole?: boolean }): ReciteBlock {
     const role = blockRole({ markdown, ...flags });
     return {
         id, markdown, role,
@@ -49,6 +50,7 @@ export function toReciteBlock(id: string, markdown: string, flags: { isOld?: boo
         isKeep: !!flags.isKeep,
         isTarget: !!flags.isTarget,
         isOld: !!flags.isOld,
+        isHole: !!flags.isHole,
     };
 }
 
@@ -153,22 +155,36 @@ export function keepBlocksForGroups(stream: ReciteBlock[], groups: NoteGroup[]):
  */
 export type ExtractSpan =
     | { kind: "copy"; blocks: ReciteBlock[] } // 照抄（原文语境+散写新块，挂 keep 不染色）
-    | { kind: "unit"; targets: ReciteBlock[]; notes: ReciteBlock[] }; // 考核段（notes=升格题面；空=空锚点占位）
+    | { kind: "unit"; targets: ReciteBlock[]; notes: ReciteBlock[] } // 考核段（notes=升格题面；空=空锚点占位）
+    // 文字级挖空单元（□H 2026-09-21）：块内 span 标记=考核靶（粒度到选中文字）。与 unit 聚段
+    // 并列互不干扰：块原样进卷（DOM 克隆保 span，卷内遮字）+ 块后 [锚点+写位]（refs=本块 id，
+    // 对比左栏回查整块全文——被挖的字在对比时可见）。一块限一空（YAGNI）；notes=段末后紧邻
+    // 升格题面（窗口语义同 unit）；空=纯默写形态（锚点挂 EMPTY_NOTE）。
+    | { kind: "hole"; block: ReciteBlock; notes: ReciteBlock[] };
 
 export function extractSpans(stream: ReciteBlock[]): { spans: ExtractSpan[]; emptyNoteCount: number } {
     const s = stream.filter(b => b.markdown.trim()); // 空块滤除（无角色，不进抽取文档）
-    // 靶段切分：滤空流上连续 isTarget 聚段（一次「这段练」多选/多块=一段；分两次打的相邻靶天然合并）
-    const segs: { start: number; end: number }[] = [];
+    // 靶段切分：滤空流上连续 isTarget 聚段（一次「这段练」多选/多块=一段；分两次打的相邻靶天然合并）；
+    // 挖空块（isHole）各自成单块段（一块一空），同块双标（target+hole）target 优先——整块挖空
+    // 覆盖文字级（块进聚段被 [锚点+写位] 原位替换，span 无从展示，挖空语义自然失效）
+    const segs: { start: number; end: number; hole: boolean }[] = [];
     for (let i = 0; i < s.length; i++) {
         if (s[i].isTarget) {
             const start = i;
             while (i < s.length && s[i].isTarget) i++;
-            segs.push({ start, end: i - 1 });
+            segs.push({ start, end: i - 1, hole: false });
+            i--; // while 出列时 i=段后首块，回退让 for 自增重新落在它身上——紧邻靶段的
+                 // 挖空块（isHole）不被跳过（原实现只有 target 成段，跳过的是确定非 target 的
+                 // 终止块，无副作用；hole 加入后该块可能是单块段，必须复查）
+        } else if (s[i].isHole) {
+            segs.push({ start: i, end: i, hole: true });
         }
     }
     // 配对（题面位置化）：窗口 = (段末, 下一段首) / (末段末, 文末)，段末后紧邻的连续
     // !isOld && !isKeep 块=题面，遇 old/keep/target 块停（滤空流上 target 本不进窗口，
-    // 显式判据保语义自足——角色不读：新写块 role 也是 context，题面身份只在位置里）
+    // 显式判据保语义自足——角色不读：新写块 role 也是 context，题面身份只在位置里）；
+    // hole 段同为段边界——靶段后紧跟挖空块时窗口收窄不越段（互不干扰），挖空块后紧邻
+    // 新写块照常升格为该挖空题的题面（现有规则自然延伸）
     const paired = new Map<number, ReciteBlock[]>();
     segs.forEach((seg, gi) => {
         const winEnd = gi + 1 < segs.length ? segs[gi + 1].start : s.length;
@@ -178,6 +194,7 @@ export function extractSpans(stream: ReciteBlock[]): { spans: ExtractSpan[]; emp
     });
     // 整流：照抄块与 [锚点+写位] 单元按文档序排布。照抄逐块入 copy span、相邻合并；
     // 升格题面跳过（已变锚点本体）；无题面考核段=空锚点占位（notes=[] 仍出卷）。
+    // 挖空段段末=块本身进 hole span（照抄 DOM 克隆 + 锚点 + 写位，由调用方装配）。
     const skipNote = new Set<string>();
     paired.forEach(notes => notes.forEach(n => skipNote.add(n.id)));
     const segOf: number[] = [];
@@ -192,17 +209,21 @@ export function extractSpans(stream: ReciteBlock[]): { spans: ExtractSpan[]; emp
         const gi = segOf[j] ?? -1;
         if (gi >= 0) {
             if (j === segs[gi].end) { // 考核段段末原位换 [锚点+写位]
-                spans.push({
-                    kind: "unit",
-                    targets: s.slice(segs[gi].start, segs[gi].end + 1),
-                    notes: paired.get(gi) ?? [],
-                });
+                if (segs[gi].hole) {
+                    spans.push({ kind: "hole", block: s[j], notes: paired.get(gi) ?? [] });
+                } else {
+                    spans.push({
+                        kind: "unit",
+                        targets: s.slice(segs[gi].start, segs[gi].end + 1),
+                        notes: paired.get(gi) ?? [],
+                    });
+                }
             }
         } else if (!skipNote.has(s[j].id)) {
             pushCopy(s[j]);
         }
     }
-    const emptyNoteCount = spans.filter(x => x.kind === "unit" && !x.notes.length).length;
+    const emptyNoteCount = spans.filter(x => (x.kind === "unit" || x.kind === "hole") && !x.notes.length).length;
     return { spans, emptyNoteCount };
 }
 

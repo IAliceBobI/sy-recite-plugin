@@ -40,6 +40,14 @@ export const RECITE_HINT = "custom-recite-hint";
 // noteMarkdown 归一为空串（占位文案不漏给下游——判卷走纯默写 rubric、联想判定天然不触发）。
 // 题目性质由属性定：用户手改占位文字仍判空题（要提示应回原文在考核段后写提示块）。
 export const RECITE_EMPTY_NOTE = "custom-recite-empty-note";
+// 文字级挖空（□H，2026-09-21 bear 拍板）：块级 IAL=custom-recite-hole——块内含挖空标记 span
+// 的快速判据（identifyNotes 走既有 batchGetBlockAttrs 通道零加读；span 本体在块 DOM 里，
+// markdown/kramdown 序列化均剥——探针 6809 实测，故判据不能走 SQL markdown）。行内标记形态
+// =span data-type="recite-hole"（存储/事务 DOM 通道保真、markdown 序列化剥成纯文本=对比左栏
+// 天然见全文）。遮字 CSS 词表匹配必须复合词表 [data-type~="recite-hole"]（内核会把行内格式
+// 合并进同锚 span，词序不定——anno □1 同判例）。
+export const RECITE_HOLE = "custom-recite-hole";
+export const RECITE_HOLE_SPAN = "recite-hole";
 // 温和退出标记（□3 退出层，2026-09-13）：「退出」时给练习期间写的块（later-written=无
 // old 的非空块）挂上——淡背景持久标记「这是仿写时写的」，练习标记全清、衍生文档保留；
 // 重进仿写 enterPractice 跳过 written 块不打 old（保持练习连续）；「删除」
@@ -57,6 +65,11 @@ export const KEEP_MENU_KEY = "keepMenuOn";
 export const TARGET_MENU_KEY = "targetMenuOn";
 export const EXTRACT_TITLE = "抽取";
 export const COMPARE_TITLE = "对比";
+// 收集成文（□E，2026-09-21 bear 点名）：身份属性与标题前缀。与 RECITE_EXTRACT 分野——
+// 收集文档挂原文档下（与「抽取·」平级，不进卷子树：删除练习连删卷子树不波及它——
+// 用户成果独立于练习生命周期）；值=原文档 id，与卷同一对一身份源（卷单例⇒收集单例）
+export const RECITE_COLLECT = "custom-recite-collect";
+export const COLLECT_TITLE = "仿写文";
 export const FLOATBAR_POS_KEY = "sy-recite-floatbar-pos";
 // 五命令默认快捷键（2026-08-25）：⌥⌘ 字母系（Windows 显示 Alt+Ctrl+X）。两条硬约束（实测）：
 // ① 修饰键顺序必须 ⌥ 在前——内核 matchHotKey 的 ⌥ 分支只认 startsWith("⌥⌘")（app/src/protyle/
