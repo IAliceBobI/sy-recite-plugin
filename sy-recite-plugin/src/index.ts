@@ -10,6 +10,7 @@ import { tomatoI18n } from "../../sy-tomato-plugin/src/tomatoI18n";
 import { isObject, Siyuan } from "../../sy-tomato-plugin/src/libs/utils";
 import { migrateLegacyHotkeys } from "../../sy-tomato-plugin/src/libs/hotkeyCap";
 import { installReadonlyHotkeyBridge, uninstallReadonlyHotkeyBridge } from "../../sy-tomato-plugin/src/libs/readonlyHotkey";
+import { startClaimHeartbeat } from "../../sy-tomato-plugin/src/libs/claimLease";
 import { STORAGE_SETTINGS } from "../../sy-tomato-plugin/src/constants";
 import { licenseCloudSynced, userID, userToken } from "../../sy-tomato-plugin/src/libs/stores";
 import { resetKey, verifyKeyRecite } from "../../sy-tomato-plugin/src/libs/user";
@@ -331,6 +332,8 @@ export default class ThePlugin extends BaseTomatoPlugin {
         this.floatComp = mount(FloatBar, { target: this.floatHost, props: { plugin: this } });
         mountReciteMascot(); // 浮条根已就绪：宠物栖身其内（absolute 贴纸位），见 mascot.ts
         statusBtn.refresh();
+        // 订单号信任制租约心跳（2026-09-25，tomato index 同款）；kernel 侧 checkRecitePro 零改动
+        startClaimHeartbeat("recite");
     }
 
     /** siyuan383 □3 多端热更：覆盖即自管（未覆盖=内核对他端每条 petal 写入自动整重载）。
