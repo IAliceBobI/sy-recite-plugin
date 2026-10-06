@@ -449,9 +449,10 @@ export const userID = settingFactory("userID", "", STORAGE_SETTINGS, null as TSK
 // 语义 = 已回填激活码的 md5 指纹（libs/redeem.ts fingerprintOf，spec admin-codes 批次 B1）；
 // 升级前老值为布尔——读到的代码走指纹比对自然处理（布尔必然不等 → 触发一次幂等回填）
 export const licenseCloudSynced = settingFactory("licenseCloudSynced", "", STORAGE_SETTINGS, null as TSK);
-// 订单申报态三态（FC 降本 2026-10-02，libs/claimLease 心跳守卫源）：null=未知（升级存量，
-// 首跳探明落定）/ true=申报租约态（心跳可重建）/ false=已探明无租约（404/终态/转正后
-// 落定）——启动白跳清零的判定依据，详见 claimLease.ts「心跳降频」注释块
+// 订单申报态三态（FC 降本 2026-10-02，libs/claimLease 心跳守卫源；2026-10-06 起严格门：
+// !==true 一律不连）：null=历史残留用户（从未申报，严格门拦下零心跳）/ true=在心跳体系
+// （申报/兑换短码 markClaimPending 落定，心跳可重建）/ false=已探明无租约（404/终态/
+// 转正后落定）——详见 claimLease.ts「心跳降频」「严格门」注释块
 export const claimActive = settingFactory<boolean | null>("claimActive", null, STORAGE_SETTINGS, null as TSK);
 /** 批注收集使用记忆（2026-09-02，不出设置面板行——是记忆不是偏好）：范围/去向/指定文件目标 */
 export const annoCollectScope = settingFactory("annoCollectScope", "doc", STORAGE_SETTINGS, null as TSK);
@@ -700,7 +701,12 @@ export const dailyNoteCopyUseRef = settingFactory("dailyNoteCopyUseRef", true, S
 export const dailyNoteCopyUpdateBG = settingFactory("dailyNoteCopyUpdateBG", true, STORAGE_SETTINGS, null as TSK);
 export const dailyNoteCopyInsertPR = settingFactory("dailyNoteCopyInsertPR", true, STORAGE_SETTINGS, null as TSK);
 export const dailyNoteCopyShowPath = settingFactory("dailyNoteCopyShowPath", true, STORAGE_SETTINGS, null as TSK);
+// 退役（2026-10-04 双菜单改造）：本键不再被消费，仅作迁移源——loadStore 见 true 即开
+// 新键 dailyNoteCopyFlashMenu 并回写 false（不回写=用户日后关菜单项会被残留旧值顶回）
 export const dailyNoteCopyFlashCard = settingFactory("dailyNoteCopyFlashCard", false, STORAGE_SETTINGS, null as TSK);
+// 闪卡变体菜单显隐开关（2026-10-04 双菜单）：控「复制到 dailynote 并加入闪卡」右键菜单项；
+// 命令+快捷键恒注册（菜单运行时门控非结构性，不进 storageHotReload STRUCTURAL_KEYS）
+export const dailyNoteCopyFlashMenu = settingFactory("dailyNoteCopyFlashMenu", false, STORAGE_SETTINGS, null as TSK);
 export const imgOverlayCheckbox = settingFactory("imgOverlayCheckbox", false, STORAGE_SETTINGS, null as TSK);
 export const backLinkBottomBoxCheckbox = settingFactory("backLinkBottomBoxCheckbox", false, STORAGE_SETTINGS, null as TSK);
 export const bk启用禁用文档的底部反链menu = settingFactory("bkenableAndDisablemenu", true, STORAGE_SETTINGS, null as TSK);
