@@ -28,8 +28,8 @@
     import { startAISplit, aiSplit } from "./aiSplit";
     import type { AISplitMode } from "./aiSplit";
     import { openDiffCheck } from "./diffCheck";
-    import { FLOATBAR_POS_KEY } from "./constants";
     import { selmlOn } from "./uiState";
+    import { loadFloatBarPos, saveFloatBarPos } from "./floatBarPos";
     import { reciteIcon } from "./reciteIcons";
     import { setBlocksRole, type SettableRole } from "./role";
     import { setHoleFromSelection } from "./hole";
@@ -234,24 +234,24 @@
     let y = $state(200);
     // 拖动动效态（2026-08-25 浮条美化）：--drag = 拖动中（.12s 缓动追手 + 微放大），--settle =
     // 释放后 .25s 收尾；两态只切类，坐标仍走内联 left/top（index.scss 态类上声明过渡，平时无
-    // 过渡——localStorage 位置恢复不滑移）。300ms（> .25s）后摘 settle，防过渡中途摘类跳变。
+    // 过渡——存档位置恢复不滑移）。300ms（> .25s）后摘 settle，防过渡中途摘类跳变。
     let dragging = $state(false);
     let settling = $state(false);
     let settleTimer: ReturnType<typeof setTimeout>;
 
     let bar: HTMLElement = $state();
 
-    // 位置存 localStorage（spec：可拖、位置存 localStorage，不走 tomato 配置）。
+    // 位置存 reciteFloatBarPos 档（lsfix 2026-10-13：桌面 Electron 每次启动随机端口换
+    // origin，localStorage 跨重启必丢——qeBallPos 同病根；localStorage 降级为旧档一次性
+    // 收编源，读写封装在 floatBarPos.ts）。
     // 读位置必须在组件初始化（非 $effect）里做：effect 里调 clamp 会让依赖集含 x/y，
-    // 之后拖拽每次写 x/y 都重放 localStorage 旧值把条打回原地、越界还原还会振荡到
+    // 之后拖拽每次写 x/y 都重放旧档把条打回原地、越界还原还会振荡到
     // effect_update_depth_exceeded（review P0-1，svelte 5.57 复现实锤）
-    try {
-        const pos = JSON.parse(localStorage.getItem(FLOATBAR_POS_KEY) ?? "null");
-        if (pos?.x != null && pos?.y != null) {
-            x = pos.x;
-            y = pos.y;
-        }
-    } catch { /* 坏数据忽略 */ }
+    const pos = loadFloatBarPos();
+    if (pos) {
+        x = pos.x;
+        y = pos.y;
+    }
 
     function clamp() {
         // 量实测尺寸（compare 态两行 ~90px 只是估值的下限；拖拽早期未量到退固定值）
@@ -299,7 +299,8 @@
             dragging = false;
             settling = true;
             settleTimer = setTimeout(() => (settling = false), 300);
-            localStorage.setItem(FLOATBAR_POS_KEY, JSON.stringify({ x, y }));
+            // 松手落盘：store.set 后紧跟 write 确定性落盘（set 只写内存，见 floatBarPos.ts）
+            saveFloatBarPos({ x, y });
         };
         document.addEventListener("pointermove", move);
         document.addEventListener("pointerup", up);

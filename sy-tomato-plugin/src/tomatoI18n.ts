@@ -3180,6 +3180,30 @@ export class TomatoI18n extends TomatoI18nABC {
             default: return "Re-read (from Start)";
         }
     }
+    /** manualfin 件2：手动书右键「标记已读完」（存储位 finishedManual，标后退出轮转） */
+    public get 标记已读完() {
+        switch (this.lang) {
+            case "zh_CN": return "标记已读完";
+            case "zh_CHT": return "標記已讀完";
+            case "es_ES": return "Marcar como leído";
+            case "fr_FR": return "Marquer comme lu";
+            case "ja_JP": return "読み終えたとマーク";
+            case "en_US":
+            default: return "Mark as Finished";
+        }
+    }
+    /** manualfin 件2：标记成功 toast（退出轮转=滚筒 finishedIDs 收编，撤销走「重新阅读（从头）」） */
+    public get 已标记读完退出轮转() {
+        switch (this.lang) {
+            case "zh_CN": return "已标记读完，退出轮转";
+            case "zh_CHT": return "已標記讀完，退出輪轉";
+            case "es_ES": return "Marcado como leído, fuera de la rotación";
+            case "fr_FR": return "Marqué comme lu, hors rotation";
+            case "ja_JP": return "読了としてマークし、ローテーションから外れました";
+            case "en_US":
+            default: return "Marked as finished, removed from rotation";
+        }
+    }
     public get 从这里开始学() {
         switch (this.lang) {
             case "zh_CN": return "从这里开始学";
@@ -14017,6 +14041,119 @@ export class TomatoI18n extends TomatoI18nABC {
             default: return "Copy selected fragment instead of whole block";
         }
     }
+    // A1 复制收集落点三档（陆杰 2026-10-11）：select 行+三选项；仅「复制到 dailynote」链生效
+    public get 复制收集落点() {
+        switch (this.lang) {
+            case "zh_CN": return "复制收集落点";
+            case "zh_CHT": return "複製收集落點";
+            case "es_ES": return "Destino de la copia";
+            case "fr_FR": return "Destination de la copie";
+            case "ja_JP": return "コピー収集の宛先";
+            case "en_US":
+            default: return "Copy collection target";
+        }
+    }
+    public get 落点当日日记() {
+        switch (this.lang) {
+            case "zh_CN": return "当日日记";
+            case "zh_CHT": return "當日日記";
+            case "es_ES": return "Diario del día";
+            case "fr_FR": return "Journal du jour";
+            case "ja_JP": return "当日の日記";
+            case "en_US":
+            default: return "Today's daily note";
+        }
+    }
+    public get 落点固定文档() {
+        switch (this.lang) {
+            case "zh_CN": return "固定文档";
+            case "zh_CHT": return "固定文檔";
+            case "es_ES": return "Documento fijo";
+            case "fr_FR": return "Document fixe";
+            case "ja_JP": return "固定ドキュメント";
+            case "en_US":
+            default: return "Fixed document";
+        }
+    }
+    public get 落点来源子文档() {
+        switch (this.lang) {
+            case "zh_CN": return "来源文档下建子文档「收集 YYYYMMDD」";
+            case "zh_CHT": return "來源文檔下建子文檔「收集 YYYYMMDD」";
+            case "es_ES": return "Subdocumento «收集 YYYYMMDD» bajo el original";
+            case "fr_FR": return "Sous-document « 收集 YYYYMMDD » sous le document source";
+            case "ja_JP": return "元ドキュメント下に「収集 YYYYMMDD」サブドキュメント";
+            case "en_US":
+            default: return "Child doc \"收集 YYYYMMDD\" under the source";
+        }
+    }
+    // A2 划词片段纯净档（片段级，勿与块级「简单复制」混淆）：开关行+说明
+    public get 划词片段纯净落块() {
+        switch (this.lang) {
+            case "zh_CN": return "划词片段纯净落块（片段级）";
+            case "zh_CHT": return "劃詞片段純淨落塊（片段級）";
+            case "es_ES": return "Copia limpia del fragmente (nivel fragmento)";
+            case "fr_FR": return "Copie épurée du fragment (niveau fragment)";
+            case "ja_JP": return "フラグメントをクリーンに落塊（フラグメント単位）";
+            case "en_US":
+            default: return "Plain fragment copy (fragment level)";
+        }
+    }
+    public get 划词片段纯净落块说明() {
+        switch (this.lang) {
+            case "zh_CN": return "不套收集壳、不挂任何属性与源锚：片段直落段落、条间空行、保留行内样式；不进时间间隔统计与近期列表（与速记纯文本同口径）";
+            case "zh_CHT": return "不套收集殼、不掛任何屬性與源錨：片段直落段落、條間空行、保留行內樣式；不進時間間隔統計與近期列表（與速記純文本同口徑）";
+            case "es_ES": return "Sin contenedor ni atributos ni ancla al origen: el fragmento cae como párrafo directo, con línea en blanco entre entradas y estilos en línea conservados; no entra en las estadísticas de intervalos ni en la lista reciente (mismo criterio que el texto plano de las notas rápidas)";
+            case "fr_FR": return "Sans conteneur, sans attributs ni ancre source : le fragment tombe en paragraphe direct, une ligne vide entre entrées, styles en ligne conservés ; hors statistiques d'intervalles et liste récente (même règle que le texte simple des notes rapides)";
+            case "ja_JP": return "収集シェルも属性もソースアンカーも付けない：フラグメントは段落として直接落ち、エントリ間に空行、インラインスタイルは保持。時間間隔統計と最近リストには入らない（速記プレーンテキストと同じ扱い）";
+            case "en_US":
+            default: return "No container shell, no attributes, no source anchor: the fragment lands as a bare paragraph with a blank line between entries, inline styles kept; excluded from interval stats and the recent list (same as plain quick-note text)";
+        }
+    }
+    // A3 复制锚三态：select 行+三选项（旧布尔「使用引用来回溯」迁移而来）
+    public get 复制锚形态() {
+        switch (this.lang) {
+            case "zh_CN": return "复制锚形态";
+            case "zh_CHT": return "複製錨形態";
+            case "es_ES": return "Forma del ancla al copiar";
+            case "fr_FR": return "Forme de l'ancre de copie";
+            case "ja_JP": return "コピーアンカー形式";
+            case "en_US":
+            default: return "Copy anchor form";
+        }
+    }
+    public get 锚形态引用() {
+        switch (this.lang) {
+            case "zh_CN": return "引用";
+            case "zh_CHT": return "引用";
+            case "es_ES": return "Referencia";
+            case "fr_FR": return "Référence";
+            case "ja_JP": return "参照";
+            case "en_US":
+            default: return "Reference";
+        }
+    }
+    public get 锚形态超链接() {
+        switch (this.lang) {
+            case "zh_CN": return "超链接";
+            case "zh_CHT": return "超連結";
+            case "es_ES": return "Hipervínculo";
+            case "fr_FR": return "Hyperlien";
+            case "ja_JP": return "ハイパーリンク";
+            case "en_US":
+            default: return "Hyperlink";
+        }
+    }
+    public get 锚形态不挂锚() {
+        switch (this.lang) {
+            case "zh_CN": return "不挂锚";
+            case "zh_CHT": return "不掛錨";
+            case "es_ES": return "Sin ancla";
+            case "fr_FR": return "Aucune ancre";
+            case "ja_JP": return "アンカーなし";
+            case "en_US":
+            default: return "No anchor";
+        }
+    }
     public get 搬运官方速记到日记() {
         switch (this.lang) {
             case "zh_CN": return "搬运官方速记到日记";
@@ -14121,16 +14258,18 @@ export class TomatoI18n extends TomatoI18nABC {
     }
     // need-0926-13 自定义图标「别名型」声明语法：设置项说明行（@别名 后缀=不建引用文档）；
     // need-0928-01 补尾 @ 不计时声明（再叠一个 @=该类不落时间记录属性、不隔断相邻记录
-    // 的间隔统计，分类标记保留——陆杰飞书 om_x100b64940882dcacb2631b2f714bb32）
+    // 的间隔统计，分类标记保留——陆杰飞书 om_x100b64940882dcacb2631b2f714bb32）；
+    // need-1011-01 补尾 ! 时间链断点声明（该条=新链起点，与上一条的间隔不计入、
+    // 自身照常计时，分类标记与时间记录照落——陆杰 10-01 分割线提案窄化版）
     public get 图标别名后缀说明() {
         switch (this.lang) {
-            case "zh_CN": return "词尾加 @别名 声明为别名型图标：不建引用文档，文字型正文开头留「名称：」前缀，emoji 型正文零标记；词尾再叠 @（如「喝水@」「喝水@别名@」）=该类不计时：不落时间记录属性、不隔断相邻记录的间隔统计，分类标记保留；不带后缀照旧建引用";
-            case "zh_CHT": return "詞尾加 @別名 聲明為別名型圖標：不建引用文檔，文字型正文開頭留「名稱：」前綴，emoji 型正文零標記；詞尾再疊 @（如「喝水@」「喝水@別名@」）=該類不計時：不落時間記錄屬性、不隔斷相鄰記錄的間隔統計，分類標記保留；不帶後綴照舊建引用";
-            case "es_ES": return "Añade @别名 al final de una palabra para declararla tipo alias: no crea documento de referencia; los tipos de texto anteponen «nombre:» al cuerpo, los emoji lo dejan limpio. Una @ final adicional (p. ej. «agua@», «agua@别名@») declara la categoría sin cronometraje: sin atributos de hora, sin cortar el cálculo de intervalos entre registros vecinos, y la etiqueta de categoría se conserva; sin sufijo se sigue creando la referencia";
-            case "fr_FR": return "Ajoutez @别名 en fin de mot pour le déclarer type alias : aucun document de référence créé ; les types texte préfixent le corps avec « nom : », les emoji le laissent tel quel. Un @ final supplémentaire (ex. « eau@ », « eau@别名@ ») déclare la catégorie non chronométrée : pas d'attribut horaire, pas de coupure dans le calcul des intervalles entre enregistrements voisins, l'étiquette de catégorie est conservée ; sans suffixe, la référence est créée comme avant";
-            case "ja_JP": return "語尾に @别名 を付けると別名型アイコン：参照文書を作成せず、テキスト型は本文の先頭に「名称：」接頭辞、emoji 型は本文ゼロマーク。さらに語尾に @ を重ねる（例「水@」「水@别名@」）と非計時カテゴリ：時刻記録属性を持たせず、隣接記録の間隔計算も遮断せず、分類マークは保持。接尾辞なしは従来どおり参照を作成";
+            case "zh_CN": return "词尾加 @别名 声明为别名型图标：不建引用文档，文字型正文开头留「名称：」前缀，emoji 型正文零标记；词尾再叠 @（如「喝水@」「喝水@别名@」）=该类不计时：不落时间记录属性、不隔断相邻记录的间隔统计，分类标记保留；词尾再叠 !（如「午休!」「午休!@」）=时间链断点：该条视为新链起点，与上一条之间的间隔不计入，该条自身照常计时（分类标记与时间记录照落）——但 @ 与 ! 标记均走块属性通道，emoji 型或带 @别名 的别名型才生效，纯文字词默认引用型不生效（需要时先加 @别名 转为别名型）；不带后缀照旧建引用";
+            case "zh_CHT": return "詞尾加 @別名 聲明為別名型圖標：不建引用文檔，文字型正文開頭留「名稱：」前綴，emoji 型正文零標記；詞尾再疊 @（如「喝水@」「喝水@別名@」）=該類不計時：不落時間記錄屬性、不隔斷相鄰記錄的間隔統計，分類標記保留；詞尾再疊 !（如「午休!」「午休!@」）=時間鏈斷點：該條視為新鏈起點，與上一條之間的間隔不計入，該條自身照常計時（分類標記與時間記錄照落）——但 @ 與 ! 標記均走塊屬性通道，emoji 型或帶 @別名 的別名型才生效，純文字詞默認引用型不生效（需要時先加 @別名 轉為別名型）；不帶後綴照舊建引用";
+            case "es_ES": return "Añade @别名 al final de una palabra para declararla tipo alias: no crea documento de referencia; los tipos de texto anteponen «nombre:» al cuerpo, los emoji lo dejan limpio. Una @ final adicional (p. ej. «agua@», «agua@别名@») declara la categoría sin cronometraje: sin atributos de hora, sin cortar el cálculo de intervalos entre registros vecinos, y la etiqueta de categoría se conserva. Un ! final adicional (p. ej. «siesta!», «siesta!@») declara ruptura de la cadena temporal: esa entrada se considera inicio de una nueva cadena y su intervalo con la anterior no se cuenta, aunque la propia entrada sí se cronometra como siempre (etiqueta de categoría y registro de hora se mantienen) — pero tanto @ como ! funcionan vía atributos de bloque: solo surten efecto en tipos emoji o alias (con @别名); los tipos de texto puro, de tipo referencia por defecto, no se ven afectados (añade primero @别名 para convertirlos); sin sufijo se sigue creando la referencia";
+            case "fr_FR": return "Ajoutez @别名 en fin de mot pour le déclarer type alias : aucun document de référence créé ; les types texte préfixent le corps avec « nom : », les emoji le laissent tel quel. Un @ final supplémentaire (ex. « eau@ », « eau@别名@ ») déclare la catégorie non chronométrée : pas d'attribut horaire, pas de coupure dans le calcul des intervalles entre enregistrements voisins, l'étiquette de catégorie est conservée. Un ! final supplémentaire (ex. « sieste! », « sieste!@ ») déclare une rupture de chaîne temporelle : cette entrée devient le départ d'une nouvelle chaîne, l'intervalle avec la précédente n'est pas compté, mais l'entrée elle-même reste chronométrée normalement (étiquette de catégorie et relevé d'heure conservés) — mais @ comme ! passent par les attributs de bloc : ils ne prennent effet que sur les types emoji ou alias (avec @别名) ; les types texte pur, de type référence par défaut, ne sont pas concernés (ajoutez d'abord @别名 pour convertir) ; sans suffixe, la référence est créée comme avant";
+            case "ja_JP": return "語尾に @别名 を付けると別名型アイコン：参照文書を作成せず、テキスト型は本文の先頭に「名称：」接頭辞、emoji 型は本文ゼロマーク。さらに語尾に @ を重ねる（例「水@」「水@别名@」）と非計時カテゴリ：時刻記録属性を持たせず、隣接記録の間隔計算も遮断せず、分類マークは保持。語尾にさらに ! を重ねる（例「昼休み!」「昼休み!@」）と時間チェーンの断点：その記録は新しいチェーンの起点とみなされ、前の記録との間隔は計算に入れませんが、その記録自体は通常どおり計時されます（分類マークと時刻記録はそのまま）——ただし @ と ! のマークはいずれもブロック属性チャネルで動作し、emoji 型または @别名 付きの別名型のみ有効、テキスト型のデフォルト参照型では無効です（必要なら先に @别名 を付けて別名型に）。接尾辞なしは従来どおり参照を作成";
             case "en_US":
-            default: return "Suffix @别名 declares an alias kind: no ref doc created; text kinds prefix the body with \"name:\", emoji kinds keep the body clean. An extra trailing @ (e.g. \"water@\", \"water@别名@\") marks the kind untimed: no time attrs, no breaking interval stats between neighboring records, while the category label stays; without suffixes a reference is created as before";
+            default: return "Suffix @别名 declares an alias kind: no ref doc created; text kinds prefix the body with \"name:\", emoji kinds keep the body clean. An extra trailing @ (e.g. \"water@\", \"water@别名@\") marks the kind untimed: no time attrs, no breaking interval stats between neighboring records, while the category label stays. An extra trailing ! (e.g. \"lunch!\", \"lunch!@\") marks a time-chain breakpoint: the entry counts as the start of a new chain, so its interval from the previous one is excluded, while the entry itself is timed as usual (category label and time record stay) — but both @ and ! markers ride block attributes: they only take effect on emoji kinds or alias kinds (with @别名); plain-text kinds default to the ref type and are not affected (add @别名 first to convert); without suffixes a reference is created as before";
         }
     }
     public get 官方速记今日无中转文档() {
@@ -16595,6 +16734,234 @@ export class TomatoI18n extends TomatoI18nABC {
             case "zh_CHT": return "打開前綴文檔樹面板";
             case "en_US":
             default: return "Open prefix tree panel";
+        }
+    }
+
+    // ---- navcompass（2026-10-11）：十字罗盘导航=第四悬浮球（设置域/罗盘 UI/四方向命令文案） ----
+    public get 十字罗盘() {
+        switch (this.lang) {
+            case "zh_CN": return "十字罗盘";
+            case "zh_CHT": return "十字羅盤";
+            case "en_US":
+            default: return "Nav compass";
+        }
+    }
+    public get 十字罗盘说明() {
+        switch (this.lang) {
+            case "zh_CN": return "第四颗悬浮球：点球变身十字 D-pad，在文档树上方向导航（默认 ↑父文档 ↓第一个子文档 ←前一个兄弟 →后一个兄弟），边界方向键置灰不回绕；罗盘可整体拖动，点外部/Esc/点中心收起回球。";
+            case "zh_CHT": return "第四顆懸浮球：點球變身十字 D-pad，在文檔樹上方向導航（默認 ↑父文檔 ↓第一個子文檔 ←前一個兄弟 →後一個兄弟），邊界方向鍵置灰不回繞；羅盤可整體拖動，點外部/Esc/點中心收起回球。";
+            case "en_US":
+            default: return "The 4th floating ball: tap to morph into a D-pad compass for tree navigation (default: ↑ parent, ↓ first child, ← prev sibling, → next sibling). Boundary keys are greyed out without wrapping; drag the whole compass; tap outside / Esc / tap center to collapse back to the ball.";
+        }
+    }
+    public get 桌面端启用十字罗盘() {
+        switch (this.lang) {
+            case "zh_CN": return "桌面端启用十字罗盘";
+            case "zh_CHT": return "桌面端啟用十字羅盤";
+            case "en_US":
+            default: return "Enable nav compass on desktop";
+        }
+    }
+    public get 手机端启用十字罗盘() {
+        switch (this.lang) {
+            case "zh_CN": return "手机端启用十字罗盘";
+            case "zh_CHT": return "手機端啟用十字羅盤";
+            case "en_US":
+            default: return "Enable nav compass on mobile";
+        }
+    }
+    public get 方向流派() {
+        switch (this.lang) {
+            case "zh_CN": return "方向流派";
+            case "zh_CHT": return "方向流派";
+            case "en_US":
+            default: return "Direction scheme";
+        }
+    }
+    public get 树形流派() {
+        switch (this.lang) {
+            case "zh_CN": return "树形流派（↑父 ↓首子 ←前兄 →后兄）";
+            case "zh_CHT": return "樹形流派（↑父 ↓首子 ←前兄 →後兄）";
+            case "en_US":
+            default: return "Tree scheme (↑ parent ↓ first child ← prev → next sibling)";
+        }
+    }
+    public get 霸主流派() {
+        switch (this.lang) {
+            case "zh_CN": return "霸主流派（←→父子 ↑↓前后篇）";
+            case "zh_CHT": return "霸主流派（←→父子 ↑↓前後篇）";
+            case "en_US":
+            default: return "Hierarchy scheme (←→ parent/child ↑↓ prev/next doc)";
+        }
+    }
+    public get 展开或收起十字罗盘() {
+        switch (this.lang) {
+            case "zh_CN": return "展开或收起十字罗盘";
+            case "zh_CHT": return "展開或收起十字羅盤";
+            case "en_US":
+            default: return "Toggle nav compass";
+        }
+    }
+    public get 罗盘向上导航() {
+        switch (this.lang) {
+            case "zh_CN": return "十字罗盘 · 向上导航";
+            case "zh_CHT": return "十字羅盤 · 向上導航";
+            case "en_US":
+            default: return "Nav compass · up";
+        }
+    }
+    public get 罗盘向下导航() {
+        switch (this.lang) {
+            case "zh_CN": return "十字罗盘 · 向下导航";
+            case "zh_CHT": return "十字羅盤 · 向下導航";
+            case "en_US":
+            default: return "Nav compass · down";
+        }
+    }
+    public get 罗盘向左导航() {
+        switch (this.lang) {
+            case "zh_CN": return "十字罗盘 · 向左导航";
+            case "zh_CHT": return "十字羅盤 · 向左導航";
+            case "en_US":
+            default: return "Nav compass · left";
+        }
+    }
+    public get 罗盘向右导航() {
+        switch (this.lang) {
+            case "zh_CN": return "十字罗盘 · 向右导航";
+            case "zh_CHT": return "十字羅盤 · 向右導航";
+            case "en_US":
+            default: return "Nav compass · right";
+        }
+    }
+    public get 罗盘导航到父文档() {
+        switch (this.lang) {
+            case "zh_CN": return "父文档";
+            case "zh_CHT": return "父文檔";
+            case "en_US":
+            default: return "Parent";
+        }
+    }
+    public get 罗盘导航到首子文档() {
+        switch (this.lang) {
+            case "zh_CN": return "首子文档";
+            case "zh_CHT": return "首子文檔";
+            case "en_US":
+            default: return "First child";
+        }
+    }
+    public get 罗盘导航到前一篇() {
+        switch (this.lang) {
+            case "zh_CN": return "前一篇";
+            case "zh_CHT": return "前一篇";
+            case "en_US":
+            default: return "Previous doc";
+        }
+    }
+    public get 罗盘导航到后一篇() {
+        switch (this.lang) {
+            case "zh_CN": return "后一篇";
+            case "zh_CHT": return "後一篇";
+            case "en_US":
+            default: return "Next doc";
+        }
+    }
+    // ---- navflip（2026-10-11）：翻页模式=浏览历史回退/前进+最新处续读 ----
+    public get 罗盘导航到上一个浏览() {
+        switch (this.lang) {
+            case "zh_CN": return "上一个浏览";
+            case "zh_CHT": return "上一個瀏覽";
+            case "en_US":
+            default: return "Previously viewed";
+        }
+    }
+    public get 罗盘导航到下一个浏览() {
+        switch (this.lang) {
+            case "zh_CN": return "下一个浏览";
+            case "zh_CHT": return "下一個瀏覽";
+            case "en_US":
+            default: return "Next viewed";
+        }
+    }
+    // ---- navflip-r2：进入子文件夹位置记忆（落到该文档下上次浏览的子文档） ----
+    public get 罗盘导航到上次浏览() {
+        switch (this.lang) {
+            case "zh_CN": return "上次浏览";
+            case "zh_CHT": return "上次瀏覽";
+            case "en_US":
+            default: return "Last viewed";
+        }
+    }
+    public get 翻页模式() {
+        switch (this.lang) {
+            case "zh_CN": return "翻页模式";
+            case "zh_CHT": return "翻頁模式";
+            case "en_US":
+            default: return "Flip mode";
+        }
+    }
+    public get 翻页跟随文件夹序() {
+        switch (this.lang) {
+            case "zh_CN": return "文件夹顺序（前后篇）";
+            case "zh_CHT": return "文件夾順序（前後篇）";
+            case "en_US":
+            default: return "Folder order (prev/next)";
+        }
+    }
+    public get 翻页跟随浏览历史() {
+        switch (this.lang) {
+            case "zh_CN": return "浏览历史（回退翻看，最新处续读下一篇）";
+            case "zh_CHT": return "瀏覽歷史（回退翻看，最新處續讀下一篇）";
+            case "en_US":
+            default: return "Browsing history (back; resume next at latest)";
+        }
+    }
+    public get 罗盘加载中() {
+        switch (this.lang) {
+            case "zh_CN": return "加载中…";
+            case "zh_CHT": return "載入中…";
+            case "en_US":
+            default: return "Loading…";
+        }
+    }
+    public get 罗盘加载失败点击重试() {
+        switch (this.lang) {
+            case "zh_CN": return "加载失败，点击方向键重试";
+            case "zh_CHT": return "載入失敗，點擊方向鍵重試";
+            case "en_US":
+            default: return "Failed to load; tap a direction key to retry";
+        }
+    }
+    public get 罗盘当前文档() {
+        switch (this.lang) {
+            case "zh_CN": return "当前文档";
+            case "zh_CHT": return "當前文檔";
+            case "en_US":
+            default: return "Current doc";
+        }
+    }
+    public get 罗盘目标已失效() {
+        switch (this.lang) {
+            case "zh_CN": return "目标文档已不存在，已刷新罗盘";
+            case "zh_CHT": return "目標文檔已不存在，已刷新羅盤";
+            case "en_US":
+            default: return "Target doc no longer exists; compass refreshed";
+        }
+    }
+    public get 长按球打开十字罗盘设置() {
+        switch (this.lang) {
+            case "zh_CN": return "长按 0.5 秒打开十字罗盘设置";
+            case "zh_CHT": return "長按 0.5 秒打開十字羅盤設置";
+            case "en_US":
+            default: return "Long-press 0.5s to open nav compass settings";
+        }
+    }
+    public get 无方向可导航() {
+        switch (this.lang) {
+            case "zh_CN": return "无";
+            case "zh_CHT": return "無";
+            case "en_US":
+            default: return "None";
         }
     }
 }

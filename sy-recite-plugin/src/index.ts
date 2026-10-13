@@ -12,7 +12,7 @@ import { migrateLegacyHotkeys } from "../../sy-tomato-plugin/src/libs/hotkeyCap"
 import { installReadonlyHotkeyBridge, uninstallReadonlyHotkeyBridge } from "../../sy-tomato-plugin/src/libs/readonlyHotkey";
 import { startClaimHeartbeat } from "../../sy-tomato-plugin/src/libs/claimLease";
 import { STORAGE_SETTINGS } from "../../sy-tomato-plugin/src/constants";
-import { claimActive, licenseCloudSynced, userID, userToken } from "../../sy-tomato-plugin/src/libs/stores";
+import { claimActive, licenseCloudSynced, reciteFloatBarPos, userID, userToken } from "../../sy-tomato-plugin/src/libs/stores";
 import { resetKey, verifyKeyRecite } from "../../sy-tomato-plugin/src/libs/user";
 import { statusBtn, togglePractice, enterPractice, reciteDoc } from "./statusBtn";
 import { highlight } from "./highlight";
@@ -42,6 +42,10 @@ function loadStore(plugin: BaseTomatoPlugin) {
     // 移动端选块三钮开关（2026-09-09）：settingCfg 落盘键 mobileSelectBtns，store 驱动
     // FloatBar {#if} 即时生效（taskCfg 装载后必经此处，浮条 mount 在 onload 更晚不抢先）
     selmlOn.set((plugin.settingCfg as any)?.mobileSelectBtns !== false);
+    // 仿写浮条位置（lsfix 2026-10-13 家族战役）：桌面 Electron 每次启动随机端口换
+    // origin=localStorage 跨重启必丢，位置档迁 settingCfg 工作空间持久化；漏登记=
+    // set/write 全部静默无效（docs/agents/settings.md 四步法）
+    reciteFloatBarPos.load(plugin);
 }
 
 export default class ThePlugin extends BaseTomatoPlugin {
