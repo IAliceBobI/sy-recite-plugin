@@ -427,8 +427,9 @@ export async function rebuildExtractDoc( // export 仅为单测可注入（kerne
     if (!extractID) {
         // 新建路径（首次装配+病卷自愈共用）：空 markdown 建文档自带种子空段块；①拆事务
         // 两笔——单元先锚种子插入（unitReplaceOps 与前端 insertUnitsDoc 共用），成功后
-        // 独立事务删种子
-        extractID = await api.createDocWithMd(originInfo.box, `${hpath}/${name}`, "");
+        // 独立事务删种子。第 4 参 originID=B0 C 档直给父 id（父=原文档恒在手，新通道
+        // 跳过 hpath 逐级解析；撞名去重上方 occupants 已做=find-first 语义）
+        extractID = await api.createDocWithMd(originInfo.box, `${hpath}/${name}`, "", originID);
         const seed = (await api.getChildBlocks(extractID))[0]?.id;
         echoed = await api.transactions(unitReplaceOps(units, seed, extractID, [])).catch(() => null);
         if (!echoed) return { error: "练习卷单元插入被拒（新卷种子完好），请重试" };

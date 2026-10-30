@@ -184,7 +184,17 @@ export async function doCompare(plugin: Plugin, extractID: string) {
         await unCardChildren(old.id);
         await siyuan.removeDocByIDSiyuan(old.id);
     }
-    const cmpID = await insertUnitsDoc(info.box, old.hpath, units, { [RECITE_COMPARE]: extractID } as AttrType);
+    let cmpID: string | null = null;
+    try {
+        // parentID=extractID（B0 C 档）：父=抽取文档恒在手，新通道跳过 hpath 逐级解析
+        cmpID = await insertUnitsDoc(info.box, old.hpath, units, { [RECITE_COMPARE]: extractID } as AttrType, extractID);
+    } catch (e) {
+        // B1 型1（先删后建单例链=数据面风险最高点）：建档 throw 化（3.8.9 寻址被拒穷尽两
+        // 通道后 DocCreateError）——旧对比文档已删（原语义即如此，无法回滚），catch 归 null
+        // 走下方原失败文案中止后续（勿假报生成/勿打开文档），重试点对比即重建；判卷块级卡
+        // 成孤儿的窗口与旧版静默失败等价，不再叠加 rejection 直冒 UI
+        debugLog("recite.compare", `compare rebuild failed: ${e instanceof Error ? e.message : String(e)}`, "recite");
+    }
     if (!cmpID) { // □B③ 假成功复核读失败（insertUnitsDoc 内已复核卷内块数）——勿假报生成
         await siyuan.pushMsg("对比文档生成失败，请重试", 2500);
         return;

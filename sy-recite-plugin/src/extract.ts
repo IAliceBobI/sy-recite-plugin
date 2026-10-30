@@ -203,9 +203,14 @@ export async function verifyUnitsInDoc(docID: string, expected: number): Promise
  * （种子段 blocktree 行永久丢失=病卷，此后重试锚病种子恒炸 insertion target block
  * not found→TxErrCodeReloadUI 整页刷新永不自愈）；拆开后插入失败文档仍是种子完好的
  * 空文档可重试，种子删除独立成笔不牵连单元。□B③ 回执后复核读卷内块数。
+ * parentID（B0 C 档，3.8.9 双通道适配）：父文档 id 直给（抽取/收集=原文档、对比=抽取
+ * 文档，调用方恒在手）→ createDocSmart 新通道跳过 hpath 逐级解析；不传退化 A 档全段
+ * 解析（resolveParentChain 含同名认领，功能等价、多几次解析请求+标题链歧义敏感——B0
+ * 的收益即避开这两点）。建档 throw 化（寻址被拒穷尽两通道后 DocCreateError）由三链
+ * 调用方 catch（B1）。
  */
-export async function insertUnitsDoc(box: string, hpath: string, units: string[], attrs: AttrType): Promise<string | null> {
-    const docID = await siyuan.createDocWithMd(box, hpath, "");
+export async function insertUnitsDoc(box: string, hpath: string, units: string[], attrs: AttrType, parentID?: string): Promise<string | null> {
+    const docID = await siyuan.createDocSmart(box, hpath, "", { parentID });
     const seed = (await siyuan.getChildBlocks(docID))[0]?.id;
     if (units.length) {
         const ret = await siyuan.transactions(unitReplaceOps(units, seed, docID, []));
@@ -233,7 +238,7 @@ export async function insertUnitsDoc(box: string, hpath: string, units: string[]
  * 换回可用优先）。①拆事务同 insertUnitsDoc（先插单元锚旧首块=旧种子位，成功后第二笔
  * 独立事务删全部旧块含锚——插入被拒时旧卷原样保留零损伤）。③回执后复核读卷内块数。
  */
-export async function replaceUnitsInPlace(docID: string, units: string[], box: string, hpath: string, attrs: AttrType): Promise<string | null> {
+export async function replaceUnitsInPlace(docID: string, units: string[], box: string, hpath: string, attrs: AttrType, parentID?: string): Promise<string | null> {
     const children = (await siyuan.getChildBlocks(docID)) ?? [];
     const anchor = children[0]?.id;
     if (anchor && !(await siyuan.getBlockInfo(anchor).catch(() => null))) {
@@ -243,7 +248,7 @@ export async function replaceUnitsInPlace(docID: string, units: string[], box: s
         await unCardChildren(docID);
         await siyuan.removeDocByIDSiyuan(docID);
         debugLog("recite.extract", `sick doc rebind doc=${docID.slice(-8)} anchor=${anchor.slice(-8)}`, "recite");
-        return insertUnitsDoc(box, hpath, units, attrs);
+        return insertUnitsDoc(box, hpath, units, attrs, parentID);
     }
     await unCardChildren(docID);
     if (units.length) {
@@ -504,13 +509,20 @@ async function rebuildExtractDoc(plugin: Plugin, originID: string, units: string
     const old = await findReciteChildDoc({ box: info.box, path: info.path, hpath }, derivedTitle(EXTRACT_TITLE, info.rootTitle), RECITE_EXTRACT, originID);
     let extractID: string | null = null;
     const extractAttrs = { [RECITE_EXTRACT]: originID } as AttrType;
-    if (old.id) {
-        extractID = await replaceUnitsInPlace(old.id, units, info.box, old.hpath, extractAttrs);
-        // 病卷自愈走新建时 extractID 是新文档 id（≠old.id）：标题按入参 hpath 建即正确，
-        // 无需跟随；in-place 成功 id 不变，改名跟随照旧
-        if (extractID && extractID === old.id) await syncDerivedTitle(old.id, old.hpath);
-    } else {
-        extractID = await insertUnitsDoc(info.box, old.hpath, units, extractAttrs);
+    try {
+        if (old.id) {
+            // parentID=originID（B0 C 档）：父=原文档恒在手，新通道跳过 hpath 逐级解析
+            extractID = await replaceUnitsInPlace(old.id, units, info.box, old.hpath, extractAttrs, originID);
+            // 病卷自愈走新建时 extractID 是新文档 id（≠old.id）：标题按入参 hpath 建即正确，
+            // 无需跟随；in-place 成功 id 不变，改名跟随照旧
+            if (extractID && extractID === old.id) await syncDerivedTitle(old.id, old.hpath);
+        } else {
+            extractID = await insertUnitsDoc(info.box, old.hpath, units, extractAttrs, originID);
+        }
+    } catch (e) {
+        // B1 型1：建档 throw 化（3.8.9 寻址被拒穷尽两通道后 DocCreateError）后原判空接不住
+        // throw——catch 归 null 复用下方原失败文案（toast 骨架不动），rejection 不再直冒 UI
+        debugLog("recite.extract", `rebuildExtractDoc failed: ${e instanceof Error ? e.message : String(e)}`, "recite");
     }
     if (!extractID) {
         await siyuan.pushMsg("卷面重建失败，请重试", 2500);

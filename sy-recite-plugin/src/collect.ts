@@ -84,13 +84,20 @@ export async function doCollect(plugin: Plugin, docID: string) {
     const old = await findReciteChildDoc({ box: info.box, path: info.path, hpath }, derivedTitle(COLLECT_TITLE, info.rootTitle), RECITE_COLLECT, originID);
     const collectAttrs = { [RECITE_COLLECT]: originID } as AttrType;
     let collectID: string | null = null;
-    if (old.id) {
-        collectID = await replaceUnitsInPlace(old.id, units, info.box, old.hpath, collectAttrs);
-        // 病卷自愈走新建时 collectID 是新文档 id（≠old.id）：标题按入参 hpath 建即正确；
-        // in-place 成功 id 不变，改名跟随照旧（syncDerivedTitle 同 extract 惯例）
-        if (collectID && collectID === old.id) await syncDerivedTitle(old.id, old.hpath);
-    } else {
-        collectID = await insertUnitsDoc(info.box, old.hpath, units, collectAttrs);
+    try {
+        if (old.id) {
+            // parentID=originID（B0 C 档）：父=原文档恒在手，新通道跳过 hpath 逐级解析
+            collectID = await replaceUnitsInPlace(old.id, units, info.box, old.hpath, collectAttrs, originID);
+            // 病卷自愈走新建时 collectID 是新文档 id（≠old.id）：标题按入参 hpath 建即正确；
+            // in-place 成功 id 不变，改名跟随照旧（syncDerivedTitle 同 extract 惯例）
+            if (collectID && collectID === old.id) await syncDerivedTitle(old.id, old.hpath);
+        } else {
+            collectID = await insertUnitsDoc(info.box, old.hpath, units, collectAttrs, originID);
+        }
+    } catch (e) {
+        // B1 型1：建档 throw 化（3.8.9 寻址被拒穷尽两通道后 DocCreateError）后原判空接不住
+        // throw——catch 归 null 复用下方原失败文案（toast 骨架不动），rejection 不再直冒 UI
+        debugLog("recite.collect", `collect rebuild failed: ${e instanceof Error ? e.message : String(e)}`, "recite");
     }
     if (!collectID) { // 假成功复核读失败（insertUnitsDoc/replaceUnitsInPlace 内已复核）——勿假报成功
         await siyuan.pushMsg("收集文档生成失败，请重试", 2500);
