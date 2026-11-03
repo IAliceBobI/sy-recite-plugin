@@ -1,6 +1,6 @@
 {
   "name": "sy-recite-plugin",
-  "version": "1.7.9",
+  "version": "1.7.10",
   "description": "任意文档的读后仿写练习",
   "private": true,
   "type": "module",
@@ -8,7 +8,8 @@
     "dev": "vite build --watch",
     "dev:kernel": "vite build --watch --config vite.kernel.config.ts",
     "build:kernel": "vite build --config vite.kernel.config.ts",
-    "build": "npm run build:kernel && vite build"
+    "build": "npm run build:kernel && vite build",
+    "test": "vitest run"
   },
   "author": "IAliceBobI",
   "license": "SEE LICENSE IN LICENSE",

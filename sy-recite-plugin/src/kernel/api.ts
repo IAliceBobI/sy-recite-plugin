@@ -152,13 +152,18 @@ function sanitizeName(name: string): string {
   return name.replace(/[\t\r\n\u2028\u2029]/g, " ").replace(/\//g, "／");
 }
 
-/** 标题 512 rune 截断（对齐旧端点静默截断语义，评审#7②：新端点 invalidTitle 拒超长——
- *  封内截断防「截断建档」变 throw；rune 感知防 UTF-16 代理对劈半）。 */
-function clampTitle512(title: string): string {
-  const runes = Array.from(title);
-  if (runes.length <= 512) return title;
+/** 标题建档前净化：两端 trim + 512 rune 截断。trim=新端点 3.8.9 invalidTitle 拒前导/尾随
+ *  空白（含全角空格 U+3000，JS .trim() 全覆盖；句中空白无碍）——触发案例=digestDocTitle
+ *  取内容前 10 字恰以空格收尾；trim 在控制符→空格替换之后（sanitizeName 先行，否则替出的
+ *  空格漏网）、截断在 trim 之后（超长截 512 后截断点可恰落空白——出口再 trim 钉死两端净）。
+ *  截断对齐旧端点静默截断语义（评审#7②：新端点 invalidTitle 拒超长——封内截断防「截断
+ *  建档」变 throw）；rune 感知防 UTF-16 代理对劈半。trim 后空串由调用方空检查兜住。 */
+function sanitizeTitleForKernel(title: string): string {
+  const t = title.trim();
+  const runes = Array.from(t);
+  if (runes.length <= 512) return t;
   addrLog(`title ${runes.length} runes clipped to 512 (kernel legacy silent-truncation parity)`);
-  return runes.slice(0, 512).join("");
+  return runes.slice(0, 512).join("").trim();
 }
 
 /** 完整响应版 call（建档族封内专用，call 对外 throw 语义不动——决策 §4.1）：返
@@ -241,14 +246,15 @@ async function createByParentOnce(
  *  #7①）；ambiguous=取首候选+留痕续解析余段（决策 §4.5：中间层全是插件自管目录，不弹选择）；
  *  missing=自 nextIndex 起逐级补建中间段（叶子由调用方携真实 markdown 落）。首个补建段带
  *  missing 响应的 nameConditions 乐观锁（并发改动链路内核报 planChanged，评审#7③）。
- *  已存在前缀按原段名查（不净化——净化会查不中既有落盘名）；新建中间段先过 sanitizeName
- *  +512 rune 截断。 */
+ *  resolve 查询与补建落盘同用 sanitizeTitleForKernel∘sanitizeName 净化段名——原段名查、
+ *  trim 名建会让带空白中间段首轮 miss 补建落盘 trim 名后，此后每次同 hpath 查询恒 miss→
+ *  重复补建（思源允许同名兄弟）；两函数均幂等，已净化的段再过不变。 */
 async function resolveParentChain(
   box: string,
   segments: string[], // 全段（含末段叶子，均非空）
 ): Promise<{ claimID?: string; parentID: string | null; nameConditions?: DocNameCondition[] }> {
   let start: { kind: "root" } | { kind: "document"; id: string } = { kind: "root" };
-  let rest = segments;
+  let rest = segments.map(s => sanitizeTitleForKernel(sanitizeName(s)));
   for (;;) {
     const resp = await callFull("/api/filetree/resolveDocPath", { notebook: box, start, segments: rest });
     if (resp.code !== 0) {
@@ -275,7 +281,7 @@ async function resolveParentChain(
     let parentID: string | null = d.resolved?.id ?? null;
     let conditions: DocNameCondition[] | undefined = Array.isArray(d.nameConditions) ? d.nameConditions : undefined;
     for (let i = from; i < rest.length - 1; i++) { // 只补中间段，叶子留给调用方
-      const segTitle = clampTitle512(sanitizeName(rest[i]));
+      const segTitle = sanitizeTitleForKernel(sanitizeName(rest[i]));
       if (!segTitle) throw new DocCreateError("invalidTitle", `empty segment #${i} in [${rest.join("/")}]`);
       const nid = newNodeID();
       const r = await createByParentOnce(box, parentID, nid, segTitle, "", i === from ? conditions : undefined);
@@ -305,10 +311,11 @@ export async function createDocSmart(
   markdown: string,
   opts: { id?: string; parentID?: string } = {},
 ): Promise<string> {
-  // 出口末段净化（幂等）：两通道共用净化后 path（查建同源）；末段即新端点 title
+  // 出口末段净化（幂等）：两通道共用净化后 path（查建同源）；末段即新端点 title（发送前
+  // 两端 trim——旧通道 path 原样：3.8.9 起旧端点已全禁恒拒，无标题一致性负担）
   const path = sanitizePathTail(hpath);
   const segs = path.split("/").filter(s => s !== "");
-  const title = clampTitle512(segs.pop() ?? "");
+  const title = sanitizeTitleForKernel(segs.pop() ?? "");
   if (!title) throw new DocCreateError("invalidTitle", `empty document title in hpath "${path}"`);
   // ""（非法值，封内拒绝）与 undefined（不传=A 档全段解析）显式区分（评审2轮#6）
   if (opts.parentID === "") throw new DocCreateError("parentUnavailable", "parentID: empty string is not a valid parent (use null or omit)");
