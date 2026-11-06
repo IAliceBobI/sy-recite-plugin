@@ -344,7 +344,12 @@ export async function createDocSmart(
         }
       } else {
         const reason = resp.data?.reason;
-        if (reason === "legacyPathUnsupported" || reason === "pathAmbiguous" || reason === "indexUnavailable") {
+        if (reason === "legacyPathUnsupported" || reason === "pathAmbiguous" || reason === "indexUnavailable"
+          // issue #28（渐进仓反馈，recite 同款双通道）：3.8.9 旧端点父级自动补建恒败——事务内
+          // 新父文档 metadata 未提交、预检重解析父链必 miss（kernel v3.8.9
+          // treenode/document_legacy.go），裸错误回包无 reason 只有 msg 哨兵串；切新通道
+          // 逐级补建绕开（3.8.8 及更早无此错误串，零误伤）
+          || (!reason && resp.msg === "document metadata is not ready")) {
           markLegacyRejected(rejectKey); // 记拒绝集，进新通道
         } else {
           throw new DocCreateError(typeof reason === "string" ? reason : `code=${resp.code}`, resp.msg ?? "");
